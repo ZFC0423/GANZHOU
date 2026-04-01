@@ -109,27 +109,27 @@ onMounted(loadList);
           </div>
           <div class="card-grid">
             <el-card v-for="item in listData" :key="item.id" class="topic-card" shadow="hover" @click="goDetail(item.id)">
-            <div class="topic-card__image-wrapper">
-              <img
-                class="image-cover topic-card__image"
-                :src="resolveAssetUrl(item.coverImage, item.title)"
-                :alt="item.title"
-                @error="(event) => applyImageFallback(event, item.title)"
-              />
-            </div>
-            <div class="topic-card__body">
-              <div class="topic-card__meta">
-                <span class="meta-cat">{{ item.categoryName }}</span>
-                <span class="meta-view"><el-icon><View /></el-icon> {{ item.viewCount }}</span>
+              <div class="topic-card__image-wrapper">
+                <img
+                  class="image-cover topic-card__image"
+                  :src="resolveAssetUrl(item.coverImage, item.title)"
+                  :alt="item.title"
+                  @error="(event) => applyImageFallback(event, item.title)"
+                />
               </div>
-              <h3 class="topic-card__title">{{ item.title }}</h3>
-              <p class="topic-card__summary">{{ item.summary || '暂无核心线索说明。' }}</p>
-              <div class="topic-card__tags" v-if="item.tags && item.tags.length">
-                <el-tag v-for="tag in item.tags" :key="tag" size="small" type="info" effect="plain">{{ tag }}</el-tag>
+              <div class="topic-card__body">
+                <div class="topic-card__meta">
+                  <span class="meta-cat">{{ item.categoryName }}</span>
+                  <span class="meta-view"><el-icon><View /></el-icon> {{ item.viewCount }}</span>
+                </div>
+                <h3 class="topic-card__title">{{ item.title }}</h3>
+                <p class="topic-card__summary">{{ item.summary || '暂无核心线索说明。' }}</p>
+                <div class="topic-card__tags" v-if="item.tags && item.tags.length">
+                  <el-tag v-for="tag in item.tags" :key="tag" size="small" type="info" effect="plain">{{ tag }}</el-tag>
+                </div>
               </div>
-            </div>
-            </div>
-          </el-card>
+            </el-card>
+          </div>
         </div>
 
         <div class="topic-pagination">
@@ -225,6 +225,13 @@ onMounted(loadList);
   flex-direction: column;
   border-radius: var(--gz-radius-md);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+:deep(.topic-card .el-card__body) {
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .topic-card:hover {

@@ -25,6 +25,10 @@ async function loadRecommendQuestions() {
 }
 
 async function submitQuestion(customQuestion) {
+  if (loading.value) {
+    return;
+  }
+
   const currentQuestion = String(customQuestion ?? question.value).trim();
 
   if (!currentQuestion) {
@@ -43,9 +47,9 @@ async function submitQuestion(customQuestion) {
       modelName: response.data.model_name || '',
       matchedContext: response.data.matchedContext || []
     });
-    question.value = currentQuestion;
+    question.value = '';
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '智能助理网络繁忙，请稍后再试。';
+    errorMessage.value = error.response?.data?.message || '问答服务暂时繁忙，请稍后再试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -53,6 +57,10 @@ async function submitQuestion(customQuestion) {
 }
 
 function handleRecommendClick(item) {
+  if (loading.value) {
+    return;
+  }
+
   question.value = item;
   submitQuestion(item);
 }
@@ -65,10 +73,10 @@ onMounted(loadRecommendQuestions);
     <div class="page-shell">
       <section class="ai-chat-hero">
         <div>
-          <div class="ai-chat-hero__eyebrow">智游助手</div>
-          <h1 class="page-title">探索山水客家，随时向我提问</h1>
+          <div class="ai-chat-hero__eyebrow">智慧问答</div>
+          <h1 class="page-title">赣州文旅问答</h1>
           <p class="page-subtitle">
-            基于本地智慧文旅知识库，为您解答关于赣州风物、红色记忆与自然景观的疑惑。
+            围绕赣州旅游与文化内容，提供景点、美食、非遗与红色文化的信息查询与参考建议。
           </p>
         </div>
       </section>
@@ -77,8 +85,8 @@ onMounted(loadRecommendQuestions);
         <el-card class="ai-chat-card">
           <template #header>
             <div class="ai-chat-card__header">
-              <span class="chat-header-title">开启智慧旅程</span>
-              <span class="ai-chat-card__tip">试试问我关于客家美食或红色遗址</span>
+              <span class="chat-header-title">输入您的问题</span>
+              <span class="ai-chat-card__tip">可以从景点、文化主题、旅行安排等方向提问</span>
             </div>
           </template>
 
@@ -88,7 +96,7 @@ onMounted(loadRecommendQuestions);
             :rows="3"
             maxlength="200"
             show-word-limit
-            placeholder="例如：赣州有哪些适合周末漫步的地方？"
+            placeholder="例如：赣州有哪些值得一看的历史遗迹？"
           />
 
           <div class="ai-chat-actions">
@@ -97,13 +105,14 @@ onMounted(loadRecommendQuestions);
                 v-for="item in recommendQuestions.slice(0, 3)" 
                 :key="item" 
                 text bg size="small" 
+                :disabled="loading"
                 @click="handleRecommendClick(item)"
               >
                 {{ item }}
               </el-button>
             </div>
             <el-button type="primary" :loading="loading" @click="submitQuestion()" class="submit-btn">
-              {{ loading ? '助理思考中...' : '发送问题' }}
+              {{ loading ? '正在查询...' : '提交问题' }}
             </el-button>
           </div>
         </el-card>
@@ -125,7 +134,7 @@ onMounted(loadRecommendQuestions);
                 <div class="typing-indicator">
                   <span></span><span></span><span></span>
                 </div>
-                <div class="loading-text">正在翻阅赣州文旅典籍...</div>
+                <div class="loading-text">正在检索平台文旅内容...</div>
               </div>
             </div>
           </div>
@@ -146,7 +155,7 @@ onMounted(loadRecommendQuestions);
                   </div>
                   <div class="bubble-text">{{ item.question }}</div>
                 </div>
-                <div class="bubble-avatar">You</div>
+                <div class="bubble-avatar">我</div>
               </div>
 
               <!-- AI Bubble (appears on the left) -->
@@ -154,13 +163,13 @@ onMounted(loadRecommendQuestions);
                 <div class="bubble-avatar">AI</div>
                 <div class="bubble-content">
                   <div class="bubble-info">
-                    <span class="bubble-name">智游助手</span>
+                    <span class="bubble-name">问答助手</span>
                     <span v-if="item.modelName" class="bubble-model">{{ item.modelName }}</span>
                   </div>
                   <div class="bubble-text">{{ item.answer }}</div>
                   
                   <div class="bubble-context" v-if="item.matchedContext && item.matchedContext.length">
-                    <div class="context-title">📌 参考资料库片段：</div>
+                    <div class="context-title">参考来源：</div>
                     <div class="context-tags">
                       <el-tag 
                         v-for="context in item.matchedContext" 

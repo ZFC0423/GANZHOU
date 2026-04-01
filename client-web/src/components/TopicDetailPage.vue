@@ -27,7 +27,7 @@ async function loadDetail() {
     detail.value = response.data;
   } catch (error) {
     detail.value = null;
-    errorMessage.value = error.response?.data?.message || 'Failed to load article detail.';
+    errorMessage.value = error.response?.data?.message || '专题内容加载失败，请稍后重试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -304,6 +304,13 @@ onMounted(loadDetail);
   flex-direction: column;
 }
 
+:deep(.related-card .el-card__body) {
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .related-image-box {
   overflow: hidden;
 }
@@ -330,6 +337,12 @@ onMounted(loadDetail);
 }
 
 @media (max-width: 768px) {
+  .topic-detail-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
   .detail-article__title {
     font-size: 28px;
   }

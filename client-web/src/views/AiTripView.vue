@@ -242,7 +242,7 @@ function formatContextType(value) {
                     </div>
                     <div class="trip-item__reason">{{ item.reason }}</div>
                     <div class="trip-item__tips">
-                      <strong>💡 参考提示：</strong>{{ item.tips }}
+                      <strong>参考提示：</strong>{{ item.tips }}
                     </div>
                   </div>
                 </div>
@@ -255,7 +255,7 @@ function formatContextType(value) {
           <div class="trip-bottom-cards">
             <el-card class="trip-extra-card">
               <template #header>
-                <div class="trip-extra-card__title">🎒 出行提示</div>
+                <div class="trip-extra-card__title">出行提示</div>
               </template>
               <ul class="trip-tip-list">
                 <li v-for="(tip, index) in result.travelTips || []" :key="`${tip}-${index}`">
@@ -266,7 +266,7 @@ function formatContextType(value) {
 
             <el-card class="trip-extra-card">
               <template #header>
-                <div class="trip-extra-card__title">📚 参考来源</div>
+                <div class="trip-extra-card__title">参考来源</div>
               </template>
               <div v-if="result.matchedContext?.length" class="trip-context-tags">
                 <el-tag

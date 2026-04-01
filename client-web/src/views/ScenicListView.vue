@@ -38,7 +38,7 @@ async function loadList() {
     listData.value = response.data.list;
     pagination.total = response.data.total;
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Failed to load scenic list.';
+    errorMessage.value = error.response?.data?.message || '景点列表加载失败，请稍后重试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -86,7 +86,7 @@ onMounted(loadList);
             <template #prepend>标签</template>
           </el-input>
           
-          <el-button type="primary" class="filter-btn" @click="handleSearch">全网检索</el-button>
+          <el-button type="primary" class="filter-btn" @click="handleSearch">筛选景点</el-button>
         </div>
       </el-card>
 
@@ -98,6 +98,10 @@ onMounted(loadList);
       <el-skeleton v-if="loading" :rows="8" animated />
 
       <template v-else>
+        <div class="scenic-guide-box">
+          <strong>浏览提示：</strong>本页按景点导览方式组织平台现有内容，方便按属地、标签与导读快速浏览。当前展示基于已收录资料，部分景点名称与简介保留了原始外文命名。
+        </div>
+
         <el-empty v-if="!listData.length" description="抱歉，未发现符合您期待的景点记录" />
 
         <div v-else class="card-grid">
@@ -193,6 +197,13 @@ onMounted(loadList);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
+:deep(.scenic-card .el-card__body) {
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .scenic-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
@@ -262,6 +273,21 @@ onMounted(loadList);
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.scenic-guide-box {
+  background: var(--gz-bg-page, #f8fafc);
+  padding: 14px 20px;
+  border-radius: var(--gz-radius-md, 8px);
+  color: var(--gz-text-regular, #475569);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+  border: 1px solid var(--gz-border-light, #e2e8f0);
+}
+
+.scenic-guide-box strong {
+  color: var(--gz-brand-primary, #0f766e);
 }
 
 .pagination-wrap {

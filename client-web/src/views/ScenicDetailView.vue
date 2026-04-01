@@ -21,7 +21,7 @@ async function loadDetail() {
     detail.value = response.data;
   } catch (error) {
     detail.value = null;
-    errorMessage.value = error.response?.data?.message || 'Failed to load scenic detail.';
+    errorMessage.value = error.response?.data?.message || '景点详情加载失败，请稍后重试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -77,7 +77,7 @@ onMounted(loadDetail);
           <div class="detail-hero__info">
             <div class="detail-hero__meta">{{ detail.categoryName }} - {{ detail.region }}</div>
             <h1 class="page-title">{{ detail.name }}</h1>
-            <p class="page-subtitle">{{ detail.intro || 'No introduction yet.' }}</p>
+            <p class="page-subtitle">{{ detail.intro || '暂无景点导览简介。' }}</p>
             <div class="detail-hero__tags">
               <el-tag v-for="tag in detail.tags" :key="tag" type="success">{{ tag }}</el-tag>
             </div>
@@ -89,6 +89,10 @@ onMounted(loadDetail);
             </div>
           </div>
         </section>
+
+        <div class="reading-guide-box">
+          <strong>阅读提示：</strong>本页以平台已收录的景点资料为基础，帮助快速理解景点概况、文化背景与游玩信息。部分景点名称与导览摘要保留了原始外文命名。
+        </div>
 
         <section class="detail-grid">
           <el-card shadow="never">
@@ -134,7 +138,7 @@ onMounted(loadDetail);
         </section>
       </template>
 
-      <el-empty v-else description="Scenic detail is not available right now" />
+      <el-empty v-else description="暂未获取到该景点的详情内容" />
     </div>
   </SiteLayout>
 </template>
@@ -192,6 +196,21 @@ onMounted(loadDetail);
   gap: 20px;
 }
 
+.reading-guide-box {
+  background: var(--gz-bg-page, #f8fafc);
+  padding: 16px 20px;
+  border-radius: var(--gz-radius-md, 8px);
+  color: var(--gz-text-regular, #475569);
+  font-size: 14px;
+  line-height: 1.7;
+  margin-bottom: 24px;
+  border: 1px solid var(--gz-border-light, #e2e8f0);
+}
+
+.reading-guide-box strong {
+  color: var(--gz-brand-primary, #0f766e);
+}
+
 .detail-paragraph {
   margin: 0 0 16px;
   line-height: 1.9;
@@ -218,8 +237,16 @@ onMounted(loadDetail);
   height: 100%;
 }
 
+:deep(.related-card .el-card__body) {
+  padding: 0;
+}
+
+.related-card__body {
+  padding: 16px 20px 20px;
+}
+
 .related-card__body h3 {
-  margin: 14px 0 6px;
+  margin: 0 0 6px;
 }
 
 .related-card__body p {
@@ -231,6 +258,12 @@ onMounted(loadDetail);
   .detail-hero,
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .related-section__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }
 </style>
