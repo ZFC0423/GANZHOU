@@ -45,7 +45,7 @@ async function submitQuestion(customQuestion) {
     });
     question.value = currentQuestion;
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'AI 问答暂时不可用，请稍后再试。';
+    errorMessage.value = error.response?.data?.message || '智能助理网络繁忙，请稍后再试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -65,96 +65,118 @@ onMounted(loadRecommendQuestions);
     <div class="page-shell">
       <section class="ai-chat-hero">
         <div>
-          <div class="ai-chat-hero__eyebrow">AI 智能问答</div>
-          <h1 class="page-title">赣州旅游文化垂直助手</h1>
+          <div class="ai-chat-hero__eyebrow">智游助手</div>
+          <h1 class="page-title">探索山水客家，随时向我提问</h1>
           <p class="page-subtitle">
-            这个页面会先从站内景点和专题文章里召回相关资料，再生成面向游客的简洁回答。
+            基于本地智慧文旅知识库，为您解答关于赣州风物、红色记忆与自然景观的疑惑。
           </p>
         </div>
       </section>
 
-      <el-card class="ai-chat-card">
-        <template #header>
-          <div class="ai-chat-card__header">
-            <span>请输入你的问题</span>
-            <span class="ai-chat-card__tip">建议尽量围绕赣州景点、美食、非遗、红色文化来提问</span>
+      <section class="chat-container">
+        <el-card class="ai-chat-card">
+          <template #header>
+            <div class="ai-chat-card__header">
+              <span class="chat-header-title">开启智慧旅程</span>
+              <span class="ai-chat-card__tip">试试问我关于客家美食或红色遗址</span>
+            </div>
+          </template>
+
+          <el-input
+            v-model="question"
+            type="textarea"
+            :rows="3"
+            maxlength="200"
+            show-word-limit
+            placeholder="例如：赣州有哪些适合周末漫步的地方？"
+          />
+
+          <div class="ai-chat-actions">
+            <div class="recommend-inline" v-if="!recommendLoading && recommendQuestions.length">
+              <el-button 
+                v-for="item in recommendQuestions.slice(0, 3)" 
+                :key="item" 
+                text bg size="small" 
+                @click="handleRecommendClick(item)"
+              >
+                {{ item }}
+              </el-button>
+            </div>
+            <el-button type="primary" :loading="loading" @click="submitQuestion()" class="submit-btn">
+              {{ loading ? '助理思考中...' : '发送问题' }}
+            </el-button>
           </div>
-        </template>
+        </el-card>
 
-        <el-input
-          v-model="question"
-          type="textarea"
-          :rows="4"
-          maxlength="200"
-          show-word-limit
-          placeholder="例如：赣州有哪些适合周末玩的地方？"
+        <el-alert
+          v-if="errorMessage"
+          :title="errorMessage"
+          type="error"
+          show-icon
+          :closable="false"
+          style="margin-bottom: 24px;"
         />
 
-        <div class="ai-chat-actions">
-          <el-button type="primary" :loading="loading" @click="submitQuestion()">
-            {{ loading ? '正在生成回答...' : '提交问题' }}
-          </el-button>
-        </div>
-      </el-card>
-
-      <section class="ai-recommend-card">
-        <div class="ai-recommend-card__title">推荐问题</div>
-        <el-skeleton v-if="recommendLoading" :rows="2" animated />
-        <div v-else-if="recommendQuestions.length" class="recommend-list">
-          <el-button
-            v-for="item in recommendQuestions"
-            :key="item"
-            text
-            bg
-            class="recommend-button"
-            @click="handleRecommendClick(item)"
-          >
-            {{ item }}
-          </el-button>
-        </div>
-        <el-empty v-else description="暂时没有推荐问题" />
-      </section>
-
-      <el-alert
-        v-if="errorMessage"
-        :title="errorMessage"
-        type="error"
-        show-icon
-        :closable="false"
-        style="margin-bottom: 16px;"
-      />
-
-      <section class="answer-section">
-        <div class="answer-section__title">问答结果</div>
-        <el-skeleton v-if="loading" :rows="8" animated />
-        <el-empty
-          v-else-if="!chatRecords.length"
-          description="你还没有发起提问，可以点击上方推荐问题快速体验。"
-        />
-
-        <div v-else class="answer-list">
-          <el-card v-for="(item, index) in chatRecords" :key="`${item.question}-${index}`" class="answer-card">
-            <div class="answer-card__question">
-              <span class="answer-card__label">问题</span>
-              <p>{{ item.question }}</p>
-            </div>
-
-            <div class="answer-card__answer">
-              <span class="answer-card__label">回答</span>
-              <div v-if="item.modelName" class="answer-card__model">模型：{{ item.modelName }}</div>
-              <div class="answer-card__content">{{ item.answer }}</div>
-            </div>
-
-            <div class="answer-card__context">
-              <span class="answer-card__label">命中资料</span>
-              <el-empty v-if="!item.matchedContext.length" description="没有命中明确资料" :image-size="80" />
-              <div v-else class="context-tags">
-                <el-tag v-for="context in item.matchedContext" :key="`${context.type}-${context.id}`" type="info">
-                  {{ context.type === 'scenic' ? '景点' : '文章' }}：{{ context.title }}
-                </el-tag>
+        <div class="chat-history">
+          <div v-if="loading" class="chat-bubble chat-bubble--ai loading-bubble">
+            <div class="bubble-avatar">AI</div>
+            <div class="bubble-content">
+              <div class="bubble-text">
+                <div class="typing-indicator">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="loading-text">正在翻阅赣州文旅典籍...</div>
               </div>
             </div>
-          </el-card>
+          </div>
+
+          <el-empty
+            v-if="!chatRecords.length && !loading"
+            description="期待您的提问，开启智慧旅程"
+            :image-size="120"
+          />
+
+          <transition-group name="list" tag="div" class="chat-list">
+            <template v-for="(item, index) in chatRecords" :key="`${item.question}-${index}`">
+              <!-- User Bubble (appears on the right) -->
+              <div class="chat-bubble chat-bubble--user">
+                <div class="bubble-content">
+                  <div class="bubble-info bubble-info--user">
+                    <span class="bubble-name">您</span>
+                  </div>
+                  <div class="bubble-text">{{ item.question }}</div>
+                </div>
+                <div class="bubble-avatar">You</div>
+              </div>
+
+              <!-- AI Bubble (appears on the left) -->
+              <div class="chat-bubble chat-bubble--ai">
+                <div class="bubble-avatar">AI</div>
+                <div class="bubble-content">
+                  <div class="bubble-info">
+                    <span class="bubble-name">智游助手</span>
+                    <span v-if="item.modelName" class="bubble-model">{{ item.modelName }}</span>
+                  </div>
+                  <div class="bubble-text">{{ item.answer }}</div>
+                  
+                  <div class="bubble-context" v-if="item.matchedContext && item.matchedContext.length">
+                    <div class="context-title">📌 参考资料库片段：</div>
+                    <div class="context-tags">
+                      <el-tag 
+                        v-for="context in item.matchedContext" 
+                        :key="`${context.type}-${context.id}`" 
+                        type="info" 
+                        effect="plain" 
+                        round
+                      >
+                        {{ context.type === 'scenic' ? '景点' : '文章' }} · {{ context.title }}
+                      </el-tag>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </transition-group>
         </div>
       </section>
     </div>
@@ -163,107 +185,246 @@ onMounted(loadRecommendQuestions);
 
 <style scoped>
 .ai-chat-hero {
-  padding: 38px 32px;
-  border-radius: 24px;
-  margin-bottom: 24px;
-  background: linear-gradient(135deg, #dbeafe, #dcfce7);
+  padding: 40px 32px;
+  border-radius: var(--gz-radius-md);
+  margin-bottom: 32px;
+  background: linear-gradient(135deg, #e0f2fe, #dcfce7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
 
 .ai-chat-hero__eyebrow {
-  color: #0f766e;
+  color: var(--gz-brand-primary-hover);
   font-weight: 700;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.chat-container {
+  max-width: 860px;
+  margin: 0 auto;
 }
 
 .ai-chat-card {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  border-radius: var(--gz-radius-md) !important;
 }
 
 .ai-chat-card__header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chat-header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gz-brand-secondary);
 }
 
 .ai-chat-card__tip {
-  color: #6b7280;
+  color: var(--gz-text-secondary);
   font-size: 13px;
 }
 
 .ai-chat-actions {
-  margin-top: 16px;
+  margin-top: 20px;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.recommend-inline {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.submit-btn {
+  padding: 0 32px;
+  border-radius: 20px;
+}
+
+.chat-history {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.chat-bubble {
+  display: flex;
+  gap: 16px;
+  max-width: 85%;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.chat-bubble--user {
+  align-self: flex-end;
+}
+
+.chat-bubble--user .bubble-content {
+  align-items: flex-end;
+}
+
+.chat-bubble--user .bubble-text {
+  background: var(--gz-brand-primary);
+  color: #fff;
+  border-radius: 20px 20px 4px 20px;
+}
+
+.chat-bubble--ai {
+  align-self: flex-start;
+}
+
+.chat-bubble--ai .bubble-text {
+  background: #fff;
+  color: var(--gz-text-primary);
+  border-radius: 4px 20px 20px 20px;
+  border: 1px solid var(--gz-border-light);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+}
+
+.bubble-avatar {
+  min-width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.chat-bubble--user .bubble-avatar {
+  background: #bae6fd;
+  color: #0369a1;
+}
+
+.chat-bubble--ai .bubble-avatar {
+  background: #ccfbf1;
+  color: var(--gz-brand-primary);
+}
+
+.bubble-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bubble-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+.bubble-info--user {
   justify-content: flex-end;
 }
 
-.ai-recommend-card {
-  margin-bottom: 24px;
-  padding: 24px;
-  border-radius: 24px;
-  background: #fff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
-}
-
-.ai-recommend-card__title,
-.answer-section__title {
-  font-size: 20px;
+.bubble-name {
   font-weight: 600;
-  margin-bottom: 16px;
+  color: var(--gz-text-regular);
 }
 
-.recommend-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+.bubble-model {
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
 }
 
-.recommend-button {
-  white-space: normal;
-}
-
-.answer-list {
-  display: grid;
-  gap: 20px;
-}
-
-.answer-card__question,
-.answer-card__answer,
-.answer-card__context {
-  margin-bottom: 18px;
-}
-
-.answer-card__context {
-  margin-bottom: 0;
-}
-
-.answer-card__label {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: #0f766e;
-  font-weight: 700;
-}
-
-.answer-card__question p {
-  margin: 0;
+.bubble-text {
+  padding: 16px 20px;
   line-height: 1.75;
-}
-
-.answer-card__content {
-  line-height: 1.85;
-  color: #374151;
   white-space: pre-line;
+  font-size: 15px;
 }
 
-.answer-card__model {
-  margin-bottom: 10px;
-  color: #6b7280;
+.bubble-context {
+  margin-top: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+
+.context-title {
   font-size: 13px;
+  color: var(--gz-text-regular);
+  margin-bottom: 10px;
+  font-weight: 500;
 }
 
 .context-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.loading-bubble .bubble-text {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+}
+
+.loading-text {
+  color: var(--gz-text-regular);
+  font-size: 14px;
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-indicator span {
+  width: 6px;
+  height: 6px;
+  background: var(--gz-brand-primary);
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out both;
+}
+
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.5s ease;
+}
+.list-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+@media (max-width: 768px) {
+  .chat-bubble {
+    max-width: 95%;
+  }
 }
 </style>

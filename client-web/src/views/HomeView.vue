@@ -27,7 +27,7 @@ async function loadHomeData() {
     const response = await getHomeApi();
     homeData.value = response.data;
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Failed to load home data.';
+    errorMessage.value = error.response?.data?.message || '主页数据加载失败，服务可能正在维护中。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -40,9 +40,9 @@ onMounted(loadHomeData);
 <template>
   <SiteLayout>
     <div class="page-shell">
-      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" style="margin-bottom: 18px;" />
-      <div v-if="errorMessage" style="margin-bottom: 18px;">
-        <el-button @click="loadHomeData">Retry</el-button>
+      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" style="margin-bottom: 24px;" />
+      <div v-if="errorMessage" style="margin-bottom: 24px;">
+        <el-button @click="loadHomeData">重试请求</el-button>
       </div>
 
       <el-skeleton v-if="loading" :rows="10" animated />
@@ -50,21 +50,21 @@ onMounted(loadHomeData);
       <template v-else>
         <section class="home-hero">
           <div class="home-hero__text">
-            <p class="home-hero__eyebrow">Ganzhou Travel and Culture Platform</p>
-            <h1 class="home-hero__title">{{ homeData.siteName || 'Ganzhou Travel Platform' }}</h1>
+            <p class="home-hero__eyebrow">智游赣州</p>
+            <h1 class="home-hero__title">{{ homeData.siteName || '赣州智能文旅探索平台' }}</h1>
             <p class="home-hero__desc">
-              {{ homeData.siteDescription || 'A public-facing portal for scenic spots, food, heritage, and red culture content in Ganzhou.' }}
+              {{ homeData.siteDescription || '融汇千年宋城底蕴与客家风土人情，为您开启一站式智能导览新体验。' }}
             </p>
             <div class="home-hero__actions">
               <router-link to="/scenic">
-                <el-button type="primary" size="large">Explore Scenic Spots</el-button>
+                <el-button type="primary" size="large" round class="hero-btn">探索全景</el-button>
               </router-link>
               <router-link to="/food">
-                <el-button size="large">Browse Topics</el-button>
+                <el-button size="large" round class="hero-btn hero-btn-secondary">发现特色</el-button>
               </router-link>
             </div>
           </div>
-          <el-carousel v-if="homeData.banners.length" height="360px" class="home-hero__carousel">
+          <el-carousel v-if="homeData.banners.length" height="380px" class="home-hero__carousel">
             <el-carousel-item v-for="item in homeData.banners" :key="item.id">
               <router-link :to="item.linkTarget || '/'" class="banner-link">
                 <img
@@ -79,44 +79,45 @@ onMounted(loadHomeData);
               </router-link>
             </el-carousel-item>
           </el-carousel>
-          <el-empty v-else description="No banner content available" class="home-hero__empty" />
+          <el-empty v-else description="画卷徐徐展开，风景正在加载..." class="home-hero__empty" :image-size="120" />
         </section>
 
         <section class="intro-card">
-          <div>
-            <div class="intro-card__label">About Ganzhou</div>
-            <h2>A destination shaped by landscape, local memory, and culture</h2>
+          <div class="intro-card__header">
+            <div class="intro-card__label">关于赣州</div>
+            <h2>江西南大门，千年客家摇篮</h2>
           </div>
           <p>
-            Ganzhou combines old city landmarks, grotto heritage, Hakka culture, local food, and red culture resources.
-            This version focuses on a simple but real data flow from the admin panel to the public site.
+            赣州融汇了全国保存最完好的宋代古城墙、独特风味的客家美食、悠久的非遗手工艺与震撼人心的红色历史。在这里，每一步都是与千百年来文化积淀的直接对话。
           </p>
         </section>
 
         <section class="home-section">
           <div class="home-section__header">
             <div>
-              <h2>Featured Scenic Spots</h2>
-              <p>These items come from the home recommend data managed in the backend.</p>
+              <h2>山水胜境</h2>
+              <p>跟随我们的脚步，探索赣州最值得一去的名胜古迹与自然风光。</p>
             </div>
-            <router-link to="/scenic">View more</router-link>
+            <router-link to="/scenic" class="section-link">探索更多 <i class="el-icon-arrow-right"></i></router-link>
           </div>
-          <el-empty v-if="!homeData.recommends.scenic.length" description="No scenic recommendations" />
+          <el-empty v-if="!homeData.recommends.scenic.length" description="暂无精选景点" />
           <div v-else class="card-grid">
             <router-link v-for="item in homeData.recommends.scenic" :key="item.id" :to="`/scenic/${item.id}`">
               <el-card class="home-card" shadow="hover">
-                <img
-                  class="image-cover"
-                  :src="resolveAssetUrl(item.coverImage, item.name)"
-                  :alt="item.name"
-                  @error="(event) => applyImageFallback(event, item.name)"
-                />
+                <div class="card-image-wrapper">
+                  <img
+                    class="image-cover"
+                    :src="resolveAssetUrl(item.coverImage, item.name)"
+                    :alt="item.name"
+                    @error="(event) => applyImageFallback(event, item.name)"
+                  />
+                </div>
                 <div class="home-card__body">
                   <h3>{{ item.name }}</h3>
-                  <p>{{ item.intro || 'No introduction yet.' }}</p>
+                  <p>{{ item.intro || '此处胜景，等您亲自解谜。' }}</p>
                   <div class="home-card__meta">
-                    <span>{{ item.region }}</span>
-                    <span>Score {{ item.hotScore }}</span>
+                    <span class="meta-region"><el-icon><Location /></el-icon> {{ item.region || '赣州境内' }}</span>
+                    <span class="meta-score">热度 {{ item.hotScore || '新晋' }}</span>
                   </div>
                 </div>
               </el-card>
@@ -127,24 +128,26 @@ onMounted(loadHomeData);
         <section class="home-section">
           <div class="home-section__header">
             <div>
-              <h2>Food Picks</h2>
-              <p>Food topic articles maintained in the backend are displayed here.</p>
+              <h2>寻味客家</h2>
+              <p>品味传世百年的客家经典与街头巷尾的地道小吃。</p>
             </div>
-            <router-link to="/food">View more</router-link>
+            <router-link to="/food" class="section-link">探索更多</router-link>
           </div>
-          <el-empty v-if="!homeData.recommends.food.length" description="No food recommendations" />
+          <el-empty v-if="!homeData.recommends.food.length" description="暂无美食推荐" />
           <div v-else class="card-grid">
             <router-link v-for="item in homeData.recommends.food" :key="item.id" :to="`/food/${item.id}`">
               <el-card class="home-card" shadow="hover">
-                <img
-                  class="image-cover"
-                  :src="resolveAssetUrl(item.coverImage, item.title)"
-                  :alt="item.title"
-                  @error="(event) => applyImageFallback(event, item.title)"
-                />
+                <div class="card-image-wrapper">
+                  <img
+                    class="image-cover"
+                    :src="resolveAssetUrl(item.coverImage, item.title)"
+                    :alt="item.title"
+                    @error="(event) => applyImageFallback(event, item.title)"
+                  />
+                </div>
                 <div class="home-card__body">
                   <h3>{{ item.title }}</h3>
-                  <p>{{ item.summary || 'No summary yet.' }}</p>
+                  <p>{{ item.summary || '独特的味蕾体验，一尝便难忘。' }}</p>
                 </div>
               </el-card>
             </router-link>
@@ -155,24 +158,26 @@ onMounted(loadHomeData);
           <div class="split-column">
             <div class="home-section__header">
               <div>
-                <h2>Heritage</h2>
-                <p>Heritage topic articles are shown here.</p>
+                <h2>非遗传承</h2>
+                <p>感受历经岁月洗礼的赣州非遗手艺与民俗风土。</p>
               </div>
-              <router-link to="/heritage">View more</router-link>
+              <router-link to="/heritage" class="section-link">探索更多</router-link>
             </div>
-            <el-empty v-if="!homeData.recommends.heritage.length" description="No heritage content" />
+            <el-empty v-if="!homeData.recommends.heritage.length" description="暂无非遗传承内容" />
             <div v-else class="mini-list">
               <router-link v-for="item in homeData.recommends.heritage" :key="item.id" :to="`/heritage/${item.id}`">
                 <el-card class="mini-card" shadow="hover">
-                  <img
-                    class="mini-card__image"
-                    :src="resolveAssetUrl(item.coverImage, item.title)"
-                    :alt="item.title"
-                    @error="(event) => applyImageFallback(event, item.title)"
-                  />
-                  <div>
+                  <div class="mini-card-img-wrapper">
+                    <img
+                      class="mini-card__image"
+                      :src="resolveAssetUrl(item.coverImage, item.title)"
+                      :alt="item.title"
+                      @error="(event) => applyImageFallback(event, item.title)"
+                    />
+                  </div>
+                  <div class="mini-card__content">
                     <h3>{{ item.title }}</h3>
-                    <p>{{ item.summary || 'No summary yet.' }}</p>
+                    <p>{{ item.summary || '民间智慧的结晶，非遗记忆的延续。' }}</p>
                   </div>
                 </el-card>
               </router-link>
@@ -182,24 +187,26 @@ onMounted(loadHomeData);
           <div class="split-column">
             <div class="home-section__header">
               <div>
-                <h2>Red Culture</h2>
-                <p>Red culture topic articles are ready for demo display.</p>
+                <h2>红色记忆</h2>
+                <p>追寻长征起点，重温这片红土地上不朽的烽火印记。</p>
               </div>
-              <router-link to="/red-culture">View more</router-link>
+              <router-link to="/red-culture" class="section-link">探索更多</router-link>
             </div>
-            <el-empty v-if="!homeData.recommends.redCulture.length" description="No red culture content" />
+            <el-empty v-if="!homeData.recommends.redCulture.length" description="暂无红色记忆内容" />
             <div v-else class="mini-list">
               <router-link v-for="item in homeData.recommends.redCulture" :key="item.id" :to="`/red-culture/${item.id}`">
                 <el-card class="mini-card" shadow="hover">
-                  <img
-                    class="mini-card__image"
-                    :src="resolveAssetUrl(item.coverImage, item.title)"
-                    :alt="item.title"
-                    @error="(event) => applyImageFallback(event, item.title)"
-                  />
-                  <div>
+                  <div class="mini-card-img-wrapper">
+                    <img
+                      class="mini-card__image"
+                      :src="resolveAssetUrl(item.coverImage, item.title)"
+                      :alt="item.title"
+                      @error="(event) => applyImageFallback(event, item.title)"
+                    />
+                  </div>
+                  <div class="mini-card__content">
                     <h3>{{ item.title }}</h3>
-                    <p>{{ item.summary || 'No summary yet.' }}</p>
+                    <p>{{ item.summary || '穿越岁月斑驳，见证信仰的光辉。' }}</p>
                   </div>
                 </el-card>
               </router-link>
@@ -208,14 +215,18 @@ onMounted(loadHomeData);
         </section>
 
         <section class="ai-entry">
-          <div>
-            <div class="intro-card__label">AI Entry</div>
-            <h2>AI pages stay as static entries in this round</h2>
-            <p>This round only focuses on the real display chain from backend content to frontend pages.</p>
+          <div class="ai-entry__text">
+            <div class="ai-entry__label">智慧服务体验</div>
+            <h2>您的专属赣州智能助导</h2>
+            <p>基于平台丰富的知识库，无论是为您量身定制多日游日程，还是解答关于赣州风土人情的微小疑惑，智慧系统都在此倾听。</p>
           </div>
           <div class="ai-entry__actions">
-            <router-link to="/ai-chat"><el-button type="primary">AI Chat</el-button></router-link>
-            <router-link to="/ai-trip"><el-button>AI Trip</el-button></router-link>
+            <router-link to="/ai-chat">
+              <el-button type="primary" size="large" round class="ai-btn-primary">向我提问</el-button>
+            </router-link>
+            <router-link to="/ai-trip">
+              <el-button size="large" round class="ai-btn-secondary">智能编排行程</el-button>
+            </router-link>
           </div>
         </section>
       </template>
@@ -227,47 +238,67 @@ onMounted(loadHomeData);
 .home-hero {
   display: grid;
   grid-template-columns: 0.95fr 1.05fr;
-  gap: 24px;
-  margin-bottom: 28px;
+  gap: 32px;
+  margin-bottom: 40px;
 }
 
 .home-hero__text {
-  padding: 40px 32px;
-  border-radius: 28px;
-  background: radial-gradient(circle at top left, #cffafe, #ecfccb 60%, #ffffff 100%);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  padding: 48px 36px;
+  border-radius: var(--gz-radius-lg);
+  background: radial-gradient(circle at top left, #f0fdfa, #f8fafc 60%, #ffffff 100%);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .home-hero__eyebrow {
-  margin: 0 0 10px;
-  color: #0f766e;
+  margin: 0 0 12px;
+  color: var(--gz-brand-primary);
   font-weight: 700;
+  letter-spacing: 1.5px;
+  font-size: 14px;
 }
 
 .home-hero__title {
   margin: 0;
-  font-size: 42px;
-  line-height: 1.2;
+  font-size: 44px;
+  line-height: 1.25;
+  color: var(--gz-brand-secondary);
+  font-weight: 800;
+  letter-spacing: -0.5px;
 }
 
 .home-hero__desc {
-  margin: 18px 0 24px;
-  color: #4b5563;
-  line-height: 1.8;
+  margin: 20px 0 32px;
+  color: var(--gz-text-regular);
+  line-height: 1.85;
+  font-size: 16px;
 }
 
 .home-hero__actions {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+}
+
+.hero-btn {
+  padding: 0 32px;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
+}
+
+.hero-btn-secondary {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .home-hero__carousel,
 .home-hero__empty {
-  border-radius: 28px;
+  border-radius: var(--gz-radius-lg);
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
 }
 
 .banner-link {
@@ -279,99 +310,164 @@ onMounted(loadHomeData);
 
 .banner-image {
   width: 100%;
-  height: 360px;
+  height: 380px;
   object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+.banner-link:hover .banner-image {
+  transform: scale(1.04);
 }
 
 .banner-mask {
   position: absolute;
   inset: auto 0 0 0;
-  padding: 22px;
-  background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.72));
+  padding: 32px 24px 24px;
+  background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.8));
 }
 
 .banner-title {
   color: #fff;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .intro-card {
   display: grid;
   grid-template-columns: 0.8fr 1.2fr;
-  gap: 24px;
-  padding: 28px 30px;
+  gap: 32px;
+  padding: 36px 40px;
   background: #fff;
-  border-radius: 24px;
-  margin-bottom: 32px;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+  border-radius: var(--gz-radius-lg);
+  margin-bottom: 48px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.03);
+  align-items: center;
 }
 
 .intro-card__label {
-  color: #0f766e;
+  color: var(--gz-brand-primary);
   font-weight: 700;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
 }
 
 .intro-card h2 {
   margin: 0;
-  font-size: 28px;
+  font-size: 32px;
+  color: var(--gz-brand-secondary);
+  line-height: 1.3;
 }
 
 .intro-card p {
   margin: 0;
-  color: #4b5563;
+  color: var(--gz-text-regular);
   line-height: 1.85;
+  font-size: 16px;
 }
 
 .home-section {
-  margin-bottom: 34px;
+  margin-bottom: 56px;
 }
 
 .home-section__header {
   display: flex;
   justify-content: space-between;
-  align-items: end;
+  align-items: flex-end;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
 
 .home-section__header h2 {
   margin: 0 0 8px;
+  font-size: 28px;
+  color: var(--gz-brand-secondary);
 }
 
 .home-section__header p {
   margin: 0;
-  color: #6b7280;
+  color: var(--gz-text-secondary);
+  font-size: 15px;
+}
+
+.section-link {
+  color: var(--gz-brand-primary);
+  font-weight: 600;
+  font-size: 15px;
+  position: relative;
+  padding-bottom: 2px;
+}
+
+.section-link:after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 0%;
+  background-color: var(--gz-brand-primary);
+  transition: width 0.3s ease;
+}
+
+.section-link:hover:after {
+  width: 100%;
 }
 
 .home-card {
-  overflow: hidden;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-image-wrapper {
+  overflow: hidden;
+}
+
+.home-card__body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .home-card__body h3 {
-  margin: 16px 0 10px;
+  margin: 0 0 10px;
+  font-size: 18px;
+  color: var(--gz-brand-secondary);
 }
 
 .home-card__body p {
-  margin: 0 0 14px;
-  color: #4b5563;
+  margin: 0 0 16px;
+  color: var(--gz-text-regular);
   line-height: 1.7;
-  min-height: 72px;
+  flex: 1;
+  font-size: 14px;
 }
 
 .home-card__meta {
   display: flex;
   justify-content: space-between;
-  color: #6b7280;
+  color: var(--gz-text-secondary);
   font-size: 13px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gz-border-light);
+}
+
+.meta-region {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-score {
+  color: #ea580c;
+  font-weight: 500;
 }
 
 .home-section--split {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: 32px;
 }
 
 .mini-list {
@@ -380,55 +476,114 @@ onMounted(loadHomeData);
 }
 
 .mini-card {
+  border-radius: var(--gz-radius-md) !important;
+}
+
+:deep(.mini-card .el-card__body) {
+  padding: 0;
   display: grid;
   grid-template-columns: 140px 1fr;
-  gap: 16px;
-  align-items: center;
-  min-height: 128px;
+  gap: 0;
+  background: transparent;
+}
+
+.mini-card-img-wrapper {
+  overflow: hidden;
+  height: 110px;
 }
 
 .mini-card__image {
   width: 140px;
-  height: 96px;
+  height: 100%;
   object-fit: cover;
-  border-radius: 14px;
+  transition: transform 0.4s ease;
 }
 
-.mini-card h3 {
+a:hover .mini-card__image {
+  transform: scale(1.05);
+}
+
+.mini-card__content {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.mini-card__content h3 {
   margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--gz-brand-secondary);
 }
 
-.mini-card p {
+.mini-card__content p {
   margin: 0;
-  color: #6b7280;
-  line-height: 1.7;
+  color: var(--gz-text-regular);
+  line-height: 1.6;
+  font-size: 14px;
 }
 
 .ai-entry {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
+  gap: 32px;
   align-items: center;
-  border-radius: 24px;
-  padding: 30px;
-  background: linear-gradient(135deg, #111827, #1d4ed8);
+  border-radius: var(--gz-radius-lg);
+  padding: 40px 48px;
+  background: linear-gradient(135deg, #0f172a, #1e3a8a, #0d9488);
   color: #fff;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.15);
+}
+
+.ai-entry__text {
+  max-width: 600px;
+}
+
+.ai-entry__label {
+  color: #5eead4;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 13px;
+  margin-bottom: 8px;
 }
 
 .ai-entry h2 {
-  margin: 10px 0 12px;
+  margin: 0 0 14px;
+  font-size: 32px;
+  letter-spacing: -0.5px;
+  color: #fff;
 }
 
 .ai-entry p {
   margin: 0;
   line-height: 1.8;
-  color: #dbeafe;
+  color: #cbd5e1;
+  font-size: 16px;
 }
 
 .ai-entry__actions {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+}
+
+.ai-btn-primary {
+  padding: 0 32px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.ai-btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0 32px;
+  backdrop-filter: blur(4px);
+}
+
+.ai-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
 }
 
 @media (max-width: 900px) {
@@ -438,6 +593,7 @@ onMounted(loadHomeData);
   .ai-entry {
     grid-template-columns: 1fr;
     display: grid;
+    gap: 24px;
   }
 
   .home-section__header {
@@ -445,13 +601,16 @@ onMounted(loadHomeData);
     flex-direction: column;
   }
 
-  .mini-card {
+  :deep(.mini-card .el-card__body) {
     grid-template-columns: 1fr;
+  }
+
+  .mini-card-img-wrapper {
+    height: 180px;
   }
 
   .mini-card__image {
     width: 100%;
-    height: 180px;
   }
 }
 </style>

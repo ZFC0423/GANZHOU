@@ -18,14 +18,14 @@ const activeMenu = computed(() => {
   <div>
     <header class="site-header">
       <div class="site-header__inner">
-        <router-link class="site-logo" to="/">Ganzhou Travel</router-link>
+        <router-link class="site-logo" to="/">赣州游智慧服务</router-link>
         <el-menu :default-active="activeMenu" mode="horizontal" router class="site-menu">
-          <el-menu-item index="/">Home</el-menu-item>
-          <el-menu-item index="/scenic">Scenic</el-menu-item>
-          <el-menu-item index="/food">Food</el-menu-item>
-          <el-menu-item index="/heritage">Heritage</el-menu-item>
-          <el-menu-item index="/red-culture">Red Culture</el-menu-item>
-          <el-menu-item index="/about">About</el-menu-item>
+          <el-menu-item index="/">首页探索</el-menu-item>
+          <el-menu-item index="/scenic">景点导览</el-menu-item>
+          <el-menu-item index="/food">地道美食</el-menu-item>
+          <el-menu-item index="/heritage">非遗传承</el-menu-item>
+          <el-menu-item index="/red-culture">红色记忆</el-menu-item>
+          <el-menu-item index="/about">平台介绍</el-menu-item>
         </el-menu>
       </div>
     </header>
@@ -37,16 +37,16 @@ const activeMenu = computed(() => {
     <footer class="site-footer">
       <div class="page-shell site-footer__inner">
         <div>
-          <div class="site-footer__title">Ganzhou Travel and Culture Platform</div>
+          <div class="site-footer__title">赣州旅游文化智慧服务平台</div>
           <p class="site-footer__desc">
-            A lightweight tourism and culture portal for demo use. This version focuses on a real content flow from the admin panel to the public site.
+            融合山水胜境、客家风情与红色记忆，为您提供沉浸式的智能文旅探索体验。
           </p>
         </div>
         <div class="site-footer__links">
-          <router-link to="/scenic">Scenic Guide</router-link>
-          <router-link to="/food">Food Topics</router-link>
-          <router-link to="/heritage">Heritage Topics</router-link>
-          <router-link to="/red-culture">Red Culture</router-link>
+          <router-link to="/scenic">探索全景</router-link>
+          <router-link to="/food">寻味客家</router-link>
+          <router-link to="/heritage">守护非遗</router-link>
+          <router-link to="/red-culture">传承薪火</router-link>
         </div>
       </div>
     </footer>
@@ -60,7 +60,9 @@ const activeMenu = computed(() => {
   z-index: 20;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--gz-border-light);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  transition: var(--gz-transition-base);
 }
 
 .site-header__inner {
@@ -71,13 +73,15 @@ const activeMenu = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  height: 64px;
 }
 
 .site-logo {
   font-size: 22px;
   font-weight: 700;
-  color: #0f766e;
+  color: var(--gz-brand-primary);
   white-space: nowrap;
+  letter-spacing: 1px;
 }
 
 .site-menu {
@@ -85,42 +89,84 @@ const activeMenu = computed(() => {
   flex: 1;
   justify-content: flex-end;
   min-width: 0;
+  background: transparent;
+}
+
+:deep(.el-menu--horizontal > .el-menu-item) {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gz-text-regular);
+  transition: var(--gz-transition-base);
+}
+
+:deep(.el-menu--horizontal > .el-menu-item.is-active) {
+  color: var(--gz-brand-primary) !important;
+  border-bottom: 2px solid var(--gz-brand-primary) !important;
+  font-weight: 600;
 }
 
 .site-footer {
   margin-top: 60px;
-  background: #0f172a;
+  background: var(--gz-brand-secondary);
   color: #e5e7eb;
 }
 
 .site-footer__inner {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
+  gap: 32px;
   align-items: flex-start;
+  padding-top: 56px;
+  padding-bottom: 64px;
 }
 
 .site-footer__title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  color: #ffffff;
+  letter-spacing: 0.5px;
 }
 
 .site-footer__desc {
   margin: 0;
-  color: #cbd5e1;
-  line-height: 1.7;
-  max-width: 560px;
+  color: #94a3b8;
+  line-height: 1.8;
+  max-width: 480px;
+  font-size: 15px;
 }
 
 .site-footer__links {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   min-width: 160px;
 }
 
 .site-footer__links a {
-  color: #e2e8f0;
+  color: #cbd5e1;
+  font-size: 15px;
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+}
+
+.site-footer__links a:hover {
+  color: #ffffff;
+}
+
+.site-footer__links a::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: #ffffff;
+  transition: width 0.3s ease;
+}
+
+.site-footer__links a:hover::after {
+  width: 100%;
 }
 
 @media (max-width: 900px) {
@@ -128,6 +174,7 @@ const activeMenu = computed(() => {
     flex-direction: column;
     align-items: stretch;
     padding-top: 12px;
+    height: auto;
   }
 
   .site-menu {

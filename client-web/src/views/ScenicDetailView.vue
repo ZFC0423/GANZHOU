@@ -40,14 +40,14 @@ onMounted(loadDetail);
   <SiteLayout>
     <div class="page-shell">
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item to="/scenic">Scenic List</el-breadcrumb-item>
-        <el-breadcrumb-item>Detail</el-breadcrumb-item>
+        <el-breadcrumb-item to="/scenic">景点列表</el-breadcrumb-item>
+        <el-breadcrumb-item>详情</el-breadcrumb-item>
       </el-breadcrumb>
 
       <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" style="margin: 20px 0;" />
       <div v-if="errorMessage" style="margin-bottom: 20px; display: flex; gap: 12px;">
-        <el-button @click="loadDetail">Retry</el-button>
-        <router-link to="/scenic"><el-button>Back to list</el-button></router-link>
+        <el-button @click="loadDetail">重试请求</el-button>
+        <router-link to="/scenic"><el-button>返回列表</el-button></router-link>
       </div>
 
       <el-skeleton v-if="loading" :rows="10" animated />
@@ -82,40 +82,40 @@ onMounted(loadDetail);
               <el-tag v-for="tag in detail.tags" :key="tag" type="success">{{ tag }}</el-tag>
             </div>
             <div class="detail-hero__summary">
-              <div><strong>Open Time:</strong> {{ detail.openTime || 'N/A' }}</div>
-              <div><strong>Ticket:</strong> {{ detail.ticketInfo || 'N/A' }}</div>
-              <div><strong>Suggested Duration:</strong> {{ detail.suggestedDuration || 'N/A' }}</div>
-              <div><strong>Address:</strong> {{ detail.address || 'N/A' }}</div>
+              <div><strong>开放时间：</strong> {{ detail.openTime || '未知' }}</div>
+              <div><strong>门票信息：</strong> {{ detail.ticketInfo || '未知' }}</div>
+              <div><strong>建议游玩：</strong> {{ detail.suggestedDuration || '未知' }}</div>
+              <div><strong>具体地址：</strong> {{ detail.address || '未知' }}</div>
             </div>
           </div>
         </section>
 
         <section class="detail-grid">
           <el-card shadow="never">
-            <template #header>Introduction</template>
-            <p class="detail-paragraph">{{ detail.intro || 'No introduction yet.' }}</p>
+            <template #header>基本介绍</template>
+            <p class="detail-paragraph">{{ detail.intro || '暂无基本介绍。' }}</p>
           </el-card>
           <el-card shadow="never">
-            <template #header>Culture Background</template>
-            <p class="detail-paragraph">{{ detail.cultureDesc || 'No culture background yet.' }}</p>
+            <template #header>历史与文化背景</template>
+            <p class="detail-paragraph">{{ detail.cultureDesc || '暂无文化背景。' }}</p>
           </el-card>
           <el-card shadow="never">
-            <template #header>Traffic Guide</template>
-            <p class="detail-paragraph">{{ detail.trafficGuide || 'No traffic guide yet.' }}</p>
+            <template #header>交通指南</template>
+            <p class="detail-paragraph">{{ detail.trafficGuide || '暂无交通指南。' }}</p>
           </el-card>
           <el-card shadow="never">
-            <template #header>Tips</template>
-            <p class="detail-paragraph">{{ detail.tips || 'No tips yet.' }}</p>
+            <template #header>游玩小贴士</template>
+            <p class="detail-paragraph">{{ detail.tips || '暂无游玩提示。' }}</p>
           </el-card>
         </section>
 
         <section class="related-section">
           <div class="related-section__header">
-            <h2>Related Scenic Spots</h2>
-            <router-link to="/scenic">Back to scenic list</router-link>
+            <h2>周边/相关景点推荐</h2>
+            <router-link to="/scenic">返回全部景点</router-link>
           </div>
 
-          <el-empty v-if="!detail.relatedList?.length" description="No related scenic spots" />
+          <el-empty v-if="!detail.relatedList?.length" description="暂无相关推荐" />
 
           <div v-else class="card-grid">
             <el-card v-for="item in detail.relatedList" :key="item.id" class="related-card" shadow="hover" @click="goRelated(item.id)">
@@ -193,8 +193,8 @@ onMounted(loadDetail);
 }
 
 .detail-paragraph {
-  margin: 0;
-  line-height: 1.8;
+  margin: 0 0 16px;
+  line-height: 1.9;
   color: #4b5563;
 }
 
