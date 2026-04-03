@@ -11,7 +11,10 @@ const props = defineProps({
   pageTitle: { type: String, required: true },
   pageDescription: { type: String, required: true },
   categoryCode: { type: String, required: true },
-  detailBasePath: { type: String, required: true }
+  detailBasePath: { type: String, required: true },
+  pageEyebrow: { type: String, default: '' },
+  listTitle: { type: String, default: '' },
+  guideText: { type: String, default: '' }
 });
 
 const router = useRouter();
@@ -75,7 +78,7 @@ onMounted(loadList);
         <div class="topic-hero__accent-line" :style="{ backgroundColor: accentColor }"></div>
         <div class="topic-hero__content">
           <div class="topic-hero__badge" :style="{ color: accentColor, borderColor: accentColor }">
-            {{ categoryCode === 'food' ? '地道美食' : categoryCode === 'heritage' ? '非遗传承' : '红色记忆' }}
+            {{ pageEyebrow || (categoryCode === 'food' ? '地道美食' : categoryCode === 'heritage' ? '非遗传承' : '红色记忆') }}
           </div>
           <h1 class="page-title topic-hero__title">{{ pageTitle }}</h1>
           <p class="page-subtitle topic-hero__desc">{{ pageDescription }}</p>
@@ -105,8 +108,11 @@ onMounted(loadList);
 
         <div v-else>
           <div class="reading-guide-box">
-            <strong>浏览提示：</strong>本页按主题组织已有内容，为您提供清晰的探索入口。当前展示基于平台现有资料，部分原始条目保留了外文命名。
+            <strong>浏览提示：</strong>{{ guideText || '本页按主题组织已有内容，为您提供清晰的探索入口。当前展示基于平台现有资料，部分原始条目保留了外文命名。' }}
           </div>
+          
+          <h2 v-if="listTitle" style="font-size: 20px; font-weight: 700; color: var(--gz-brand-secondary, #0f172a); margin-bottom: 20px;">{{ listTitle }}</h2>
+          
           <div class="card-grid">
             <el-card v-for="item in listData" :key="item.id" class="topic-card" shadow="hover" @click="goDetail(item.id)">
               <div class="topic-card__image-wrapper">

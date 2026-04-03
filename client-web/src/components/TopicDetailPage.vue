@@ -65,18 +65,18 @@ onMounted(loadDetail);
         <article class="detail-article">
           <header class="detail-article__header">
             <div class="detail-article__meta-top">
-              <el-tag size="small" effect="plain" type="info">{{ detail.categoryName }}</el-tag>
+              <el-tag size="small" effect="plain" type="info">{{ detail.categoryName || '主题导览' }}</el-tag>
               <span class="view-count"><el-icon><View /></el-icon> 阅读量: {{ detail.viewCount }}</span>
             </div>
             
             <h1 class="detail-article__title">{{ detail.title }}</h1>
             
-            <div class="detail-article__summary" v-if="detail.summary">
-              <strong>核心线索：</strong>{{ detail.summary }}
-            </div>
-
             <div class="detail-article__tags" v-if="detail.tags && detail.tags.length">
               <el-tag v-for="tag in detail.tags" :key="tag" type="info" size="small" round># {{ tag }}</el-tag>
+            </div>
+
+            <div class="topic-overview-text">
+              内容概览：本页围绕当前主题串联相关内容与文化线索，为您从已有资料中建立基础导读。
             </div>
           </header>
 
@@ -90,23 +90,37 @@ onMounted(loadDetail);
           </div>
 
           <div class="detail-article__body">
-            <div class="reading-guide-box">
-              <strong>阅读提示：</strong>本页以主题化方式组织已有内容，帮助更快理解相关景点与文化线索。当前展示基于现有平台资料，部分原始条目仍保留其既有外文命名。
+            <!-- 核心线索 -->
+            <div class="topic-section core-clues" v-if="detail.summary">
+              <div class="section-label">核心线索</div>
+              <div class="core-clues-text">{{ detail.summary }}</div>
             </div>
 
-            <div class="content-source-info" v-if="detail.source || detail.author">
-              <span v-if="detail.source">内容来源：{{ detail.source }}</span>
-              <span v-if="detail.author">贡献作者：{{ detail.author }}</span>
+            <!-- 主题说明缓冲 -->
+            <div class="topic-section main-content">
+              <div class="section-label">主题说明</div>
+              
+              <div class="reading-guide-box">
+                <span class="guide-badge">阅读提示</span>
+                本页以主题化方式组织已有内容，帮助用户更快理解相关景点与文化线索。<br/>
+                当前内容以现有平台资料为基础进行导览展示，部分原始条目仍保留既有语言描述方式。
+              </div>
+
+              <div class="content-source-info" v-if="detail.source || detail.author">
+                <span v-if="detail.source">内容说明：{{ detail.source }}</span>
+                <span v-if="detail.author">线索整理：{{ detail.author }}</span>
+              </div>
+              
+              <div class="detail-article__html" v-html="detail.content || detail.summary || '暂无详细主题说明。'" />
             </div>
-            
-            <div class="detail-article__html" v-html="detail.content || detail.summary || '暂无详细内容。'" />
           </div>
         </article>
 
-        <section class="detail-related">
+        <!-- 延伸了解 -->
+        <section class="detail-related topic-section">
           <div class="detail-related__header">
-            <h2>延伸了解</h2>
-            <p>继续探索本主题下的其他相关内容与文化线索。</p>
+            <div class="section-label align-center">相关内容与景点</div>
+            <p>本页基于当前主题所关联的更多平台内容线索。</p>
           </div>
 
           <el-empty v-if="!detail.relatedList?.length" description="暂无相关内容" />
@@ -123,9 +137,29 @@ onMounted(loadDetail);
               </div>
               <div class="related-card__body">
                 <h3>{{ item.title }}</h3>
-                <p>{{ item.summary || '暂无导读摘要。' }}</p>
+                <p>{{ item.summary || '暂无说明线索。' }}</p>
               </div>
             </el-card>
+          </div>
+        </section>
+
+        <!-- 下一步探索 -->
+        <section class="topic-next-steps">
+          <div class="next-steps-container">
+            <div class="section-label align-center">下一步探索</div>
+            <p class="next-steps-desc">您可以带着当前主题的线索，前往 AI 导览入口获取更多建议。</p>
+            <div class="next-steps-actions">
+              <router-link to="/ai-chat" style="text-decoration: none;">
+                <el-button type="primary" size="large" plain>
+                  关于此主题，向 AI 咨询
+                </el-button>
+              </router-link>
+              <router-link to="/ai-trip" style="text-decoration: none;">
+                <el-button type="success" size="large" plain>
+                  将此主题转为参考行程
+                </el-button>
+              </router-link>
+            </div>
           </div>
         </section>
       </template>
@@ -191,20 +225,60 @@ onMounted(loadDetail);
   letter-spacing: -0.5px;
 }
 
-.detail-article__summary {
-  background: var(--gz-bg-page);
-  padding: 20px 28px;
-  border-radius: var(--gz-radius-md);
+.topic-overview-text {
+  margin: 24px auto 0;
+  max-width: 680px;
   color: var(--gz-text-regular);
   font-size: 15px;
-  line-height: 1.8;
+  line-height: 1.7;
   text-align: left;
-  border-left: 4px solid var(--gz-brand-primary);
+  background: var(--gz-bg-page);
+  padding: 16px 24px;
+  border-radius: var(--gz-radius-sm);
+  border: 1px solid var(--gz-border-light);
+}
+
+.topic-section {
+  margin-bottom: 40px;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gz-brand-primary);
+  margin-bottom: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gz-border-light);
+  padding-bottom: 8px;
+  display: inline-block;
+}
+
+.section-label.align-center {
+  display: block;
+  text-align: center;
+  border-bottom: none;
+  font-size: 14px;
   margin-bottom: 24px;
 }
 
-.detail-article__summary strong {
-  color: var(--gz-brand-secondary);
+.core-clues {
+  background: #f8fafc;
+  padding: 24px;
+  border-radius: var(--gz-radius-md);
+  border-left: 4px solid var(--gz-brand-primary);
+}
+
+.core-clues .section-label {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 12px;
+}
+
+.core-clues-text {
+  color: var(--gz-text-regular);
+  font-size: 16px;
+  line-height: 1.8;
 }
 
 .detail-article__tags {
@@ -236,16 +310,22 @@ onMounted(loadDetail);
 .reading-guide-box {
   background: var(--gz-bg-page, #f8fafc);
   padding: 16px 20px;
-  border-radius: var(--gz-radius-md, 8px);
-  color: var(--gz-text-regular, #475569);
+  border-radius: var(--gz-radius-sm);
+  color: var(--gz-text-regular);
   font-size: 14px;
   line-height: 1.7;
   margin-bottom: 24px;
-  border: 1px solid var(--gz-border-light, #e2e8f0);
+  border: 1px dashed #cbd5e1;
 }
 
-.reading-guide-box strong {
-  color: var(--gz-brand-primary, #0f766e);
+.guide-badge {
+  color: #0f766e;
+  font-weight: 600;
+  margin-right: 8px;
+  background: #ccfbf1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 
 .content-source-info {
@@ -285,16 +365,37 @@ onMounted(loadDetail);
   margin-bottom: 32px;
 }
 
-.detail-related__header h2 {
-  font-size: 28px;
-  color: var(--gz-brand-secondary);
-  margin: 0 0 8px;
-}
-
 .detail-related__header p {
   margin: 0;
   color: var(--gz-text-secondary);
   font-size: 15px;
+}
+
+.topic-next-steps {
+  max-width: 800px;
+  margin: 56px auto 0;
+  padding-top: 40px;
+  border-top: 1px dashed var(--gz-border-light);
+  text-align: center;
+}
+
+.next-steps-container {
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+  padding: 40px;
+  border-radius: var(--gz-radius-lg);
+}
+
+.next-steps-desc {
+  color: var(--gz-text-regular);
+  font-size: 15px;
+  margin: 0 0 24px;
+}
+
+.next-steps-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .related-card {

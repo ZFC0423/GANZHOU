@@ -63,16 +63,16 @@ onMounted(loadList);
     <div class="page-shell">
       <section class="scenic-hero">
         <div class="scenic-hero__content">
-          <h1 class="page-title scenic-hero__title">探索全景</h1>
+          <h1 class="page-title scenic-hero__title">景点浏览</h1>
           <p class="page-subtitle scenic-hero__desc">
-            从千年宋城街巷到悠远客家山林，寻找属于您的赣州印记。
+            从这里开始探索赣州的文化遗存与自然景观，为您建立进一步了解的入口。
           </p>
         </div>
       </section>
 
       <el-card class="filter-card" shadow="never">
         <div class="filter-bar">
-          <el-input v-model="filters.keyword" clearable placeholder="输入景点名称或导读寻找..." @keyup.enter="handleSearch">
+          <el-input v-model="filters.keyword" clearable placeholder="输入景点名称或片段..." @keyup.enter="handleSearch">
             <template #prefix>
               <el-icon><Search /></el-icon>
             </template>
@@ -82,11 +82,11 @@ onMounted(loadList);
             <template #prepend>属地</template>
           </el-input>
           
-          <el-input v-model="filters.tag" clearable placeholder="例: 文化" @keyup.enter="handleSearch">
-            <template #prepend>标签</template>
+          <el-input v-model="filters.tag" clearable placeholder="例: 红色文化" @keyup.enter="handleSearch">
+            <template #prepend>主题</template>
           </el-input>
           
-          <el-button type="primary" class="filter-btn" @click="handleSearch">筛选景点</el-button>
+          <el-button type="primary" class="filter-btn" @click="handleSearch">筛选查看</el-button>
         </div>
       </el-card>
 
@@ -99,7 +99,12 @@ onMounted(loadList);
 
       <template v-else>
         <div class="scenic-guide-box">
-          <strong>浏览提示：</strong>本页按景点导览方式组织平台现有内容，方便按属地、标签与导读快速浏览。当前展示基于已收录资料，部分景点名称与简介保留了原始外文命名。
+          <span class="guide-badge">阅读提示</span>本页从景点浏览出发，帮助您逐步进入相关主题与文化线索。<br/>您可以先查阅代表性景点，再由详情页深入探索。当前内容基于现有平台资料进行缓冲展示，部分未完全中文化的条目保留原始信息语言。
+        </div>
+        
+        <div class="list-section-header">
+          <h2 class="list-section-title">景点与关联主题</h2>
+          <span class="list-section-desc">基于已有平台资料，提供 {{ pagination.total }} 个浏览入口</span>
         </div>
 
         <el-empty v-if="!listData.length" description="抱歉，未发现符合您期待的景点记录" />
@@ -121,9 +126,17 @@ onMounted(loadList);
                   <el-icon><Location /></el-icon> {{ item.region || '未知' }}
                 </span>
               </div>
-              <p class="scenic-card__intro">{{ item.intro || '暂无详细导读，敬请期待。' }}</p>
-              <div class="scenic-card__tags" v-if="item.tags && item.tags.length">
-                <el-tag v-for="tag in item.tags" :key="tag" size="small" type="success" effect="plain">{{ tag }}</el-tag>
+              <p class="scenic-card__intro">{{ item.intro || '该景点的缓冲导读尚未完全收录。' }}</p>
+              
+              <div class="scenic-card__footer">
+                <div class="scenic-card__tags" v-if="item.tags && item.tags.length">
+                  <span class="tag-label">相关主题：</span>
+                  <el-tag v-for="tag in item.tags" :key="tag" size="small" type="success" effect="plain" round>{{ tag }}</el-tag>
+                </div>
+                <div v-else style="flex:1;"></div>
+                <div class="scenic-card__action">
+                  查看详情 &rarr;
+                </div>
               </div>
             </div>
           </el-card>
@@ -138,6 +151,19 @@ onMounted(loadList);
             background
           />
         </div>
+
+        <!-- 探索入口层 -->
+        <section class="scenic-next-steps">
+          <div class="next-steps-container">
+            <h3 class="next-steps-title">对当前内容有进一步疑问？</h3>
+            <p class="next-steps-desc">您可以带着浏览中发现的主题与文化线索，向智慧问答入口获取更多信息。</p>
+            <div class="next-steps-actions">
+              <router-link to="/ai-chat" style="text-decoration: none;">
+                <el-button type="primary" plain size="large">围绕以上线索咨询 AI</el-button>
+              </router-link>
+            </div>
+          </div>
+        </section>
       </template>
     </div>
   </SiteLayout>
@@ -269,29 +295,116 @@ onMounted(loadList);
   flex: 1;
 }
 
+.scenic-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: auto;
+  gap: 12px;
+}
+
 .scenic-card__tags {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.tag-label {
+  font-size: 13px;
+  color: var(--gz-text-secondary);
+  font-weight: 500;
+}
+
+.scenic-card__action {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gz-brand-primary);
+  transition: color 0.3s;
+  white-space: nowrap;
+}
+
+.scenic-card:hover .scenic-card__action {
+  color: #0d9488;
 }
 
 .scenic-guide-box {
   background: var(--gz-bg-page, #f8fafc);
-  padding: 14px 20px;
-  border-radius: var(--gz-radius-md, 8px);
-  color: var(--gz-text-regular, #475569);
+  padding: 16px 20px;
+  border-radius: var(--gz-radius-sm);
+  color: var(--gz-text-regular);
   font-size: 14px;
-  line-height: 1.6;
-  margin-bottom: 24px;
-  border: 1px solid var(--gz-border-light, #e2e8f0);
+  line-height: 1.7;
+  margin-bottom: 32px;
+  border: 1px dashed #cbd5e1;
 }
 
-.scenic-guide-box strong {
-  color: var(--gz-brand-primary, #0f766e);
+.guide-badge {
+  color: #0f766e;
+  font-weight: 600;
+  margin-right: 8px;
+  background: #ccfbf1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.list-section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--gz-border-light);
+  padding-bottom: 12px;
+}
+
+.list-section-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gz-brand-secondary);
+}
+
+.list-section-desc {
+  font-size: 14px;
+  color: var(--gz-text-secondary);
 }
 
 .pagination-wrap {
-  margin-top: 40px;
+  margin-top: 48px;
+  display: flex;
+  justify-content: center;
+}
+
+.scenic-next-steps {
+  margin-top: 64px;
+  padding-top: 40px;
+  border-top: 1px dashed var(--gz-border-light);
+  text-align: center;
+}
+
+.next-steps-container {
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+  padding: 40px;
+  border-radius: var(--gz-radius-lg);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.next-steps-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gz-brand-secondary);
+  margin: 0 0 12px;
+}
+
+.next-steps-desc {
+  color: var(--gz-text-regular);
+  font-size: 15px;
+  margin: 0 0 24px;
+}
+
+.next-steps-actions {
   display: flex;
   justify-content: center;
 }

@@ -75,65 +75,90 @@ onMounted(loadDetail);
           </div>
 
           <div class="detail-hero__info">
-            <div class="detail-hero__meta">{{ detail.categoryName }} - {{ detail.region }}</div>
+            <div class="detail-hero__meta">{{ detail.categoryName || '主题分类' }} &bull; {{ detail.region || '所属区域' }}</div>
             <h1 class="page-title">{{ detail.name }}</h1>
-            <p class="page-subtitle">{{ detail.intro || '暂无景点导览简介。' }}</p>
+            <p class="page-subtitle">{{ detail.intro || '此处暂无提取到的概要说明。' }}</p>
             <div class="detail-hero__tags">
-              <el-tag v-for="tag in detail.tags" :key="tag" type="success">{{ tag }}</el-tag>
+              <el-tag v-for="tag in detail.tags" :key="tag" type="success" effect="plain" round># {{ tag }}</el-tag>
             </div>
             <div class="detail-hero__summary">
-              <div><strong>开放时间：</strong> {{ detail.openTime || '未知' }}</div>
-              <div><strong>门票信息：</strong> {{ detail.ticketInfo || '未知' }}</div>
-              <div><strong>建议游玩：</strong> {{ detail.suggestedDuration || '未知' }}</div>
-              <div><strong>具体地址：</strong> {{ detail.address || '未知' }}</div>
+              <div><strong>开放时间：</strong> {{ detail.openTime || '暂未收录' }}</div>
+              <div><strong>门票信息：</strong> {{ detail.ticketInfo || '暂未收录' }}</div>
+              <div><strong>建议游玩：</strong> {{ detail.suggestedDuration || '暂未收录' }}</div>
+              <div><strong>具体地址：</strong> {{ detail.address || '暂未收录' }}</div>
             </div>
           </div>
         </section>
 
         <div class="reading-guide-box">
-          <strong>阅读提示：</strong>本页以平台已收录的景点资料为基础，帮助快速理解景点概况、文化背景与游玩信息。部分景点名称与导览摘要保留了原始外文命名。
+          <span class="guide-badge">导览提示</span>本页围绕当前景点梳理相关内容与文化线索，帮助您从平台已有资料中建立基础理解。<br/>内容展示以平台收录的资料为缓冲基础，部分原始条目仍保留既有语言描述方式。
         </div>
 
-        <section class="detail-grid">
-          <el-card shadow="never">
-            <template #header>基本介绍</template>
-            <p class="detail-paragraph">{{ detail.intro || '暂无基本介绍。' }}</p>
-          </el-card>
-          <el-card shadow="never">
-            <template #header>历史与文化背景</template>
-            <p class="detail-paragraph">{{ detail.cultureDesc || '暂无文化背景。' }}</p>
-          </el-card>
-          <el-card shadow="never">
-            <template #header>交通指南</template>
-            <p class="detail-paragraph">{{ detail.trafficGuide || '暂无交通指南。' }}</p>
-          </el-card>
-          <el-card shadow="never">
-            <template #header>游玩小贴士</template>
-            <p class="detail-paragraph">{{ detail.tips || '暂无游玩提示。' }}</p>
-          </el-card>
+        <section class="topic-section">
+          <h2 class="section-label">推荐了解</h2>
+          <div class="detail-grid">
+            <el-card shadow="never" class="info-card">
+              <template #header><div class="card-title">导览信息</div></template>
+              <p class="detail-paragraph">{{ detail.intro || '该景点的基础导览信息尚未完全收录。' }}</p>
+            </el-card>
+            <el-card shadow="never" class="info-card">
+              <template #header><div class="card-title">文化背景</div></template>
+              <p class="detail-paragraph">{{ detail.cultureDesc || '暂未收录与其相关的特定文化或历史线索摘要。' }}</p>
+            </el-card>
+            <el-card shadow="never" class="info-card">
+              <template #header><div class="card-title">交通与到达</div></template>
+              <p class="detail-paragraph">{{ detail.trafficGuide || '暂未整理具体的交通指引信息。' }}</p>
+            </el-card>
+            <el-card shadow="never" class="info-card">
+              <template #header><div class="card-title">游玩提示</div></template>
+              <p class="detail-paragraph">{{ detail.tips || '暂无该景点的提示记录。' }}</p>
+            </el-card>
+          </div>
         </section>
 
-        <section class="related-section">
-          <div class="related-section__header">
-            <h2>周边/相关景点推荐</h2>
-            <router-link to="/scenic">返回全部景点</router-link>
+        <section class="topic-section detail-related">
+          <div class="detail-related__header">
+            <div class="section-label align-center">相关内容与景点</div>
+            <p>从当前景点出发，您可以延伸了解本平台内的其他相关文化地点。</p>
           </div>
 
-          <el-empty v-if="!detail.relatedList?.length" description="暂无相关推荐" />
+          <el-empty v-if="!detail.relatedList?.length" description="当前景点侧暂无主动关联的其他信息" />
 
           <div v-else class="card-grid">
             <el-card v-for="item in detail.relatedList" :key="item.id" class="related-card" shadow="hover" @click="goRelated(item.id)">
-              <img
-                class="image-cover"
-                :src="resolveAssetUrl(item.coverImage, item.name)"
-                :alt="item.name"
-                @error="(event) => applyImageFallback(event, item.name)"
-              />
+              <div class="related-image-box">
+                <img
+                  class="image-cover"
+                  :src="resolveAssetUrl(item.coverImage, item.name)"
+                  :alt="item.name"
+                  @error="(event) => applyImageFallback(event, item.name)"
+                />
+              </div>
               <div class="related-card__body">
-                <h3>{{ item.name }}</h3>
-                <p>{{ item.region }}</p>
+                <h3 class="related-card__title">{{ item.name }}</h3>
+                <p class="related-card__region">{{ item.region || '平台已收录点' }}</p>
               </div>
             </el-card>
+          </div>
+        </section>
+
+        <!-- 下一步探索 -->
+        <section class="topic-next-steps">
+          <div class="next-steps-container">
+            <div class="section-label align-center">继续探索</div>
+            <p class="next-steps-desc">您可以带着当前景点的相关内容与线索，前往导览助手获取更多信息，或将其组合至行程。</p>
+            <div class="next-steps-actions">
+              <router-link to="/ai-chat" style="text-decoration: none;">
+                <el-button type="primary" size="large" plain>
+                  进入智慧问答
+                </el-button>
+              </router-link>
+              <router-link to="/ai-trip" style="text-decoration: none;">
+                <el-button type="success" size="large" plain>
+                  前往行程规划
+                </el-button>
+              </router-link>
+            </div>
           </div>
         </section>
       </template>
@@ -196,62 +221,147 @@ onMounted(loadDetail);
   gap: 20px;
 }
 
+.topic-section {
+  margin-bottom: 48px;
+}
+
+.section-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gz-brand-primary);
+  margin-bottom: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gz-border-light);
+  padding-bottom: 8px;
+  display: inline-block;
+}
+
+.section-label.align-center {
+  display: block;
+  text-align: center;
+  border-bottom: none;
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.info-card {
+  border-radius: var(--gz-radius-md);
+  border: 1px solid var(--gz-border-light);
+  height: 100%;
+}
+
+.card-title {
+  font-weight: 700;
+  color: var(--gz-brand-secondary);
+}
+
 .reading-guide-box {
   background: var(--gz-bg-page, #f8fafc);
   padding: 16px 20px;
-  border-radius: var(--gz-radius-md, 8px);
-  color: var(--gz-text-regular, #475569);
+  border-radius: var(--gz-radius-sm);
+  color: var(--gz-text-regular);
   font-size: 14px;
   line-height: 1.7;
-  margin-bottom: 24px;
-  border: 1px solid var(--gz-border-light, #e2e8f0);
+  margin-bottom: 40px;
+  border: 1px dashed #cbd5e1;
 }
 
-.reading-guide-box strong {
-  color: var(--gz-brand-primary, #0f766e);
+.guide-badge {
+  color: #0f766e;
+  font-weight: 600;
+  margin-right: 8px;
+  background: #ccfbf1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 
 .detail-paragraph {
-  margin: 0 0 16px;
-  line-height: 1.9;
-  color: #4b5563;
-}
-
-.related-section {
-  margin-top: 34px;
-}
-
-.related-section__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-}
-
-.related-section__header h2 {
   margin: 0;
+  line-height: 1.8;
+  color: var(--gz-text-regular);
+  font-size: 15px;
+}
+
+.detail-related {
+  border-top: 1px solid var(--gz-border-light);
+  padding-top: 48px;
+}
+
+.detail-related__header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.detail-related__header p {
+  margin: 0;
+  color: var(--gz-text-secondary);
+  font-size: 15px;
 }
 
 .related-card {
   cursor: pointer;
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 :deep(.related-card .el-card__body) {
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.related-image-box {
+  height: 180px;
+  overflow: hidden;
 }
 
 .related-card__body {
-  padding: 16px 20px 20px;
+  padding: 20px;
+  flex: 1;
 }
 
-.related-card__body h3 {
-  margin: 0 0 6px;
+.related-card__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--gz-brand-secondary);
+  line-height: 1.3;
 }
 
-.related-card__body p {
+.related-card__region {
   margin: 0;
-  color: #6b7280;
+  color: var(--gz-text-secondary);
+  font-size: 14px;
+}
+
+.topic-next-steps {
+  max-width: 800px;
+  margin: 56px auto 0;
+  padding-top: 40px;
+  border-top: 1px dashed var(--gz-border-light);
+  text-align: center;
+}
+
+.next-steps-container {
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+  padding: 40px;
+  border-radius: var(--gz-radius-lg);
+}
+
+.next-steps-desc {
+  color: var(--gz-text-regular);
+  font-size: 15px;
+  margin: 0 0 24px;
+}
+
+.next-steps-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 900px) {
@@ -260,10 +370,5 @@ onMounted(loadDetail);
     grid-template-columns: 1fr;
   }
 
-  .related-section__header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
 }
 </style>

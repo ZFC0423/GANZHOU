@@ -11,11 +11,10 @@ import SiteLayout from '../components/SiteLayout.vue';
       <!-- ======================================== -->
       <section class="about-hero">
         <div class="about-hero__inner">
-          <span class="about-hero__eyebrow">了解平台</span>
+          <span class="about-hero__eyebrow">平台定位与设计说明页</span>
           <h1 class="about-hero__title">赣州旅游文化智慧服务平台</h1>
           <p class="about-hero__desc">
-            围绕赣州的山水胜境、客家风情、红色记忆与非遗匠心，<br/>
-            构建一个以本地文旅内容为核心、以 AI 智慧导览为服务层的数字化探索平台。
+            围绕赣州旅游资源、城市文化与智慧服务体验构建的数字化平台，<br/>结合内容展示、主题组织与 AI 辅助能力，提供更清晰的文旅探索路径。
           </p>
         </div>
       </section>
@@ -27,10 +26,10 @@ import SiteLayout from '../components/SiteLayout.vue';
         <div class="about-position__inner">
           <div class="about-position__header">
             <span class="about-section-eyebrow">平台定位</span>
-            <h2 class="about-section-title">不是旅游攻略站，而是一个城市文化的智慧入口</h2>
+            <h2 class="about-section-title">它不仅用于展示内容，也负责组织理解路径</h2>
             <p class="about-position__lead">
-              赣州有太多值得被看见的文化资源——但它们分散在各处，缺少一个统一的表达方式。
-              本平台的核心工作，是把这些内容整合起来，用清楚的结构和智能的导览，让探索变得更容易。
+              平台尝试把主题化内容组织、景点浏览、文化解释与智慧服务放在同一套探索系统中。<br/>
+              用户可以从主题、景点与 AI 三条路径进入，再在阅读与路径建议之间继续延伸。
             </p>
           </div>
 
@@ -41,7 +40,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               </div>
               <h3 class="position-item__title">文旅内容整合</h3>
               <p class="position-item__desc">
-                系统收录赣州景点、美食、非遗与红色文化资源，将碎片化的信息整理成可浏览、可检索的结构化内容体系。
+                围绕景点、文章与主题线索组织内容，帮助用户更快建立整体认知。
               </p>
             </div>
 
@@ -49,9 +48,9 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="position-item__icon">
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
               </div>
-              <h3 class="position-item__title">专题化文化表达</h3>
+              <h3 class="position-item__title">主题化文化表达</h3>
               <p class="position-item__desc">
-                按美食专题、非遗传承、红色记忆等维度组织内容，让每类文化资源都有独立的叙事空间，而不只是扁平的列表罗列。
+                通过专题与内容承接结构，将分散信息整理为更易理解的阅读入口。
               </p>
             </div>
 
@@ -59,9 +58,9 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="position-item__icon">
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </div>
-              <h3 class="position-item__title">AI 智慧问答与行程辅助</h3>
+              <h3 class="position-item__title">智慧辅助服务</h3>
               <p class="position-item__desc">
-                结合本地文旅内容召回与大模型生成能力，提供场景化问答与行程建议，让"问赣州"变成一件可以直接做的事。
+                AI 在平台中承担解释与路径辅助的角色，帮助用户更高效地进入内容。
               </p>
             </div>
           </div>
@@ -73,16 +72,18 @@ import SiteLayout from '../components/SiteLayout.vue';
       <!-- ======================================== -->
       <section class="about-themes">
         <div class="about-themes__inner">
-          <span class="about-section-eyebrow">核心主题</span>
-          <h2 class="about-section-title">城市文化与智慧服务的四个切面</h2>
+          <span class="about-section-eyebrow" style="display: none;">核心主题</span>
+          <h2 class="about-section-title">平台核心主题</h2>
+          <p class="about-position__lead" style="margin-bottom: 40px; max-width: 680px;">
+            平台从城市文化与智慧服务两个层面组织内容，帮助用户从不同切口进入赣州。
+          </p>
 
-          <div class="themes-grid">
+          <div class="themes-grid" style="margin-top: 0;">
             <div class="theme-card">
               <div class="theme-card__number">01</div>
               <h3 class="theme-card__title">千年宋城</h3>
               <p class="theme-card__desc">
-                作为曾经的大宋名城，赣州保留了全国最为完好的宋代古城墙和极其丰富的历史遗迹。
-                从郁孤台到古浮桥，每一步都是与千年历史的直接对谈。
+                从城市历史与地方记忆进入赣州的时间纵深与文化底色。
               </p>
             </div>
 
@@ -90,8 +91,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="theme-card__number">02</div>
               <h3 class="theme-card__title">客家摇篮</h3>
               <p class="theme-card__desc">
-                赣州是全球客家人最大的聚居地之一。传统的围屋建筑、地道的客家饮食与丰富的非遗文化，
-                在这里世代相传，构成独特而鲜活的文化景观。
+                从迁徙、聚落与地方生活方式中理解赣州更深层的人文结构。
               </p>
             </div>
 
@@ -99,8 +99,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="theme-card__number">03</div>
               <h3 class="theme-card__title">红色故都</h3>
               <p class="theme-card__desc">
-                瑞金、于都这片土地孕育了伟大的共和国摇篮。长征从这里出发，
-                坚韧不拔的信念铸就了这片红土地不朽的记忆，也为这座城市留下了深刻的精神底色。
+                从真实历史地点与重要线索进入赣州在红色记忆中的位置。
               </p>
             </div>
 
@@ -108,8 +107,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="theme-card__number">04</div>
               <h3 class="theme-card__title">智慧服务</h3>
               <p class="theme-card__desc">
-                平台将 AI 技术融入文旅场景，提供基于本地知识库的智能问答与个性化行程建议。
-                不是取代人的判断，而是在信息获取和行程规划上提供一份可靠的辅助。
+                通过问答与路径建议，让内容理解、景点浏览与继续探索建立更自然的连接。
               </p>
             </div>
           </div>
@@ -121,10 +119,10 @@ import SiteLayout from '../components/SiteLayout.vue';
       <!-- ======================================== -->
       <section class="about-tech">
         <div class="about-tech__inner">
-          <span class="about-section-eyebrow">设计与实现</span>
-          <h2 class="about-section-title">项目的四个实现维度</h2>
+          <span class="about-section-eyebrow" style="display: none;">设计与实现</span>
+          <h2 class="about-section-title">设计与实现要点</h2>
           <p class="about-tech__lead">
-            本项目作为毕业设计作品，在前端呈现、内容组织、AI 服务与后台管理四个方面进行了完整的设计与实现。
+            这一部分用于说明平台如何从展示站点进一步走向内容组织与智慧导览系统。
           </p>
 
           <div class="tech-grid">
@@ -132,7 +130,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="tech-card__bar"></div>
               <h3 class="tech-card__title">前端呈现</h3>
               <p class="tech-card__desc">
-                基于 Vue 3 构建响应式前台与管理后台，采用现代组件化设计，确保在桌面端与移动端都有良好的浏览体验。
+                以前台页面为入口，建立统一的视觉语言、阅读节奏与多端浏览体验。
               </p>
             </div>
 
@@ -140,7 +138,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="tech-card__bar"></div>
               <h3 class="tech-card__title">内容组织</h3>
               <p class="tech-card__desc">
-                景点、美食、非遗、红色文化等资源通过 MySQL 数据库统一管理，支持分类筛选、详情展示与后台 CRUD 操作。
+                围绕景点、文章、专题与导览关系建立页面层级，提升内容承接能力。
               </p>
             </div>
 
@@ -148,7 +146,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="tech-card__bar"></div>
               <h3 class="tech-card__title">AI 服务</h3>
               <p class="tech-card__desc">
-                结合本地文旅内容召回与大模型生成能力，提供场景化的智能问答与多日行程推荐，所有交互均记录日志以便追溯。
+                结合现有平台内容与生成式能力，为用户提供问答解释与参考性路径建议。
               </p>
             </div>
 
@@ -156,7 +154,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               <div class="tech-card__bar"></div>
               <h3 class="tech-card__title">后台管理</h3>
               <p class="tech-card__desc">
-                管理端支持景点与文章的增删改查、AI 文案辅助生成与日志查看，形成"内容管理 → 前台展示 → AI 服务"的完整闭环。
+                通过后台维护景点、文章与相关内容，形成前台展示与数据管理的基本闭环。
               </p>
             </div>
           </div>
@@ -167,9 +165,9 @@ import SiteLayout from '../components/SiteLayout.vue';
       <!-- 模块 5：底部收束区 -->
       <!-- ======================================== -->
       <section class="about-closing">
-        <div class="about-closing__inner">
-          <h2 class="about-closing__title">以智慧导览，探索千年文脉</h2>
-          <p class="about-closing__desc">从这里出发，开始你的赣州文旅探索之旅</p>
+        <div class="about-closing__inner" style="max-width: 680px;">
+          <h2 class="about-closing__title">从平台理解出发，再进入景点、主题与路径</h2>
+          <p class="about-closing__desc">你可以先浏览内容，也可以从智慧服务开始，再回到相关景点与主题继续探索。</p>
           <div class="about-closing__actions">
             <router-link to="/ai-chat">
               <el-button type="primary" size="large" round>开启智慧问答</el-button>
@@ -177,6 +175,9 @@ import SiteLayout from '../components/SiteLayout.vue';
             <router-link to="/scenic">
               <el-button size="large" round class="about-closing__btn-ghost">浏览精选景点</el-button>
             </router-link>
+          </div>
+          <div style="margin-top: 32px; font-size: 14px; color: var(--gz-text-secondary); letter-spacing: 1px;">
+            在内容理解、景点浏览与智慧导览之间，建立一条更清晰的进入路径。
           </div>
         </div>
       </section>

@@ -113,10 +113,10 @@ function formatContextType(value) {
     <div class="page-shell">
       <section class="trip-hero">
         <div class="trip-hero__content">
-          <div class="trip-hero__eyebrow">行程推荐</div>
-          <h1 class="page-title">赣州行程推荐</h1>
+          <div class="trip-hero__eyebrow">游览建议</div>
+          <h1 class="page-title">赣州行程辅助</h1>
           <p class="page-subtitle">
-            根据出行天数、兴趣方向与节奏偏好，生成一份可参考的赣州游览建议。
+            根据出行偏好，为您梳理一条具备参考性的探索路线与游览建议。
           </p>
         </div>
       </section>
@@ -203,13 +203,45 @@ function formatContextType(value) {
         </div>
 
         <div v-else-if="result" class="trip-result">
+          <el-alert
+            v-if="result.pathPositioning"
+            :title="`定位：${result.pathPositioning}`"
+            type="success"
+            :closable="false"
+            style="margin-bottom: 8px; border-radius: 8px;"
+          />
+
           <el-card class="trip-summary-card">
             <div class="trip-summary-card__meta">
               <el-tag effect="plain" round type="info" size="small">出行节奏：{{ paceLabelMap[formState.pace] }}</el-tag>
               <el-tag effect="plain" round type="info" size="small">交通：{{ transportLabelMap[formState.transport] }}</el-tag>
               <el-tag effect="light" round size="small" class="model-tag">生成模型：{{ result.model_name || '默认模型' }}</el-tag>
             </div>
-            <div class="trip-summary-card__content">{{ result.summary }}</div>
+            
+            <div class="trip-insight-section" v-if="result.routeHighlights?.length || result.suitableFor">
+              <div class="insight-suitable" v-if="result.suitableFor">
+                <strong>适合人群：</strong>{{ result.suitableFor }}
+              </div>
+              <div class="insight-highlights" v-if="result.routeHighlights?.length">
+                <div class="highlights-title">路线亮点</div>
+                <ul class="highlights-list">
+                  <li v-for="(hl, idx) in result.routeHighlights" :key="idx">{{ hl }}</li>
+                </ul>
+              </div>
+            </div>
+
+            <div v-if="result.summary" class="trip-summary-card__content">{{ result.summary }}</div>
+            
+            <div class="trip-related" v-if="result.relatedSpots?.length || result.relatedTopics?.length">
+              <div v-if="result.relatedSpots?.length" class="related-group">
+                <span class="related-label">途经景点：</span>
+                <el-tag v-for="spot in result.relatedSpots" :key="spot" size="small" type="success" effect="plain" round>{{ spot }}</el-tag>
+              </div>
+              <div v-if="result.relatedTopics?.length" class="related-group">
+                <span class="related-label">融合主题：</span>
+                <el-tag v-for="topic in result.relatedTopics" :key="topic" size="small" type="warning" effect="plain" round>{{ topic }}</el-tag>
+              </div>
+            </div>
           </el-card>
 
           <div class="trip-day-list">
@@ -255,13 +287,21 @@ function formatContextType(value) {
           <div class="trip-bottom-cards">
             <el-card class="trip-extra-card">
               <template #header>
-                <div class="trip-extra-card__title">出行提示</div>
+                 <div class="trip-extra-card__title">游览建议与调整参考</div>
               </template>
-              <ul class="trip-tip-list">
-                <li v-for="(tip, index) in result.travelTips || []" :key="`${tip}-${index}`">
-                  {{ tip }}
-                </li>
-              </ul>
+              <div v-if="result.adjustmentSuggestions" class="adjustment-suggestion">
+                <div class="suggestion-title">调整建议</div>
+                <div class="suggestion-content">{{ result.adjustmentSuggestions }}</div>
+              </div>
+              <div v-if="result.travelTips?.length" class="tips-section" :class="{'mt-4': result.adjustmentSuggestions}">
+                <div class="tips-title" v-if="result.adjustmentSuggestions">通用提示</div>
+                <ul class="trip-tip-list">
+                  <li v-for="(tip, index) in result.travelTips" :key="`${tip}-${index}`">
+                    {{ tip }}
+                  </li>
+                </ul>
+              </div>
+              <el-empty v-if="!result.adjustmentSuggestions && (!result.travelTips || !result.travelTips.length)" description="暂无额外建议" :image-size="50" />
             </el-card>
 
             <el-card class="trip-extra-card">
@@ -280,6 +320,10 @@ function formatContextType(value) {
               </div>
               <el-empty v-else description="暂无关联平台内容" :image-size="50" />
             </el-card>
+          </div>
+          
+          <div class="trip-reference-note">
+            说明：以上为特色参考路线，实际游览请结合当日天气、场馆开放时间与个人节奏灵活调整。
           </div>
         </div>
       </section>
@@ -567,6 +611,96 @@ function formatContextType(value) {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.trip-insight-section {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.insight-suitable {
+  font-size: 14px;
+  color: var(--gz-text-regular);
+}
+
+.highlights-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f766e;
+  margin-bottom: 8px;
+}
+
+.highlights-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--gz-text-regular);
+  line-height: 1.6;
+}
+
+.trip-related {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--gz-border-light);
+}
+
+.related-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.related-label {
+  font-size: 13px;
+  color: var(--gz-text-secondary);
+}
+
+.adjustment-suggestion {
+  background: #f0fdfa;
+  padding: 14px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.suggestion-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f766e;
+  margin-bottom: 6px;
+}
+
+.suggestion-content {
+  font-size: 14px;
+  color: var(--gz-text-regular);
+  line-height: 1.6;
+}
+
+.tips-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--gz-text-regular);
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.trip-reference-note {
+  text-align: center;
+  color: var(--gz-text-secondary);
+  font-size: 13px;
+  margin-top: 24px;
+  letter-spacing: 0.5px;
 }
 
 @media (max-width: 900px) {

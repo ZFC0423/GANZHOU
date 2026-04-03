@@ -43,6 +43,11 @@ async function submitQuestion(customQuestion) {
     const response = await postAiChatApi({ question: currentQuestion });
     chatRecords.value.unshift({
       question: currentQuestion,
+      directAnswer: response.data.directAnswer,
+      culturalContext: response.data.culturalContext,
+      relatedTopics: response.data.relatedTopics || [],
+      relatedSpots: response.data.relatedSpots || [],
+      nextSteps: response.data.nextSteps || [],
       answer: response.data.answer,
       modelName: response.data.model_name || '',
       matchedContext: response.data.matchedContext || []
@@ -96,7 +101,7 @@ onMounted(loadRecommendQuestions);
             :rows="3"
             maxlength="200"
             show-word-limit
-            placeholder="例如：赣州有哪些值得一看的历史遗迹？"
+            placeholder="例如：如果我想理解赣州的客家文化，应该从哪里开始？"
           />
 
           <div class="ai-chat-actions">
@@ -166,10 +171,53 @@ onMounted(loadRecommendQuestions);
                     <span class="bubble-name">问答助手</span>
                     <span v-if="item.modelName" class="bubble-model">{{ item.modelName }}</span>
                   </div>
-                  <div class="bubble-text">{{ item.answer }}</div>
+                  <div class="bubble-body">
+                    <!-- 直接回答 (新老字段兼容) -->
+                    <div class="bubble-section bubble-direct" v-if="item.directAnswer || item.answer">
+                      {{ item.directAnswer || item.answer }}
+                    </div>
+                    
+                    <!-- 文化线索 -->
+                    <div class="bubble-section bubble-cultural" v-if="item.culturalContext">
+                      <div class="section-badge">文化线索</div>
+                      <div class="section-content">{{ item.culturalContext }}</div>
+                    </div>
+
+                    <!-- 关联内容 -->
+                    <div class="bubble-related" v-if="item.relatedSpots?.length || item.relatedTopics?.length">
+                      <div v-if="item.relatedSpots?.length" class="related-group">
+                        <span class="related-label">关联景点：</span>
+                        <el-tag 
+                          v-for="spot in item.relatedSpots" :key="spot" 
+                          size="small" type="success" effect="plain" round
+                        >
+                          {{ spot }}
+                        </el-tag>
+                      </div>
+                      <div v-if="item.relatedTopics?.length" class="related-group">
+                        <span class="related-label">关联主题：</span>
+                        <el-tag 
+                          v-for="topic in item.relatedTopics" :key="topic" 
+                          size="small" type="warning" effect="plain" round
+                        >
+                          {{ topic }}
+                        </el-tag>
+                      </div>
+                    </div>
+
+                    <!-- 下一步探索 -->
+                    <div class="bubble-next-steps" v-if="item.nextSteps?.length">
+                      <div class="next-step-title">下一步探索建议</div>
+                      <div class="next-step-list">
+                        <div v-for="(step, idx) in item.nextSteps" :key="idx" class="next-step-item">
+                          <span>{{ step }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   
                   <div class="bubble-context" v-if="item.matchedContext && item.matchedContext.length">
-                    <div class="context-title">参考来源：</div>
+                    <div class="context-title">相关资料线索：</div>
                     <div class="context-tags">
                       <el-tag 
                         v-for="context in item.matchedContext" 
@@ -362,6 +410,102 @@ onMounted(loadRecommendQuestions);
   line-height: 1.75;
   white-space: pre-line;
   font-size: 15px;
+}
+
+.bubble-body {
+  background: #fff;
+  border-radius: 4px 20px 20px 20px;
+  border: 1px solid var(--gz-border-light);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.bubble-section {
+  line-height: 1.75;
+  white-space: pre-line;
+  font-size: 15px;
+  color: var(--gz-text-primary);
+}
+
+.bubble-cultural {
+  background: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border-left: 3px solid var(--gz-brand-primary);
+}
+
+.section-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gz-brand-primary);
+  margin-bottom: 6px;
+}
+
+.section-content {
+  font-size: 14px;
+  color: var(--gz-text-regular);
+}
+
+.bubble-related {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--gz-border-light);
+}
+
+.related-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.related-label {
+  font-size: 13px;
+  color: var(--gz-text-secondary);
+}
+
+.bubble-next-steps {
+  background: #f0fdfa;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.next-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f766e;
+  margin-bottom: 10px;
+}
+
+.next-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.next-step-item {
+  font-size: 14px;
+  color: #0d9488;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.next-step-item::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background-color: #0d9488;
+  border-radius: 50%;
+  margin-top: 8px;
+  flex-shrink: 0;
 }
 
 .bubble-context {

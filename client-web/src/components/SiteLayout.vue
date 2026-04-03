@@ -9,6 +9,8 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/food')) return '/food';
   if (route.path.startsWith('/heritage')) return '/heritage';
   if (route.path.startsWith('/red-culture')) return '/red-culture';
+  if (route.path.startsWith('/ai-chat')) return '/ai-chat';
+  if (route.path.startsWith('/ai-trip')) return '/ai-trip';
   if (route.path.startsWith('/about')) return '/about';
   return route.path;
 });
@@ -18,15 +20,23 @@ const activeMenu = computed(() => {
   <div>
     <header class="site-header">
       <div class="site-header__inner">
-        <router-link class="site-logo" to="/">赣州游智慧服务</router-link>
+        <router-link class="site-logo" to="/">赣州文旅智慧服务平台</router-link>
         <el-menu :default-active="activeMenu" mode="horizontal" router class="site-menu">
-          <el-menu-item index="/">首页探索</el-menu-item>
-          <el-menu-item index="/scenic">景点导览</el-menu-item>
-          <el-menu-item index="/food">地道美食</el-menu-item>
-          <el-menu-item index="/heritage">非遗传承</el-menu-item>
-          <el-menu-item index="/red-culture">红色记忆</el-menu-item>
+          <el-menu-item index="/">首页</el-menu-item>
+          <el-menu-item index="/scenic">景点浏览</el-menu-item>
+          <el-sub-menu index="topic">
+            <template #title>专题探索</template>
+            <el-menu-item index="/red-culture">红色文化</el-menu-item>
+            <el-menu-item index="/heritage">非遗传承</el-menu-item>
+            <el-menu-item index="/food">城市风味</el-menu-item>
+          </el-sub-menu>
+          <el-menu-item index="/ai-chat">智慧问答</el-menu-item>
+          <el-menu-item index="/ai-trip">行程建议</el-menu-item>
           <el-menu-item index="/about">平台介绍</el-menu-item>
         </el-menu>
+      </div>
+      <div class="mobile-nav-helper">
+        探索赣州的文化线索、代表性景点与智慧导览服务。
       </div>
     </header>
 
@@ -34,68 +44,48 @@ const activeMenu = computed(() => {
       <slot />
     </main>
 
-    <!-- ======================================== -->
-    <!-- 全站收束层 Footer -->
-    <!-- ======================================== -->
     <footer class="site-footer">
-      <!-- 第一层：主体内容区 -->
       <div class="footer-main">
         <div class="footer-main__inner">
-          <!-- 平台身份 -->
           <div class="footer-brand">
-            <div class="footer-brand__name">赣州游智慧服务</div>
+            <div class="footer-brand__name">赣州旅游文化智慧服务平台</div>
             <p class="footer-brand__desc">
-              融合千年宋城底蕴与客家山水风情，以 AI 智慧导览为核心，打造赣州文旅一站式探索平台。
+              以主题化内容组织、景点导览与智慧服务能力，连接城市文化记忆与旅行探索体验。
             </p>
           </div>
 
-          <!-- 快速入口：文旅探索 -->
           <div class="footer-nav">
-            <div class="footer-nav__title">文旅探索</div>
-            <router-link to="/scenic">景点探索</router-link>
-            <router-link to="/food">美食专题</router-link>
-            <router-link to="/heritage">非遗专题</router-link>
+            <div class="footer-nav__title">快速入口</div>
+            <router-link to="/scenic">浏览精选景点</router-link>
+            <router-link to="/red-culture">探索专题内容</router-link>
+            <router-link to="/ai-chat">开启智慧问答</router-link>
+            <router-link to="/ai-trip">获取行程建议</router-link>
+            <router-link to="/about">进入平台介绍</router-link>
+          </div>
+
+          <div class="footer-nav">
+            <div class="footer-nav__title">文化主题</div>
             <router-link to="/red-culture">红色文化</router-link>
+            <router-link to="/heritage">非遗传承</router-link>
+            <router-link to="/heritage">客家文化</router-link>
+            <router-link to="/food">城市风味</router-link>
+            <router-link to="/food">老城记忆</router-link>
+            <router-link to="/scenic">山水探索</router-link>
           </div>
 
-          <!-- 快速入口：智慧服务 -->
           <div class="footer-nav">
-            <div class="footer-nav__title">智慧服务</div>
-            <router-link to="/ai-chat">智能问答</router-link>
-            <router-link to="/ai-trip">行程推荐</router-link>
-            <router-link to="/about">平台介绍</router-link>
-          </div>
-
-          <!-- 快速入口：关于平台 -->
-          <div class="footer-nav">
-            <div class="footer-nav__title">了解更多</div>
-            <router-link to="/about">设计理念</router-link>
-            <router-link to="/">返回首页</router-link>
+            <div class="footer-nav__title">探索指引</div>
+            <p class="footer-brand__desc" style="margin-top: 4px;">
+              从内容理解出发，在浏览、问答与路径建议之间，逐步进入赣州。
+            </p>
           </div>
         </div>
       </div>
 
-      <!-- 第二层：文化关键词带 -->
-      <div class="footer-keywords">
-        <div class="footer-keywords__inner">
-          <span>千年宋城</span>
-          <span class="footer-keywords__dot">·</span>
-          <span>客家摇篮</span>
-          <span class="footer-keywords__dot">·</span>
-          <span>红色故都</span>
-          <span class="footer-keywords__dot">·</span>
-          <span>非遗匠心</span>
-          <span class="footer-keywords__dot">·</span>
-          <span>智慧服务</span>
-        </div>
-      </div>
-
-      <!-- 第三层：版权底栏 -->
       <div class="footer-bottom">
         <div class="footer-bottom__inner">
-          <span>© 2025 赣州旅游文化智慧服务平台</span>
-          <span class="footer-bottom__sep">|</span>
-          <span>毕业设计作品</span>
+          <div class="footer-bottom__row">赣州旅游文化智慧服务平台 · 毕业设计项目展示</div>
+          <div class="footer-bottom__row copyright-note">内容展示以平台现有资料为基础，部分原始条目暂保留既有命名方式。</div>
         </div>
       </div>
     </footer>
@@ -141,14 +131,16 @@ const activeMenu = computed(() => {
   background: transparent;
 }
 
-:deep(.el-menu--horizontal > .el-menu-item) {
+:deep(.el-menu--horizontal > .el-menu-item),
+:deep(.el-menu--horizontal > .el-sub-menu > .el-sub-menu__title) {
   font-size: 15px;
   font-weight: 500;
   color: var(--gz-text-regular);
   transition: var(--gz-transition-base);
 }
 
-:deep(.el-menu--horizontal > .el-menu-item.is-active) {
+:deep(.el-menu--horizontal > .el-menu-item.is-active),
+:deep(.el-menu--horizontal > .el-sub-menu.is-active > .el-sub-menu__title) {
   color: var(--gz-brand-primary) !important;
   border-bottom: 2px solid var(--gz-brand-primary) !important;
   font-weight: 600;
@@ -237,45 +229,33 @@ const activeMenu = computed(() => {
   width: 100%;
 }
 
-/* 第二层：文化关键词带 */
-.footer-keywords {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-}
-
-.footer-keywords__inner {
+.footer-bottom__inner {
   max-width: 1180px;
   margin: 0 auto;
   padding: 24px 20px;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  flex-wrap: wrap;
   gap: 6px;
   font-size: 13px;
   color: #64748b;
-  letter-spacing: 2px;
+  letter-spacing: 0.5px;
 }
 
-.footer-keywords__dot {
-  color: #475569;
-  margin: 0 4px;
-}
-
-/* 第三层：版权底栏 */
-.footer-bottom__inner {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 20px 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
+.copyright-note {
   font-size: 12px;
   color: #475569;
+  margin-top: 4px;
 }
 
-.footer-bottom__sep {
-  color: #334155;
+.mobile-nav-helper {
+  display: none;
+  font-size: 12px;
+  color: var(--gz-text-secondary);
+  background: var(--gz-bg-page);
+  padding: 8px 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--gz-border-light);
 }
 
 /* ================================================
@@ -296,6 +276,10 @@ const activeMenu = computed(() => {
     overflow-y: hidden;
     scrollbar-width: none;
     padding-bottom: 4px;
+  }
+
+  .mobile-nav-helper {
+    display: block;
   }
 
   .site-menu::-webkit-scrollbar {
@@ -340,12 +324,8 @@ const activeMenu = computed(() => {
   }
 
   .footer-bottom__inner {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .footer-bottom__sep {
-    display: none;
+    text-align: center;
+    gap: 8px;
   }
 }
 </style>
