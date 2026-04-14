@@ -37,25 +37,27 @@ onMounted(loadSummary);
 
 <template>
   <AdminShell>
-    <el-row :gutter="16" v-loading="loading">
-      <el-col :span="8">
-        <el-card>
-          <div style="font-size: 14px; color: #6b7280;">Scenic Total</div>
-          <div style="font-size: 28px; font-weight: 700; margin-top: 12px;">{{ summary.scenicTotal }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card>
-          <div style="font-size: 14px; color: #6b7280;">Article Total</div>
-          <div style="font-size: 28px; font-weight: 700; margin-top: 12px;">{{ summary.articleTotal }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card>
-          <div style="font-size: 14px; color: #6b7280;">Banner Total</div>
-          <div style="font-size: 28px; font-weight: 700; margin-top: 12px;">{{ summary.bannerTotal }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="admin-page">
+      <el-row class="admin-metrics" :gutter="16" v-loading="loading">
+        <el-col :span="8">
+          <el-card>
+            <div class="admin-metric-card__label">Scenic Total</div>
+            <div class="admin-metric-card__value">{{ summary.scenicTotal }}</div>
+          </el-card>
+        </el-col>
+        <el-col :span="8">
+          <el-card>
+            <div class="admin-metric-card__label">Article Total</div>
+            <div class="admin-metric-card__value">{{ summary.articleTotal }}</div>
+          </el-card>
+        </el-col>
+        <el-col :span="8">
+          <el-card>
+            <div class="admin-metric-card__label">Banner Total</div>
+            <div class="admin-metric-card__value">{{ summary.bannerTotal }}</div>
+          </el-card>
+        </el-col>
+      </el-row>
+    </div>
   </AdminShell>
 </template>

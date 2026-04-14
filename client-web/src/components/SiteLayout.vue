@@ -75,7 +75,7 @@ const activeMenu = computed(() => {
 
           <div class="footer-nav">
             <div class="footer-nav__title">探索指引</div>
-            <p class="footer-brand__desc" style="margin-top: 4px;">
+            <p class="footer-brand__desc footer-brand__desc--compact">
               从内容理解出发，在浏览、问答与路径建议之间，逐步进入赣州。
             </p>
           </div>
@@ -96,31 +96,46 @@ const activeMenu = computed(() => {
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 20;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--gz-border-light);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
-  transition: var(--gz-transition-base);
+  z-index: var(--z-header);
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(236, 231, 223, 0.92);
+  box-shadow: 0 6px 20px rgba(34, 34, 34, 0.04);
+  transition: var(--transition-base);
 }
 
 .site-header__inner {
-  max-width: 1180px;
+  max-width: var(--container-page);
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 12px var(--page-gutter-current);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  height: 64px;
+  gap: 24px;
+  min-height: 76px;
 }
 
 .site-logo {
-  font-size: 22px;
+  position: relative;
+  padding-left: 18px;
+  font-size: 20px;
   font-weight: 700;
-  color: var(--gz-brand-primary);
+  color: var(--color-text-primary);
   white-space: nowrap;
-  letter-spacing: 1px;
+  letter-spacing: var(--tracking-tight-1);
+}
+
+.site-logo::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 6px rgba(255, 56, 92, 0.12);
+  transform: translateY(-50%);
 }
 
 .site-menu {
@@ -131,18 +146,35 @@ const activeMenu = computed(() => {
   background: transparent;
 }
 
+:deep(.site-menu.el-menu--horizontal) {
+  gap: 8px;
+  border-bottom: none;
+}
+
 :deep(.el-menu--horizontal > .el-menu-item),
 :deep(.el-menu--horizontal > .el-sub-menu > .el-sub-menu__title) {
+  height: 44px;
+  padding: 0 14px;
+  border-bottom: none !important;
+  border-radius: 999px;
   font-size: 15px;
-  font-weight: 500;
-  color: var(--gz-text-regular);
-  transition: var(--gz-transition-base);
+  font-weight: 600;
+  line-height: 44px;
+  color: var(--color-text-secondary);
+  transition: var(--transition-base);
+}
+
+:deep(.el-menu--horizontal > .el-menu-item:hover),
+:deep(.el-menu--horizontal > .el-sub-menu > .el-sub-menu__title:hover) {
+  background: rgba(255, 56, 92, 0.06);
+  color: var(--color-text-primary);
 }
 
 :deep(.el-menu--horizontal > .el-menu-item.is-active),
 :deep(.el-menu--horizontal > .el-sub-menu.is-active > .el-sub-menu__title) {
-  color: var(--gz-brand-primary) !important;
-  border-bottom: 2px solid var(--gz-brand-primary) !important;
+  color: var(--color-accent) !important;
+  background: rgba(255, 56, 92, 0.08);
+  border-bottom: none !important;
   font-weight: 600;
 }
 
@@ -151,78 +183,84 @@ const activeMenu = computed(() => {
    ================================================ */
 .site-footer {
   margin-top: 80px;
-  background: #0c1222;
-  color: #cbd5e1;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), #f7f4ef);
+  border-top: 1px solid rgba(236, 231, 223, 0.92);
+  color: var(--color-text-secondary);
 }
 
 /* 第一层：主体内容 */
 .footer-main {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-bottom: 1px solid rgba(221, 216, 209, 0.8);
 }
 
 .footer-main__inner {
-  max-width: 1180px;
+  max-width: var(--container-page);
   margin: 0 auto;
-  padding: 64px 20px 56px;
+  padding: clamp(48px, 7vw, 64px) var(--page-gutter-current) clamp(36px, 6vw, 56px);
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 0.8fr;
-  gap: 48px;
+  grid-template-columns: 1.5fr 1fr 1fr 0.9fr;
+  gap: 32px 40px;
 }
 
 /* 平台身份 */
 .footer-brand__name {
   font-size: 20px;
   font-weight: 700;
-  color: #ffffff;
-  letter-spacing: 1px;
-  margin-bottom: 16px;
+  color: var(--color-text-primary);
+  letter-spacing: var(--tracking-tight-1);
+  margin-bottom: 14px;
 }
 
 .footer-brand__desc {
   margin: 0;
   font-size: 14px;
-  color: #94a3b8;
-  line-height: 1.85;
-  max-width: 320px;
+  color: var(--color-text-secondary);
+  line-height: var(--line-loose);
+  max-width: 360px;
+}
+
+.footer-brand__desc--compact {
+  margin-top: 4px;
 }
 
 /* 导航列 */
 .footer-nav {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .footer-nav__title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  color: #e2e8f0;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  color: var(--color-text-tertiary);
+  letter-spacing: var(--tracking-wide);
+  margin-bottom: 8px;
+  text-transform: uppercase;
 }
 
 .footer-nav a {
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--color-text-secondary);
   display: inline-block;
   width: fit-content;
   position: relative;
-  transition: color 0.25s ease;
+  transition: color var(--transition-base);
 }
 
 .footer-nav a:hover {
-  color: #ffffff;
+  color: var(--color-text-primary);
 }
 
 .footer-nav a::after {
   content: '';
   position: absolute;
-  bottom: -2px;
+  bottom: -3px;
   left: 0;
   width: 0;
   height: 1px;
-  background: rgba(255, 255, 255, 0.6);
-  transition: width 0.3s ease;
+  background: var(--color-accent);
+  transition: width var(--transition-base);
 }
 
 .footer-nav a:hover::after {
@@ -230,32 +268,30 @@ const activeMenu = computed(() => {
 }
 
 .footer-bottom__inner {
-  max-width: 1180px;
+  max-width: var(--container-page);
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 22px var(--page-gutter-current) 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #64748b;
-  letter-spacing: 0.5px;
+  color: var(--color-text-tertiary);
+  text-align: center;
 }
 
 .copyright-note {
   font-size: 12px;
-  color: #475569;
-  margin-top: 4px;
 }
 
 .mobile-nav-helper {
   display: none;
   font-size: 12px;
-  color: var(--gz-text-secondary);
-  background: var(--gz-bg-page);
-  padding: 8px 20px;
+  color: var(--color-text-tertiary);
+  background: rgba(255, 255, 255, 0.76);
+  padding: 10px var(--page-gutter-current);
   text-align: center;
-  border-bottom: 1px solid var(--gz-border-light);
+  border-top: 1px solid rgba(236, 231, 223, 0.72);
 }
 
 /* ================================================
@@ -265,8 +301,8 @@ const activeMenu = computed(() => {
   .site-header__inner {
     flex-direction: column;
     align-items: stretch;
-    padding-top: 12px;
-    height: auto;
+    padding-bottom: 12px;
+    min-height: auto;
   }
 
   .site-menu {
@@ -288,13 +324,15 @@ const activeMenu = computed(() => {
 
   :deep(.site-menu.el-menu--horizontal > .el-menu-item) {
     flex-shrink: 0;
-    padding: 0 14px;
+  }
+
+  :deep(.site-menu.el-menu--horizontal > .el-sub-menu) {
+    flex-shrink: 0;
   }
 
   .footer-main__inner {
     grid-template-columns: 1fr 1fr;
-    gap: 40px 32px;
-    padding: 48px 20px 40px;
+    gap: 32px 24px;
   }
 
   .footer-brand {
@@ -305,26 +343,16 @@ const activeMenu = computed(() => {
 @media (max-width: 600px) {
   .footer-main__inner {
     grid-template-columns: 1fr;
-    gap: 32px;
-    padding: 40px 20px 32px;
-  }
-
-  .footer-brand {
-    grid-column: auto;
+    gap: 28px;
   }
 
   .footer-brand__desc {
     max-width: 100%;
   }
 
-  .footer-keywords__inner {
-    gap: 4px;
-    font-size: 12px;
-    letter-spacing: 1px;
-  }
-
   .footer-bottom__inner {
-    text-align: center;
+    align-items: flex-start;
+    text-align: left;
     gap: 8px;
   }
 }

@@ -76,12 +76,14 @@ onMounted(loadHomeData);
 <template>
   <SiteLayout>
     <div class="home-page">
-      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" style="margin: 24px auto; max-width: 1180px;" />
-      <div v-if="errorMessage" style="margin: 0 auto 24px; max-width: 1180px; padding: 0 20px;">
+      <div v-if="errorMessage" class="page-feedback">
+        <el-alert :title="errorMessage" type="error" show-icon :closable="false" />
+      </div>
+      <div v-if="errorMessage" class="page-feedback page-feedback--actions">
         <el-button @click="loadHomeData">重试请求</el-button>
       </div>
 
-      <el-skeleton v-if="loading" :rows="12" animated style="max-width: 1180px; margin: 0 auto; padding: 32px 20px;" />
+      <el-skeleton v-if="loading" :rows="12" animated class="page-skeleton" />
 
       <template v-else>
 
@@ -89,7 +91,7 @@ onMounted(loadHomeData);
         <!-- 模块 1：非对称 Hero 首屏 -->
         <!-- ========================================== -->
         <section class="hero">
-          <div class="hero__inner">
+          <div class="hero__inner section-inner">
             <div class="hero__visual">
               <el-carousel
                 v-if="homeData.banners.length"
@@ -109,13 +111,13 @@ onMounted(loadHomeData);
                     />
                     <div class="hero__visual-caption">
                       {{ item.title }}
-                      <div style="font-size: 13px; font-weight: 400; opacity: 0.8; margin-top: 4px;">真实场景与主题化编排，共同构成赣州的城市记忆与旅行入口。</div>
+                      <div class="hero__visual-caption-note">真实场景与主题化编排，共同构成赣州的城市记忆与旅行入口。</div>
                     </div>
                   </router-link>
                 </el-carousel-item>
               </el-carousel>
               <div v-else class="hero__visual-placeholder">
-                <span style="font-size: 15px; padding: 20px; text-align: center;">当前内容已进入整理阶段，图片素材将随页面内容一并补齐。</span>
+                <span class="hero__visual-placeholder-text">当前内容已进入整理阶段，图片素材将随页面内容一并补齐。</span>
               </div>
             </div>
 
@@ -137,8 +139,8 @@ onMounted(loadHomeData);
 
             <div class="hero__ai-float">
               <div class="ai-float__dot"></div>
-              <div class="ai-float__label" style="font-size: 13px;">路线说明</div>
-              <p class="ai-float__desc" style="color: var(--gz-text-regular); font-weight: 400; font-size: 13.5px; margin-bottom: 0;">从代表性景点进入城市线索，从主题阅读进入文化理解，从 AI 导览进入更高效的探索方式。</p>
+              <div class="ai-float__label">路线说明</div>
+              <p class="ai-float__desc">从代表性景点进入城市线索，从主题阅读进入文化理解，从 AI 导览进入更高效的探索方式。</p>
             </div>
           </div>
         </section>
@@ -147,7 +149,7 @@ onMounted(loadHomeData);
         <!-- 模块 2：AI 智慧服务入口区 -->
         <!-- ========================================== -->
         <section class="ai-services">
-          <div class="ai-services__inner">
+          <div class="ai-services__inner section-inner">
             <div class="ai-services__header">
               <span class="section-eyebrow">智慧服务</span>
               <h2 class="section-title">让问题、路径与内容之间建立更自然的连接</h2>
@@ -178,7 +180,7 @@ onMounted(loadHomeData);
               </router-link>
             </div>
 
-            <div style="text-align: center; margin-top: 32px; font-size: 13px; color: var(--gz-text-secondary);">
+            <div class="section-note section-note--center ai-services__note">
               所有结果均基于平台现有内容进行组织与辅助，适合用作浏览、理解与初步规划的参考。
             </div>
           </div>
@@ -188,7 +190,7 @@ onMounted(loadHomeData);
         <!-- 模块 3：精选探索区 -->
         <!-- ========================================== -->
         <section class="explore">
-          <div class="explore__inner">
+          <div class="explore__inner section-inner">
             <div class="explore__header">
               <span class="section-eyebrow">精选探索</span>
               <h2 class="section-title">从三个主题切口开始理解这座城市</h2>
@@ -204,13 +206,13 @@ onMounted(loadHomeData);
                     :alt="homeData.recommends.redCulture[0]?.title"
                     @error="(event) => applyImageFallback(event, '红色文化')"
                   />
-                  <div v-else style="width:100%; height:100%; background:#334155;"></div>
+                  <div v-else class="explore-card__fallback explore-card__fallback--red"></div>
                 </div>
                 <div class="explore-card__overlay">
                   <span class="explore-card__tag">主题探索</span>
                   <h3 class="explore-card__title">红色文化</h3>
                   <p class="explore-card__desc">从真实历史地点与重要文化线索进入赣州在红色记忆中的位置。</p>
-                  <span style="display:inline-block; margin-top:16px; font-size: 14px; font-weight: 600;">进入主题 →</span>
+                  <span class="explore-card__link explore-card__link--large">进入主题 →</span>
                 </div>
               </router-link>
 
@@ -222,13 +224,13 @@ onMounted(loadHomeData);
                     :alt="homeData.recommends.heritage[0]?.title"
                     @error="(event) => applyImageFallback(event, '非遗')"
                   />
-                  <div v-else style="width:100%; height:100%; background:#1e293b;"></div>
+                  <div v-else class="explore-card__fallback explore-card__fallback--heritage"></div>
                 </div>
                 <div class="explore-card__overlay">
                   <span class="explore-card__tag">主题探索</span>
                   <h3 class="explore-card__title">非遗与客家文化</h3>
-                  <p class="explore-card__desc" style="font-size: 13px;">从手艺、迁徙与地方生活方式中，理解赣州更深层的人文结构。</p>
-                  <span style="display:inline-block; margin-top:8px; font-size: 12px; font-weight: 600;">进入主题 →</span>
+                  <p class="explore-card__desc explore-card__desc--compact">从手艺、迁徙与地方生活方式中，理解赣州更深层的人文结构。</p>
+                  <span class="explore-card__link">进入主题 →</span>
                 </div>
               </router-link>
 
@@ -240,13 +242,13 @@ onMounted(loadHomeData);
                     :alt="homeData.recommends.food[0]?.title"
                     @error="(event) => applyImageFallback(event, '美食')"
                   />
-                  <div v-else style="width:100%; height:100%; background:#475569;"></div>
+                  <div v-else class="explore-card__fallback explore-card__fallback--food"></div>
                 </div>
                 <div class="explore-card__overlay">
                   <span class="explore-card__tag">主题探索</span>
                   <h3 class="explore-card__title">城市风味与老城体验</h3>
-                  <p class="explore-card__desc" style="font-size: 13px;">从地方风味、街区记忆与日常生活切面，进入更具温度的城市阅读路径。</p>
-                  <span style="display:inline-block; margin-top:8px; font-size: 12px; font-weight: 600;">进入主题 →</span>
+                  <p class="explore-card__desc explore-card__desc--compact">从地方风味、街区记忆与日常生活切面，进入更具温度的城市阅读路径。</p>
+                  <span class="explore-card__link">进入主题 →</span>
                 </div>
               </router-link>
             </div>
@@ -257,17 +259,17 @@ onMounted(loadHomeData);
         <!-- 模块 4：精选推荐内容区 -->
         <!-- ========================================== -->
         <section class="featured">
-          <div class="featured__inner">
+          <div class="featured__inner section-inner">
             <div class="featured-block">
-              <div class="featured-block__header" style="flex-direction: column; align-items: flex-start;">
+              <div class="featured-block__header featured-block__header--stacked">
                 <div>
                   <span class="section-eyebrow">推荐内容</span>
                   <h2 class="section-title">从代表性景点与内容节点开始浏览</h2>
-                  <p class="section-desc" style="margin-top: 12px; max-width: 600px;">如果你更希望从具体地点进入，平台会为你保留一条更直接的浏览路径。你可以先看代表性景点，再延伸到相关主题、文化线索与智慧服务。</p>
+                  <p class="section-desc featured-block__desc">如果你更希望从具体地点进入，平台会为你保留一条更直接的浏览路径。你可以先看代表性景点，再延伸到相关主题、文化线索与智慧服务。</p>
                 </div>
               </div>
 
-              <p style="margin-bottom: 24px; color: var(--gz-text-regular); font-size: 14px;">以下内容为平台当前阶段优先整理的代表性节点，适合作为浏览起点。</p>
+              <p class="featured-block__note">以下内容为平台当前阶段优先整理的代表性节点，适合作为浏览起点。</p>
 
               <el-empty v-if="!homeData.recommends.scenic.length" description="当前推荐内容仍在补充中。你可以先从专题探索或智慧服务入口继续浏览。" />
 
@@ -288,9 +290,9 @@ onMounted(loadHomeData);
                   <div class="featured-card__body">
                     <h3>{{ item.name }}</h3>
                     <p>{{ item.intro || '平台已按中文阅读路径进行整理与导览，适合作为进入主题的第一站。' }}</p>
-                    <div class="featured-card__meta" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="featured-card__meta meta-row">
                       <span class="meta-region"><el-icon><Location /></el-icon> {{ item.region || '赣州' }}</span>
-                      <span style="color: var(--gz-brand-primary); font-weight: 600;">查看详情</span>
+                      <span class="featured-card__link">查看详情</span>
                     </div>
                   </div>
                 </router-link>
@@ -317,7 +319,7 @@ onMounted(loadHomeData);
                     <span class="article-card__cat">相关主题</span>
                     <h3>{{ item.title }}</h3>
                     <p>{{ item.summary || '从这里开始了解相关线索，可继续延伸到相关景点与内容。' }}</p>
-                    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--gz-border-light); font-size: 13px; color: var(--gz-brand-primary); font-weight: 600; text-align: right;">
+                    <div class="article-card__link">
                       继续探索 →
                     </div>
                   </div>
@@ -331,11 +333,11 @@ onMounted(loadHomeData);
         <!-- 模块 5：平台价值说明区 -->
         <!-- ========================================== -->
         <section class="value">
-          <div class="value__inner">
+          <div class="value__inner section-inner">
             <div class="value__header">
               <span class="section-eyebrow">平台定位</span>
               <h2 class="section-title">它不是只展示景点，也不仅是一个 AI 功能入口</h2>
-              <p class="section-desc" style="margin: 0 auto; max-width: 680px;">平台尝试把主题化内容组织、景点浏览、文化解释与路径建议放在同一套探索系统中。<br/>用户既可以从内容进入，也可以从 AI 进入，再回到景点与主题继续阅读。</p>
+              <p class="section-desc section-copy section-copy--center">平台尝试把主题化内容组织、景点浏览、文化解释与路径建议放在同一套探索系统中。<br/>用户既可以从内容进入，也可以从 AI 进入，再回到景点与主题继续阅读。</p>
             </div>
             <div class="value__grid">
               <div class="value-card">
@@ -372,7 +374,7 @@ onMounted(loadHomeData);
                 <el-button size="large" round class="closing__btn-ghost">开启智慧问答</el-button>
               </router-link>
             </div>
-            <div style="margin-top: 24px; font-size: 14px; color: var(--gz-text-secondary); letter-spacing: 1px;">
+            <div class="section-note section-note--center closing__note">
               在内容、景点与智慧导览之间，建立一条属于你的探索路径。
             </div>
           </div>
@@ -388,38 +390,15 @@ onMounted(loadHomeData);
    通用节拍系统
    ================================================ */
 .home-page {
-  background: #fafaf9;
+  background: transparent;
 }
 
-.section-eyebrow {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  color: var(--gz-brand-primary);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-
-.section-title {
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--gz-brand-secondary);
-  margin: 0 0 12px;
-  letter-spacing: -0.5px;
-  line-height: 1.25;
-}
-
-.section-desc {
-  font-size: 16px;
-  color: var(--gz-text-secondary);
-  margin: 0;
-  line-height: 1.7;
+.home-page .section-desc {
   max-width: 520px;
 }
 
 .section-more {
-  color: var(--gz-brand-primary);
+  color: var(--color-accent);
   font-weight: 600;
   font-size: 15px;
   white-space: nowrap;
@@ -434,13 +413,11 @@ onMounted(loadHomeData);
    模块 1：非对称 Hero
    ================================================ */
 .hero {
-  padding: 0 20px;
+  padding: 0 var(--page-gutter-current);
   margin-bottom: 80px;
 }
 
 .hero__inner {
-  max-width: 1180px;
-  margin: 0 auto;
   padding-top: 40px;
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
@@ -451,12 +428,13 @@ onMounted(loadHomeData);
 
 .hero__visual {
   grid-row: 1 / 3;
-  border-radius: var(--gz-radius-lg);
+  border-radius: var(--radius-panel);
   overflow: hidden;
-  background: #e2e8f0;
+  background: var(--surface-muted);
   position: relative;
   height: 540px;
   min-height: 540px;
+  box-shadow: var(--shadow-card);
 }
 
 .hero__carousel {
@@ -492,11 +470,18 @@ onMounted(loadHomeData);
   left: 0;
   right: 0;
   padding: 48px 32px 28px;
-  background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.75));
+  background: linear-gradient(180deg, transparent, rgba(34, 34, 34, 0.62));
   color: #fff;
   font-size: 20px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--tracking-tight-1);
+}
+
+.hero__visual-caption-note {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.8;
 }
 
 .hero__visual-placeholder {
@@ -506,11 +491,19 @@ onMounted(loadHomeData);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f0fdfa, #e0f2fe);
-  color: var(--gz-text-secondary);
+  background:
+    radial-gradient(circle at top right, rgba(255, 56, 92, 0.12), transparent 35%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.96));
+  color: var(--color-text-tertiary);
   font-size: 24px;
-  font-weight: 300;
+  font-weight: 500;
   letter-spacing: 4px;
+}
+
+.hero__visual-placeholder-text {
+  padding: 20px;
+  font-size: 15px;
+  text-align: center;
 }
 
 .hero__copy {
@@ -523,24 +516,25 @@ onMounted(loadHomeData);
 .hero__eyebrow {
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 2px;
-  color: var(--gz-brand-primary);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-accent);
   margin-bottom: 16px;
+  text-transform: uppercase;
 }
 
 .hero__title {
   font-size: 46px;
-  font-weight: 800;
-  color: var(--gz-brand-secondary);
-  line-height: 1.2;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.1;
   margin: 0 0 20px;
-  letter-spacing: -1px;
+  letter-spacing: var(--tracking-tight-2);
 }
 
 .hero__desc {
   font-size: 15px;
-  color: var(--gz-text-regular);
-  line-height: 1.9;
+  color: var(--color-text-secondary);
+  line-height: var(--line-loose);
   margin: 0 0 28px;
 }
 
@@ -560,22 +554,22 @@ onMounted(loadHomeData);
   padding: 0 28px;
   font-weight: 600;
   font-size: 15px;
-  background: transparent;
-  border: 1px solid var(--gz-border-light);
-  color: var(--gz-brand-secondary);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-soft);
+  color: var(--color-text-primary);
 }
 
 .cta-ghost:hover {
-  border-color: var(--gz-brand-primary);
-  color: var(--gz-brand-primary);
+  border-color: var(--border-accent);
+  color: var(--color-accent);
 }
 
 .hero__ai-float {
-  background: #fff;
-  border-radius: var(--gz-radius-md);
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: var(--radius-card);
   padding: 24px 28px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
-  border: 1px solid var(--gz-border-light);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(236, 231, 223, 0.9);
   position: relative;
 }
 
@@ -583,30 +577,26 @@ onMounted(loadHomeData);
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #10b981;
+  background: var(--color-accent);
   position: absolute;
   top: 28px;
   right: 28px;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  animation: soft-pulse 2s infinite;
 }
 
 .ai-float__label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--gz-brand-secondary);
+  color: var(--color-text-primary);
   margin-bottom: 6px;
 }
 
 .ai-float__desc {
-  font-size: 14px;
-  color: var(--gz-text-secondary);
-  margin: 0 0 12px;
-  line-height: 1.6;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.7;
 }
 
 .ai-float__link {
@@ -623,13 +613,8 @@ onMounted(loadHomeData);
    模块 2：AI 智慧服务
    ================================================ */
 .ai-services {
-  padding: 0 20px;
+  padding: 0 var(--page-gutter-current);
   margin-bottom: 96px;
-}
-
-.ai-services__inner {
-  max-width: 1180px;
-  margin: 0 auto;
 }
 
 .ai-services__header {
@@ -641,6 +626,10 @@ onMounted(loadHomeData);
   margin: 0 auto;
 }
 
+.ai-services__note {
+  margin-top: 32px;
+}
+
 .ai-services__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -648,25 +637,14 @@ onMounted(loadHomeData);
 }
 
 .ai-card {
-  display: flex;
-  flex-direction: column;
   padding: 40px 36px;
-  border-radius: var(--gz-radius-lg);
-  border: 1px solid var(--gz-border-light);
-  background: #fff;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
   cursor: pointer;
-}
-
-.ai-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
 }
 
 .ai-card__icon {
   width: 56px;
   height: 56px;
-  border-radius: 14px;
+  border-radius: var(--radius-badge);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -674,25 +652,26 @@ onMounted(loadHomeData);
 }
 
 .ai-card--chat .ai-card__icon {
-  background: #f0fdf4;
-  color: #059669;
+  background: rgba(255, 56, 92, 0.1);
+  color: var(--color-accent);
 }
 
 .ai-card--trip .ai-card__icon {
-  background: #eff6ff;
-  color: #2563eb;
+  background: rgba(34, 34, 34, 0.06);
+  color: var(--color-text-primary);
 }
 
 .ai-card__title {
   font-size: 22px;
   font-weight: 700;
-  color: var(--gz-brand-secondary);
+  color: var(--color-text-primary);
   margin: 0 0 12px;
+  letter-spacing: var(--tracking-tight-1);
 }
 
 .ai-card__desc {
   font-size: 15px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   line-height: 1.75;
   margin: 0 0 24px;
   flex: 1;
@@ -701,20 +680,15 @@ onMounted(loadHomeData);
 .ai-card__action {
   font-size: 15px;
   font-weight: 600;
-  color: var(--gz-brand-primary);
+  color: var(--color-accent);
 }
 
 /* ================================================
    模块 3：精选探索区（策展入口墙）
    ================================================ */
 .explore {
-  padding: 0 20px;
+  padding: 0 var(--page-gutter-current);
   margin-bottom: 96px;
-}
-
-.explore__inner {
-  max-width: 1180px;
-  margin: 0 auto;
 }
 
 .explore__header {
@@ -730,16 +704,17 @@ onMounted(loadHomeData);
 
 .explore-card {
   position: relative;
-  border-radius: var(--gz-radius-lg);
+  border-radius: var(--radius-panel);
   overflow: hidden;
   cursor: pointer;
   display: block;
+  box-shadow: var(--shadow-card);
 }
 
 .explore-card__bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #1e293b, #334155);
+  background: linear-gradient(135deg, #2f2424, #4a2e34);
 }
 
 .explore-card__bg img {
@@ -766,12 +741,30 @@ onMounted(loadHomeData);
   color: #fff;
 }
 
+.explore-card__fallback {
+  width: 100%;
+  height: 100%;
+}
+
+.explore-card__fallback--red {
+  background: linear-gradient(135deg, #553139, #8a3e4d);
+}
+
+.explore-card__fallback--heritage {
+  background: linear-gradient(135deg, #2d2b33, #5b5146);
+}
+
+.explore-card__fallback--food {
+  background: linear-gradient(135deg, #5f4335, #8d5c44);
+}
+
 .explore-card__tag {
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 1.5px;
+  letter-spacing: var(--tracking-wide);
   opacity: 0.8;
   margin-bottom: 8px;
+  text-transform: uppercase;
 }
 
 .explore-card__title {
@@ -789,6 +782,22 @@ onMounted(loadHomeData);
   max-width: 380px;
 }
 
+.explore-card__desc--compact {
+  font-size: 13px;
+}
+
+.explore-card__link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.explore-card__link--large {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
 .explore-card--large {
   grid-row: 1 / 3;
 }
@@ -801,13 +810,8 @@ onMounted(loadHomeData);
    模块 4：精选推荐内容区
    ================================================ */
 .featured {
-  padding: 0 20px;
+  padding: 0 var(--page-gutter-current);
   margin-bottom: 96px;
-}
-
-.featured__inner {
-  max-width: 1180px;
-  margin: 0 auto;
 }
 
 .featured-block {
@@ -826,6 +830,22 @@ onMounted(loadHomeData);
   margin-bottom: 32px;
 }
 
+.featured-block__header--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.featured-block__desc {
+  margin-top: 12px;
+  max-width: 600px;
+}
+
+.featured-block__note {
+  margin: 0 0 24px;
+  color: var(--color-text-secondary);
+  font-size: var(--gz-text-md);
+}
+
 .featured-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -837,54 +857,23 @@ onMounted(loadHomeData);
 }
 
 .featured-card {
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  border-radius: var(--gz-radius-md);
-  overflow: hidden;
-  border: 1px solid var(--gz-border-light);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.featured-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
 }
 
 .featured-card__img-box {
   height: 200px;
-  overflow: hidden;
-}
-
-.featured-card__img-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-
-.featured-card:hover .featured-card__img-box img {
-  transform: scale(1.04);
-}
-
-.featured-card__body {
-  padding: 20px 24px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
 }
 
 .featured-card__body h3 {
   font-size: 18px;
   font-weight: 700;
-  color: var(--gz-brand-secondary);
+  color: var(--color-text-primary);
   margin: 0 0 10px;
   line-height: 1.35;
 }
 
 .featured-card__body p {
   font-size: 14px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   line-height: 1.7;
   margin: 0;
   flex: 1;
@@ -898,6 +887,11 @@ onMounted(loadHomeData);
   color: var(--gz-text-secondary);
 }
 
+.featured-card__link {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
 .meta-region {
   display: flex;
   align-items: center;
@@ -906,64 +900,41 @@ onMounted(loadHomeData);
 
 /* 文章卡片 */
 .article-card {
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  border-radius: var(--gz-radius-md);
-  overflow: hidden;
-  border: 1px solid var(--gz-border-light);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.article-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
 }
 
 .article-card__img-box {
   height: 160px;
-  overflow: hidden;
-}
-
-.article-card__img-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-
-.article-card:hover .article-card__img-box img {
-  transform: scale(1.04);
-}
-
-.article-card__body {
-  padding: 16px 20px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
 }
 
 .article-card__cat {
   font-size: 12px;
   font-weight: 600;
-  color: var(--gz-brand-primary);
+  color: var(--color-accent);
   margin-bottom: 6px;
 }
 
 .article-card__body h3 {
   font-size: 16px;
   font-weight: 700;
-  color: var(--gz-brand-secondary);
+  color: var(--color-text-primary);
   margin: 0 0 8px;
   line-height: 1.35;
 }
 
 .article-card__body p {
   font-size: 13px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   line-height: 1.6;
   margin: 0;
   flex: 1;
+}
+
+.article-card__link {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--color-accent);
+  font-weight: 600;
+  text-align: right;
 }
 
 /* ================================================
@@ -971,15 +942,10 @@ onMounted(loadHomeData);
    ================================================ */
 .value {
   padding: 80px 20px;
-  background: #fff;
-  border-top: 1px solid var(--gz-border-light);
-  border-bottom: 1px solid var(--gz-border-light);
+  background: rgba(255, 255, 255, 0.88);
+  border-top: 1px solid rgba(236, 231, 223, 0.92);
+  border-bottom: 1px solid rgba(236, 231, 223, 0.92);
   margin-bottom: 0;
-}
-
-.value__inner {
-  max-width: 1180px;
-  margin: 0 auto;
 }
 
 .value__header {
@@ -1000,7 +966,7 @@ onMounted(loadHomeData);
 .value-card__number {
   font-size: 48px;
   font-weight: 800;
-  color: var(--gz-border-light);
+  color: rgba(255, 56, 92, 0.18);
   line-height: 1;
   margin-bottom: 20px;
 }
@@ -1008,13 +974,13 @@ onMounted(loadHomeData);
 .value-card h3 {
   font-size: 20px;
   font-weight: 700;
-  color: var(--gz-brand-secondary);
+  color: var(--color-text-primary);
   margin: 0 0 12px;
 }
 
 .value-card p {
   font-size: 15px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   line-height: 1.75;
   margin: 0;
 }
@@ -1025,7 +991,9 @@ onMounted(loadHomeData);
 .closing {
   padding: 96px 20px;
   text-align: center;
-  background: linear-gradient(180deg, #fff, #f8fafc);
+  background:
+    radial-gradient(circle at top, rgba(255, 56, 92, 0.08), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.95));
 }
 
 .closing__inner {
@@ -1035,17 +1003,17 @@ onMounted(loadHomeData);
 
 .closing__title {
   font-size: 36px;
-  font-weight: 800;
-  color: var(--gz-brand-secondary);
+  font-weight: 700;
+  color: var(--color-text-primary);
   margin: 0 0 16px;
-  letter-spacing: -0.5px;
+  letter-spacing: var(--tracking-tight-2);
 }
 
 .closing__desc {
   font-size: 16px;
-  color: var(--gz-text-secondary);
+  color: var(--color-text-secondary);
   margin: 0 0 36px;
-  letter-spacing: 2px;
+  line-height: var(--line-loose);
 }
 
 .closing__actions {
@@ -1055,15 +1023,20 @@ onMounted(loadHomeData);
   flex-wrap: wrap;
 }
 
+.closing__note {
+  margin-top: 24px;
+  letter-spacing: 1px;
+}
+
 .closing__btn-ghost {
-  background: transparent;
-  border: 1px solid var(--gz-border-light);
-  color: var(--gz-brand-secondary);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-soft);
+  color: var(--color-text-primary);
 }
 
 .closing__btn-ghost:hover {
-  border-color: var(--gz-brand-primary);
-  color: var(--gz-brand-primary);
+  border-color: var(--border-accent);
+  color: var(--color-accent);
 }
 
 /* ================================================
@@ -1135,10 +1108,6 @@ onMounted(loadHomeData);
 
   .hero {
     margin-bottom: 48px;
-  }
-
-  .section-title {
-    font-size: 26px;
   }
 
   .ai-services__grid {

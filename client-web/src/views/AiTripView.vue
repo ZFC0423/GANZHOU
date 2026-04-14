@@ -189,7 +189,7 @@ function formatContextType(value) {
         type="error"
         show-icon
         :closable="false"
-        style="margin-bottom: 24px;"
+        class="page-alert"
       />
 
       <section class="trip-result-section" v-if="loading || result">
@@ -208,7 +208,7 @@ function formatContextType(value) {
             :title="`定位：${result.pathPositioning}`"
             type="success"
             :closable="false"
-            style="margin-bottom: 8px; border-radius: 8px;"
+            class="trip-positioning-alert"
           />
 
           <el-card class="trip-summary-card">
@@ -334,10 +334,13 @@ function formatContextType(value) {
 <style scoped>
 .trip-hero {
   padding: 48px 36px;
-  border-radius: var(--gz-radius-lg);
+  border-radius: var(--radius-panel);
   margin-bottom: 32px;
-  background: linear-gradient(135deg, #f0fdfa, #fdf4ff);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  background:
+    radial-gradient(circle at top right, rgba(255, 56, 92, 0.14), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.96));
+  border: 1px solid rgba(236, 231, 223, 0.9);
+  box-shadow: var(--shadow-card);
   text-align: center;
 }
 
@@ -347,20 +350,19 @@ function formatContextType(value) {
 }
 
 .trip-hero__eyebrow {
-  color: var(--gz-brand-primary);
-  font-weight: 700;
+  color: var(--color-accent);
+  font-weight: 600;
   margin-bottom: 12px;
-  letter-spacing: 2px;
-  font-size: 13px;
+  letter-spacing: var(--tracking-wide);
+  font-size: 12px;
   text-transform: uppercase;
 }
 
 .trip-form-card {
   margin-bottom: 32px;
-  max-width: 860px;
+  max-width: var(--container-narrow);
   margin-left: auto;
   margin-right: auto;
-  border-radius: var(--gz-radius-md) !important;
 }
 
 .trip-form-card__header {
@@ -373,12 +375,12 @@ function formatContextType(value) {
 
 .trip-form-title {
   font-size: 18px;
-  font-weight: 600;
-  color: var(--gz-brand-secondary);
+  font-weight: 700;
+  color: var(--color-text-primary);
 }
 
 .trip-form-card__tip {
-  color: var(--gz-text-secondary);
+  color: var(--color-text-tertiary);
   font-size: 13px;
 }
 
@@ -402,12 +404,12 @@ function formatContextType(value) {
 
 .submit-btn {
   padding: 0 40px;
-  border-radius: 20px;
+  border-radius: 999px;
   font-size: 15px;
 }
 
 .trip-result-section {
-  max-width: 860px;
+  max-width: var(--container-narrow);
   margin: 0 auto;
   animation: fadeIn 0.6s ease-out;
 }
@@ -423,7 +425,7 @@ function formatContextType(value) {
   font-size: 24px;
   font-weight: 700;
   margin: 0;
-  color: var(--gz-brand-secondary);
+  color: var(--color-text-primary);
 }
 
 .trip-result {
@@ -437,15 +439,15 @@ function formatContextType(value) {
   align-items: center;
   justify-content: center;
   padding: 60px 0;
-  color: var(--gz-brand-primary);
+  color: var(--color-accent);
   font-weight: 500;
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #ccfbf1;
-  border-top-color: var(--gz-brand-primary);
+  border: 3px solid rgba(255, 56, 92, 0.16);
+  border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -455,8 +457,12 @@ function formatContextType(value) {
   to { transform: rotate(360deg); }
 }
 
-.trip-summary-card {
-  background: white;
+.page-alert {
+  margin-bottom: 24px;
+}
+
+.trip-positioning-alert {
+  margin-bottom: 8px;
 }
 
 .trip-summary-card__meta {
@@ -467,14 +473,14 @@ function formatContextType(value) {
 }
 
 .model-tag {
-  color: #64748b;
-  border-color: #e2e8f0;
-  background: #f8fafc;
+  color: var(--color-text-tertiary);
+  border-color: rgba(236, 231, 223, 0.92);
+  background: var(--surface-muted);
 }
 
 .trip-summary-card__content {
-  line-height: 1.85;
-  color: var(--gz-text-regular);
+  line-height: var(--line-loose);
+  color: var(--color-text-secondary);
   white-space: pre-line;
   font-size: 15px;
 }
@@ -482,10 +488,6 @@ function formatContextType(value) {
 .trip-day-list {
   display: grid;
   gap: 24px;
-}
-
-.trip-day-card {
-  border-radius: var(--gz-radius-md) !important;
 }
 
 .trip-day-card__header {
@@ -497,14 +499,14 @@ function formatContextType(value) {
 .trip-day-card__title {
   font-size: 18px;
   font-weight: 700;
-  color: var(--gz-brand-primary);
+  color: var(--color-accent);
   white-space: nowrap;
 }
 
 .day-line {
   height: 1px;
   flex: 1;
-  background: linear-gradient(90deg, var(--gz-border-light), transparent);
+  background: linear-gradient(90deg, rgba(236, 231, 223, 0.96), transparent);
 }
 
 .trip-item-list {
@@ -527,11 +529,11 @@ function formatContextType(value) {
   top: 30px;
   bottom: -20px;
   width: 1px;
-  background: var(--gz-border-light);
+  background: rgba(236, 231, 223, 0.96);
 }
 
 .trip-item__slot {
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   font-weight: 600;
   display: flex;
   gap: 12px;
@@ -542,23 +544,24 @@ function formatContextType(value) {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--gz-brand-primary);
+  background: var(--color-accent);
   position: relative;
   top: 5px;
-  box-shadow: 0 0 0 3px #ccfbf1;
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.14);
 }
 
 .trip-item__main {
-  background: var(--gz-bg-page);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.94));
   padding: 16px 20px;
-  border-radius: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(236, 231, 223, 0.9);
   display: grid;
   gap: 12px;
-  transition: var(--gz-transition-base);
+  transition: var(--transition-base);
 }
 
 .trip-item__main:hover {
-  background: #f0fdfa;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(255, 247, 248, 0.98));
   transform: translateX(4px);
 }
 
@@ -569,21 +572,21 @@ function formatContextType(value) {
   flex-wrap: wrap;
   font-size: 17px;
   font-weight: 700;
-  color: var(--gz-brand-secondary);
+  color: var(--color-text-primary);
 }
 
 .trip-item__reason {
   line-height: 1.7;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   font-size: 15px;
 }
 
 .trip-item__tips {
   line-height: 1.7;
-  color: #854d0e;
-  background: #fefce8;
+  color: #8a5d19;
+  background: #fdf7ea;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 14px;
   font-size: 14px;
 }
 
@@ -603,7 +606,7 @@ function formatContextType(value) {
   padding-left: 20px;
   display: grid;
   gap: 12px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   line-height: 1.7;
 }
 
@@ -614,9 +617,10 @@ function formatContextType(value) {
 }
 
 .trip-insight-section {
-  background: #f8fafc;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.94));
   padding: 16px;
-  border-radius: 8px;
+  border-radius: 16px;
+  border: 1px solid rgba(236, 231, 223, 0.9);
   margin-bottom: 16px;
   display: flex;
   flex-direction: column;
@@ -625,13 +629,13 @@ function formatContextType(value) {
 
 .insight-suitable {
   font-size: 14px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
 }
 
 .highlights-title {
   font-size: 14px;
   font-weight: 600;
-  color: #0f766e;
+  color: var(--color-accent);
   margin-bottom: 8px;
 }
 
@@ -639,7 +643,7 @@ function formatContextType(value) {
   margin: 0;
   padding-left: 20px;
   font-size: 14px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
@@ -649,7 +653,7 @@ function formatContextType(value) {
   gap: 8px;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px dashed var(--gz-border-light);
+  border-top: 1px dashed var(--border-soft);
 }
 
 .related-group {
@@ -661,26 +665,27 @@ function formatContextType(value) {
 
 .related-label {
   font-size: 13px;
-  color: var(--gz-text-secondary);
+  color: var(--color-text-tertiary);
 }
 
 .adjustment-suggestion {
-  background: #f0fdfa;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 248, 0.96));
   padding: 14px 16px;
-  border-radius: 8px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 56, 92, 0.14);
   margin-bottom: 16px;
 }
 
 .suggestion-title {
   font-size: 14px;
   font-weight: 600;
-  color: #0f766e;
+  color: var(--color-accent);
   margin-bottom: 6px;
 }
 
 .suggestion-content {
   font-size: 14px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
@@ -688,7 +693,7 @@ function formatContextType(value) {
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 8px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-primary);
 }
 
 .mt-4 {
@@ -697,7 +702,7 @@ function formatContextType(value) {
 
 .trip-reference-note {
   text-align: center;
-  color: var(--gz-text-secondary);
+  color: var(--color-text-tertiary);
   font-size: 13px;
   margin-top: 24px;
   letter-spacing: 0.5px;

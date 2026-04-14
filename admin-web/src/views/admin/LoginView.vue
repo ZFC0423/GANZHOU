@@ -41,10 +41,12 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f3f4f6;">
-    <el-card style="width: 420px;">
+  <div class="admin-auth">
+    <el-card class="admin-auth__card">
       <template #header>
-        <div style="font-size: 20px; font-weight: 600;">Admin Login</div>
+        <div class="admin-auth__header">
+          <div class="admin-auth__title">Admin Login</div>
+        </div>
       </template>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item label="Username" prop="username">
@@ -53,7 +55,7 @@ async function handleLogin() {
         <el-form-item label="Password" prop="password">
           <el-input v-model="form.password" type="password" show-password placeholder="Please input password" />
         </el-form-item>
-        <el-button type="primary" :loading="loading" style="width: 100%;" @click="handleLogin">
+        <el-button type="primary" :loading="loading" class="admin-auth__submit" @click="handleLogin">
           Login
         </el-button>
       </el-form>

@@ -277,133 +277,135 @@ onMounted(loadTable);
 
 <template>
   <AdminShell>
-    <el-card>
-      <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-        <el-input v-model="filters.keyword" placeholder="Search by name or intro" clearable />
-        <el-input v-model="filters.region" placeholder="Filter by region" clearable />
-        <el-button type="primary" @click="handleSearch">Search</el-button>
-        <el-button @click="openCreateDialog">Create</el-button>
-      </div>
+    <div class="admin-page">
+      <el-card>
+        <div class="admin-toolbar">
+          <el-input v-model="filters.keyword" class="admin-toolbar__grow" placeholder="Search by name or intro" clearable />
+          <el-input v-model="filters.region" class="admin-toolbar__grow" placeholder="Filter by region" clearable />
+          <el-button type="primary" @click="handleSearch">Search</el-button>
+          <el-button @click="openCreateDialog">Create</el-button>
+        </div>
 
-      <el-table v-loading="loading" :data="tableData" border>
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="name" label="Name" min-width="140" />
-        <el-table-column prop="region" label="Region" width="120" />
-        <el-table-column prop="categoryName" label="Category" width="140" />
-        <el-table-column prop="status" label="Status" width="120">
-          <template #default="{ row }">
-            <el-switch :model-value="row.status === 1" @change="(value) => handleStatusChange(row, value)" />
-          </template>
-        </el-table-column>
-        <el-table-column label="Actions" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">Delete</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        <el-table v-loading="loading" :data="tableData" border>
+          <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column prop="name" label="Name" min-width="140" />
+          <el-table-column prop="region" label="Region" width="120" />
+          <el-table-column prop="categoryName" label="Category" width="140" />
+          <el-table-column prop="status" label="Status" width="120">
+            <template #default="{ row }">
+              <el-switch :model-value="row.status === 1" @change="(value) => handleStatusChange(row, value)" />
+            </template>
+          </el-table-column>
+          <el-table-column label="Actions" width="180" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
+              <el-button link type="danger" @click="handleDelete(row)">Delete</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-      <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          layout="total, prev, pager, next"
-          :total="pagination.total"
-          @current-change="loadTable"
-        />
-      </div>
-    </el-card>
+        <div class="admin-pagination">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            layout="total, prev, pager, next"
+            :total="pagination.total"
+            @current-change="loadTable"
+          />
+        </div>
+      </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="dialogMode === 'create' ? 'Create Scenic' : 'Edit Scenic'" width="760px">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="140px">
-        <el-form-item label="Name" prop="name">
-          <el-input v-model="form.name" />
-        </el-form-item>
-        <el-form-item label="Region" prop="region">
-          <el-input v-model="form.region" />
-        </el-form-item>
-        <el-form-item label="Category" prop="categoryId">
-          <el-select v-model="form.categoryId" style="width: 100%;">
-            <el-option v-for="item in scenicCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Cover Image">
-          <div style="width: 100%;">
-            <el-input v-model="form.coverImage" placeholder="/uploads/..." />
-            <el-upload
-              :action="uploadAction"
-              :headers="uploadHeaders"
-              :show-file-list="false"
-              style="margin-top: 8px;"
-              @success="handleCoverUploadSuccess"
-              @error="handleUploadError"
-            >
-              <el-button>Upload Cover</el-button>
-            </el-upload>
-          </div>
-        </el-form-item>
-        <el-form-item label="Gallery Images">
-          <el-input v-model="form.galleryImages" placeholder="comma separated image urls" />
-        </el-form-item>
-        <el-form-item label="AI Notes">
-          <div style="width: 100%;">
-            <el-input
-              v-model="form.aiNotes"
-              type="textarea"
-              rows="2"
-              maxlength="200"
-              show-word-limit
-              placeholder="Optional instruction for AI copy tone"
-            />
-            <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap;">
-              <el-button type="primary" plain :loading="aiGenerating" @click="handleGenerateCopywriting">
-                {{ aiGenerating ? 'Generating...' : 'AI Generate Copy' }}
-              </el-button>
-              <span v-if="aiModelName" style="color: #6b7280; font-size: 13px;">Model: {{ aiModelName }}</span>
+      <el-dialog v-model="dialogVisible" :title="dialogMode === 'create' ? 'Create Scenic' : 'Edit Scenic'" width="760px">
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="140px">
+          <el-form-item label="Name" prop="name">
+            <el-input v-model="form.name" />
+          </el-form-item>
+          <el-form-item label="Region" prop="region">
+            <el-input v-model="form.region" />
+          </el-form-item>
+          <el-form-item label="Category" prop="categoryId">
+            <el-select v-model="form.categoryId" class="admin-form-control">
+              <el-option v-for="item in scenicCategoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Cover Image">
+            <div class="admin-form-stack">
+              <el-input v-model="form.coverImage" placeholder="/uploads/..." />
+              <el-upload
+                :action="uploadAction"
+                :headers="uploadHeaders"
+                :show-file-list="false"
+                class="admin-form-stack__action"
+                @success="handleCoverUploadSuccess"
+                @error="handleUploadError"
+              >
+                <el-button>Upload Cover</el-button>
+              </el-upload>
             </div>
-          </div>
-        </el-form-item>
-        <el-form-item label="Intro">
-          <el-input v-model="form.intro" type="textarea" rows="3" />
-        </el-form-item>
-        <el-form-item label="Culture Desc">
-          <el-input v-model="form.cultureDesc" type="textarea" rows="3" />
-        </el-form-item>
-        <el-form-item label="Open Time">
-          <el-input v-model="form.openTime" />
-        </el-form-item>
-        <el-form-item label="Ticket Info">
-          <el-input v-model="form.ticketInfo" />
-        </el-form-item>
-        <el-form-item label="Suggested Duration">
-          <el-input v-model="form.suggestedDuration" />
-        </el-form-item>
-        <el-form-item label="Address">
-          <el-input v-model="form.address" />
-        </el-form-item>
-        <el-form-item label="Traffic Guide">
-          <el-input v-model="form.trafficGuide" type="textarea" rows="2" />
-        </el-form-item>
-        <el-form-item label="Tips">
-          <el-input v-model="form.tips" type="textarea" rows="2" />
-        </el-form-item>
-        <el-form-item label="Tags">
-          <el-input v-model="form.tags" placeholder="comma separated tags" />
-        </el-form-item>
-        <el-form-item label="Recommend Flag">
-          <el-switch v-model="form.recommendFlag" :active-value="1" :inactive-value="0" />
-        </el-form-item>
-        <el-form-item label="Hot Score">
-          <el-input-number v-model="form.hotScore" :min="0" />
-        </el-form-item>
-        <el-form-item label="Status">
-          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="submitForm">Save</el-button>
-      </template>
-    </el-dialog>
+          </el-form-item>
+          <el-form-item label="Gallery Images">
+            <el-input v-model="form.galleryImages" placeholder="comma separated image urls" />
+          </el-form-item>
+          <el-form-item label="AI Notes">
+            <div class="admin-form-stack">
+              <el-input
+                v-model="form.aiNotes"
+                type="textarea"
+                rows="2"
+                maxlength="200"
+                show-word-limit
+                placeholder="Optional instruction for AI copy tone"
+              />
+              <div class="admin-inline-actions admin-form-stack__action">
+                <el-button type="primary" plain :loading="aiGenerating" @click="handleGenerateCopywriting">
+                  {{ aiGenerating ? 'Generating...' : 'AI Generate Copy' }}
+                </el-button>
+                <span v-if="aiModelName" class="admin-muted-text">Model: {{ aiModelName }}</span>
+              </div>
+            </div>
+          </el-form-item>
+          <el-form-item label="Intro">
+            <el-input v-model="form.intro" type="textarea" rows="3" />
+          </el-form-item>
+          <el-form-item label="Culture Desc">
+            <el-input v-model="form.cultureDesc" type="textarea" rows="3" />
+          </el-form-item>
+          <el-form-item label="Open Time">
+            <el-input v-model="form.openTime" />
+          </el-form-item>
+          <el-form-item label="Ticket Info">
+            <el-input v-model="form.ticketInfo" />
+          </el-form-item>
+          <el-form-item label="Suggested Duration">
+            <el-input v-model="form.suggestedDuration" />
+          </el-form-item>
+          <el-form-item label="Address">
+            <el-input v-model="form.address" />
+          </el-form-item>
+          <el-form-item label="Traffic Guide">
+            <el-input v-model="form.trafficGuide" type="textarea" rows="2" />
+          </el-form-item>
+          <el-form-item label="Tips">
+            <el-input v-model="form.tips" type="textarea" rows="2" />
+          </el-form-item>
+          <el-form-item label="Tags">
+            <el-input v-model="form.tags" placeholder="comma separated tags" />
+          </el-form-item>
+          <el-form-item label="Recommend Flag">
+            <el-switch v-model="form.recommendFlag" :active-value="1" :inactive-value="0" />
+          </el-form-item>
+          <el-form-item label="Hot Score">
+            <el-input-number v-model="form.hotScore" :min="0" />
+          </el-form-item>
+          <el-form-item label="Status">
+            <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="dialogVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="submitForm">Save</el-button>
+        </template>
+      </el-dialog>
+    </div>
   </AdminShell>
 </template>

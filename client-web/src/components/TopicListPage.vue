@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import SiteLayout from './SiteLayout.vue';
@@ -28,12 +28,6 @@ const pagination = reactive({
 });
 const filters = reactive({
   keyword: ''
-});
-
-const accentColor = computed(() => {
-  if (props.categoryCode === 'food') return '#f97316';
-  if (props.categoryCode === 'heritage') return '#14b8a6';
-  return '#ef4444';
 });
 
 async function loadList() {
@@ -75,9 +69,9 @@ onMounted(loadList);
   <SiteLayout>
     <div class="page-shell">
       <section class="topic-hero">
-        <div class="topic-hero__accent-line" :style="{ backgroundColor: accentColor }"></div>
+        <div class="topic-hero__accent-line"></div>
         <div class="topic-hero__content">
-          <div class="topic-hero__badge" :style="{ color: accentColor, borderColor: accentColor }">
+          <div class="topic-hero__badge">
             {{ pageEyebrow || (categoryCode === 'food' ? '地道美食' : categoryCode === 'heritage' ? '非遗传承' : '红色记忆') }}
           </div>
           <h1 class="page-title topic-hero__title">{{ pageTitle }}</h1>
@@ -96,8 +90,8 @@ onMounted(loadList);
         </div>
       </el-card>
 
-      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" style="margin-bottom: 24px;" />
-      <div v-if="errorMessage" style="margin-bottom: 24px;">
+      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" class="page-alert" />
+      <div v-if="errorMessage" class="page-alert-actions">
         <el-button @click="loadList">重试请求</el-button>
       </div>
 
@@ -111,7 +105,7 @@ onMounted(loadList);
             <strong>浏览提示：</strong>{{ guideText || '本页按主题组织已有内容，为您提供清晰的探索入口。当前展示基于平台现有资料，部分原始条目保留了外文命名。' }}
           </div>
           
-          <h2 v-if="listTitle" style="font-size: 20px; font-weight: 700; color: var(--gz-brand-secondary, #0f172a); margin-bottom: 20px;">{{ listTitle }}</h2>
+          <h2 v-if="listTitle" class="topic-list-heading">{{ listTitle }}</h2>
           
           <div class="card-grid">
             <el-card v-for="item in listData" :key="item.id" class="topic-card" shadow="hover" @click="goDetail(item.id)">
@@ -155,61 +149,55 @@ onMounted(loadList);
 <style scoped>
 .topic-hero {
   position: relative;
-  border-radius: var(--gz-radius-lg);
-  padding: 56px 40px;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  color: #fff;
   margin-bottom: 32px;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+  padding: clamp(32px, 6vw, 52px);
+  border-radius: var(--radius-panel);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 248, 0.94));
+  border: 1px solid rgba(236, 231, 223, 0.9);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
-.topic-hero__accent-line {
+.topic-hero::after {
+  content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 6px;
-  height: 100%;
+  right: -72px;
+  bottom: -112px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(255, 56, 92, 0.16), transparent 70%);
+}
+
+.topic-hero__accent-line {
+  position: relative;
+  z-index: 1;
+  width: 80px;
+  height: 4px;
+  margin-bottom: 16px;
+  border-radius: 999px;
+  background: var(--color-accent);
 }
 
 .topic-hero__content {
   position: relative;
-  z-index: 2;
-  max-width: 800px;
+  z-index: 1;
+  max-width: 720px;
 }
 
 .topic-hero__badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  border: 1px solid;
-  font-size: 13px;
-  font-weight: 600;
   margin-bottom: 16px;
-  background: rgba(255, 255, 255, 0.05);
 }
 
 .topic-hero__title {
-  color: #f8fafc;
-  font-size: 40px;
-  font-weight: 800;
   margin: 0 0 16px;
-  letter-spacing: -0.5px;
 }
 
 .topic-hero__desc {
-  color: #cbd5e1;
-  font-size: 16px;
-  line-height: 1.6;
-  margin: 0;
-  max-width: 600px;
+  max-width: 620px;
 }
 
 .topic-search {
   margin-bottom: 32px;
-  border-radius: var(--gz-radius-md);
-  background: #f8fafc;
-  border: 1px solid var(--gz-border-light);
 }
 
 .topic-search__bar {
@@ -219,18 +207,12 @@ onMounted(loadList);
 }
 
 .search-btn {
-  padding: 0 32px;
-  font-weight: 600;
+  min-width: 132px;
 }
 
 .topic-card {
-  overflow: hidden;
   cursor: pointer;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--gz-radius-md);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 :deep(.topic-card .el-card__body) {
@@ -240,32 +222,8 @@ onMounted(loadList);
   flex-direction: column;
 }
 
-.topic-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
-}
-
-.topic-card:hover .topic-card__image {
-  transform: scale(1.05);
-}
-
 .topic-card__image-wrapper {
-  overflow: hidden;
-  height: 220px;
-}
-
-.topic-card__image {
-  height: 100%;
-  width: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-
-.topic-card__body {
-  padding: 24px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  height: 240px;
 }
 
 .topic-card__meta {
@@ -273,34 +231,30 @@ onMounted(loadList);
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
-  font-size: 13px;
-  color: var(--gz-text-secondary);
+  gap: 12px;
 }
 
 .meta-cat {
-  color: var(--gz-brand-primary);
+  color: var(--color-accent);
   font-weight: 600;
 }
 
 .meta-view {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
+  color: var(--color-text-tertiary);
 }
 
 .topic-card__title {
   margin: 0 0 12px;
-  font-size: 20px;
+  font-size: clamp(18px, 1.4vw, 20px);
   font-weight: 700;
-  color: var(--gz-brand-secondary);
-  line-height: 1.4;
+  line-height: 1.28;
 }
 
 .topic-card__summary {
   margin: 0 0 20px;
-  color: var(--gz-text-regular);
-  line-height: 1.7;
-  font-size: 14px;
   flex: 1;
 }
 
@@ -316,17 +270,30 @@ onMounted(loadList);
   justify-content: center;
 }
 
+.topic-list-heading {
+  margin: 0 0 20px;
+  color: var(--color-text-primary);
+  font-size: clamp(20px, 2vw, 24px);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight-1);
+}
+
+.page-alert {
+  margin-bottom: 16px;
+}
+
+.page-alert-actions {
+  margin-bottom: 24px;
+}
+
 @media (max-width: 768px) {
   .topic-hero {
     padding: 32px 24px;
   }
   
-  .topic-hero__title {
-    font-size: 32px;
-  }
-  
   .topic-search__bar {
     flex-direction: column;
+    align-items: stretch;
   }
   
   .search-btn {
@@ -334,18 +301,7 @@ onMounted(loadList);
   }
 }
 
-.reading-guide-box {
-  background: var(--gz-bg-page, #f8fafc);
-  padding: 14px 20px;
-  border-radius: var(--gz-radius-md, 8px);
-  color: var(--gz-text-regular, #475569);
-  font-size: 14px;
-  line-height: 1.6;
-  margin-bottom: 24px;
-  border: 1px solid var(--gz-border-light, #e2e8f0);
-}
-
 .reading-guide-box strong {
-  color: var(--gz-brand-primary, #0f766e);
+  color: var(--color-accent);
 }
 </style>

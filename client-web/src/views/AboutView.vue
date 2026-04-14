@@ -23,10 +23,10 @@ import SiteLayout from '../components/SiteLayout.vue';
       <!-- 模块 2：平台定位说明区 -->
       <!-- ======================================== -->
       <section class="about-position">
-        <div class="about-position__inner">
+        <div class="about-position__inner section-inner">
           <div class="about-position__header">
-            <span class="about-section-eyebrow">平台定位</span>
-            <h2 class="about-section-title">它不仅用于展示内容，也负责组织理解路径</h2>
+            <span class="section-eyebrow">平台定位</span>
+            <h2 class="section-title">它不仅用于展示内容，也负责组织理解路径</h2>
             <p class="about-position__lead">
               平台尝试把主题化内容组织、景点浏览、文化解释与智慧服务放在同一套探索系统中。<br/>
               用户可以从主题、景点与 AI 三条路径进入，再在阅读与路径建议之间继续延伸。
@@ -71,14 +71,13 @@ import SiteLayout from '../components/SiteLayout.vue';
       <!-- 模块 3：平台核心主题区 -->
       <!-- ======================================== -->
       <section class="about-themes">
-        <div class="about-themes__inner">
-          <span class="about-section-eyebrow" style="display: none;">核心主题</span>
-          <h2 class="about-section-title">平台核心主题</h2>
-          <p class="about-position__lead" style="margin-bottom: 40px; max-width: 680px;">
+        <div class="about-themes__inner section-inner">
+          <h2 class="section-title">平台核心主题</h2>
+          <p class="about-position__lead about-position__lead--spaced section-copy">
             平台从城市文化与智慧服务两个层面组织内容，帮助用户从不同切口进入赣州。
           </p>
 
-          <div class="themes-grid" style="margin-top: 0;">
+          <div class="themes-grid themes-grid--compact">
             <div class="theme-card">
               <div class="theme-card__number">01</div>
               <h3 class="theme-card__title">千年宋城</h3>
@@ -118,9 +117,8 @@ import SiteLayout from '../components/SiteLayout.vue';
       <!-- 模块 4：设计与实现要点区 -->
       <!-- ======================================== -->
       <section class="about-tech">
-        <div class="about-tech__inner">
-          <span class="about-section-eyebrow" style="display: none;">设计与实现</span>
-          <h2 class="about-section-title">设计与实现要点</h2>
+        <div class="about-tech__inner section-inner">
+          <h2 class="section-title">设计与实现要点</h2>
           <p class="about-tech__lead">
             这一部分用于说明平台如何从展示站点进一步走向内容组织与智慧导览系统。
           </p>
@@ -165,7 +163,7 @@ import SiteLayout from '../components/SiteLayout.vue';
       <!-- 模块 5：底部收束区 -->
       <!-- ======================================== -->
       <section class="about-closing">
-        <div class="about-closing__inner" style="max-width: 680px;">
+        <div class="about-closing__inner">
           <h2 class="about-closing__title">从平台理解出发，再进入景点、主题与路径</h2>
           <p class="about-closing__desc">你可以先浏览内容，也可以从智慧服务开始，再回到相关景点与主题继续探索。</p>
           <div class="about-closing__actions">
@@ -176,7 +174,7 @@ import SiteLayout from '../components/SiteLayout.vue';
               <el-button size="large" round class="about-closing__btn-ghost">浏览精选景点</el-button>
             </router-link>
           </div>
-          <div style="margin-top: 32px; font-size: 14px; color: var(--gz-text-secondary); letter-spacing: 1px;">
+          <div class="section-note section-note--center about-closing__note">
             在内容理解、景点浏览与智慧导览之间，建立一条更清晰的进入路径。
           </div>
         </div>
@@ -192,24 +190,6 @@ import SiteLayout from '../components/SiteLayout.vue';
    ================================================ */
 .about-page {
   background: var(--gz-bg-page, #f8fafc);
-}
-
-.about-section-eyebrow {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  color: var(--gz-brand-primary, #0f766e);
-  margin-bottom: 8px;
-}
-
-.about-section-title {
-  font-size: 30px;
-  font-weight: 800;
-  color: var(--gz-brand-secondary, #0f172a);
-  margin: 0 0 16px;
-  letter-spacing: -0.5px;
-  line-height: 1.3;
 }
 
 /* ================================================
@@ -278,11 +258,6 @@ import SiteLayout from '../components/SiteLayout.vue';
   margin-bottom: 96px;
 }
 
-.about-position__inner {
-  max-width: 1180px;
-  margin: 0 auto;
-}
-
 .about-position__header {
   max-width: 680px;
   margin-bottom: 56px;
@@ -293,6 +268,10 @@ import SiteLayout from '../components/SiteLayout.vue';
   color: var(--gz-text-regular, #475569);
   line-height: 1.85;
   margin: 0;
+}
+
+.about-position__lead--spaced {
+  margin-bottom: 40px;
 }
 
 .about-position__grid {
@@ -350,16 +329,15 @@ import SiteLayout from '../components/SiteLayout.vue';
   border-bottom: 1px solid var(--gz-border-light, #e2e8f0);
 }
 
-.about-themes__inner {
-  max-width: 1180px;
-  margin: 0 auto;
-}
-
 .themes-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
   margin-top: 48px;
+}
+
+.themes-grid--compact {
+  margin-top: 0;
 }
 
 .theme-card {
@@ -404,11 +382,6 @@ import SiteLayout from '../components/SiteLayout.vue';
   padding: 0 20px;
   margin-top: 96px;
   margin-bottom: 96px;
-}
-
-.about-tech__inner {
-  max-width: 1180px;
-  margin: 0 auto;
 }
 
 .about-tech__lead {
@@ -466,7 +439,7 @@ import SiteLayout from '../components/SiteLayout.vue';
 }
 
 .about-closing__inner {
-  max-width: 560px;
+  max-width: 680px;
   margin: 0 auto;
 }
 
@@ -489,6 +462,11 @@ import SiteLayout from '../components/SiteLayout.vue';
   justify-content: center;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.about-closing__note {
+  margin-top: 32px;
+  letter-spacing: 1px;
 }
 
 .about-closing__btn-ghost {
@@ -529,7 +507,7 @@ import SiteLayout from '../components/SiteLayout.vue';
     font-size: 15px;
   }
 
-  .about-section-title {
+  .section-title {
     font-size: 24px;
   }
 

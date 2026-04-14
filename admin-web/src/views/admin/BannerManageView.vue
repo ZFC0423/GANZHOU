@@ -137,74 +137,76 @@ onMounted(loadTable);
 
 <template>
   <AdminShell>
-    <el-card>
-      <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
-        <div style="font-weight: 600;">Banner List</div>
-        <el-button @click="openCreateDialog">Create</el-button>
-      </div>
+    <div class="admin-page">
+      <el-card>
+        <div class="admin-toolbar admin-toolbar--between">
+          <div class="admin-card-heading">Banner List</div>
+          <el-button @click="openCreateDialog">Create</el-button>
+        </div>
 
-      <el-table v-loading="loading" :data="tableData" border>
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="title" label="Title" min-width="180" />
-        <el-table-column prop="imageUrl" label="Image URL" min-width="220" />
-        <el-table-column prop="sort" label="Sort" width="100" />
-        <el-table-column prop="status" label="Status" width="100" />
-        <el-table-column label="Actions" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">Delete</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        <el-table v-loading="loading" :data="tableData" border>
+          <el-table-column prop="id" label="ID" width="70" />
+          <el-table-column prop="title" label="Title" min-width="180" />
+          <el-table-column prop="imageUrl" label="Image URL" min-width="220" />
+          <el-table-column prop="sort" label="Sort" width="100" />
+          <el-table-column prop="status" label="Status" width="100" />
+          <el-table-column label="Actions" width="180" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
+              <el-button link type="danger" @click="handleDelete(row)">Delete</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
 
-      <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          layout="total, prev, pager, next"
-          :total="pagination.total"
-          @current-change="loadTable"
-        />
-      </div>
-    </el-card>
+        <div class="admin-pagination">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            layout="total, prev, pager, next"
+            :total="pagination.total"
+            @current-change="loadTable"
+          />
+        </div>
+      </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="dialogMode === 'create' ? 'Create Banner' : 'Edit Banner'" width="640px">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="Title" prop="title">
-          <el-input v-model="form.title" />
-        </el-form-item>
-        <el-form-item label="Image URL" prop="imageUrl">
-          <div style="width: 100%;">
-            <el-input v-model="form.imageUrl" placeholder="/uploads/..." />
-            <el-upload
-              :action="uploadAction"
-              :headers="uploadHeaders"
-              :show-file-list="false"
-              style="margin-top: 8px;"
-              @success="handleBannerUploadSuccess"
-              @error="handleUploadError"
-            >
-              <el-button>Upload Image</el-button>
-            </el-upload>
-          </div>
-        </el-form-item>
-        <el-form-item label="Link Type">
-          <el-input v-model="form.linkType" placeholder="scenic / article / custom" />
-        </el-form-item>
-        <el-form-item label="Link Target">
-          <el-input v-model="form.linkTarget" />
-        </el-form-item>
-        <el-form-item label="Sort">
-          <el-input-number v-model="form.sort" :min="0" />
-        </el-form-item>
-        <el-form-item label="Status">
-          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="submitForm">Save</el-button>
-      </template>
-    </el-dialog>
+      <el-dialog v-model="dialogVisible" :title="dialogMode === 'create' ? 'Create Banner' : 'Edit Banner'" width="640px">
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
+          <el-form-item label="Title" prop="title">
+            <el-input v-model="form.title" />
+          </el-form-item>
+          <el-form-item label="Image URL" prop="imageUrl">
+            <div class="admin-form-stack">
+              <el-input v-model="form.imageUrl" placeholder="/uploads/..." />
+              <el-upload
+                :action="uploadAction"
+                :headers="uploadHeaders"
+                :show-file-list="false"
+                class="admin-form-stack__action"
+                @success="handleBannerUploadSuccess"
+                @error="handleUploadError"
+              >
+                <el-button>Upload Image</el-button>
+              </el-upload>
+            </div>
+          </el-form-item>
+          <el-form-item label="Link Type">
+            <el-input v-model="form.linkType" placeholder="scenic / article / custom" />
+          </el-form-item>
+          <el-form-item label="Link Target">
+            <el-input v-model="form.linkTarget" />
+          </el-form-item>
+          <el-form-item label="Sort">
+            <el-input-number v-model="form.sort" :min="0" />
+          </el-form-item>
+          <el-form-item label="Status">
+            <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="dialogVisible = false">Cancel</el-button>
+          <el-button type="primary" @click="submitForm">Save</el-button>
+        </template>
+      </el-dialog>
+    </div>
   </AdminShell>
 </template>

@@ -45,6 +45,12 @@ Prerequisites:
 4. Install dependencies in `server`
 5. Start the backend with `npm run dev`
 
+## Local Run SOP
+
+If you want a step-by-step local startup guide, see:
+
+- [docs/本地运行SOP.md](C:\Users\Administrator\Desktop\ganzhou-travel-platform\docs\本地运行SOP.md)
+
 ## Default Admin Account
 
 - username: `admin`

@@ -1,0 +1,34 @@
+.el-card {
+  border-radius: var(--gz-radius-md);
+  border-color: var(--gz-border-light);
+  box-shadow: var(--gz-shadow-card);
+}
+
+.el-menu {
+  border-right: none;
+  background: transparent;
+}
+
+.el-menu-item {
+  margin-bottom: var(--gz-space-1);
+  border-radius: var(--gz-radius-sm);
+  color: var(--gz-text-regular);
+}
+
+.el-menu-item:hover {
+  color: var(--gz-brand-secondary);
+  background: var(--gz-bg-muted);
+}
+
+.el-menu-item.is-active {
+  color: var(--gz-brand-primary);
+  background: var(--gz-brand-primary-light);
+  font-weight: 600;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--gz-brand-primary);
+  --el-button-border-color: var(--gz-brand-primary);
+  --el-button-hover-bg-color: var(--gz-brand-primary-hover);
+  --el-button-hover-border-color: var(--gz-brand-primary-hover);
+}

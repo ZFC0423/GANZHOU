@@ -44,8 +44,8 @@ onMounted(loadDetail);
         <el-breadcrumb-item>详情</el-breadcrumb-item>
       </el-breadcrumb>
 
-      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" style="margin: 20px 0;" />
-      <div v-if="errorMessage" style="margin-bottom: 20px; display: flex; gap: 12px;">
+      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" class="page-alert page-alert--block" />
+      <div v-if="errorMessage" class="page-alert-actions detail-alert-actions">
         <el-button @click="loadDetail">重试请求</el-button>
         <router-link to="/scenic"><el-button>返回列表</el-button></router-link>
       </div>
@@ -148,12 +148,12 @@ onMounted(loadDetail);
             <div class="section-label align-center">继续探索</div>
             <p class="next-steps-desc">您可以带着当前景点的相关内容与线索，前往导览助手获取更多信息，或将其组合至行程。</p>
             <div class="next-steps-actions">
-              <router-link to="/ai-chat" style="text-decoration: none;">
+              <router-link to="/ai-chat" class="link-reset">
                 <el-button type="primary" size="large" plain>
                   进入智慧问答
                 </el-button>
               </router-link>
-              <router-link to="/ai-trip" style="text-decoration: none;">
+              <router-link to="/ai-trip" class="link-reset">
                 <el-button type="success" size="large" plain>
                   前往行程规划
                 </el-button>
@@ -174,20 +174,22 @@ onMounted(loadDetail);
   grid-template-columns: 1.05fr 0.95fr;
   gap: 24px;
   margin-top: 20px;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
 }
 
 .detail-hero__gallery,
 .detail-hero__info {
-  border-radius: 24px;
+  border-radius: var(--radius-panel);
   overflow: hidden;
-  background: #fff;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  background: var(--surface-card);
+  border: 1px solid rgba(236, 231, 223, 0.9);
+  box-shadow: var(--shadow-card);
 }
 
 .detail-hero__image {
   width: 100%;
-  height: 360px;
+  height: 100%;
+  min-height: 360px;
   object-fit: cover;
 }
 
@@ -196,8 +198,6 @@ onMounted(loadDetail);
 }
 
 .detail-hero__meta {
-  color: #0f766e;
-  font-weight: 700;
   margin-bottom: 14px;
 }
 
@@ -211,100 +211,35 @@ onMounted(loadDetail);
 .detail-hero__summary {
   display: grid;
   gap: 12px;
-  color: #374151;
-  line-height: 1.7;
+  color: var(--color-text-secondary);
+  line-height: 1.75;
 }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.topic-section {
-  margin-bottom: 48px;
-}
-
-.section-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--gz-brand-primary);
-  margin-bottom: 16px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--gz-border-light);
-  padding-bottom: 8px;
-  display: inline-block;
-}
-
-.section-label.align-center {
-  display: block;
-  text-align: center;
-  border-bottom: none;
-  font-size: 14px;
-  margin-bottom: 24px;
+.detail-hero__summary > div {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.94));
+  border: 1px solid rgba(236, 231, 223, 0.9);
 }
 
 .info-card {
-  border-radius: var(--gz-radius-md);
-  border: 1px solid var(--gz-border-light);
   height: 100%;
 }
 
-.card-title {
-  font-weight: 700;
-  color: var(--gz-brand-secondary);
-}
-
 .reading-guide-box {
-  background: var(--gz-bg-page, #f8fafc);
-  padding: 16px 20px;
-  border-radius: var(--gz-radius-sm);
-  color: var(--gz-text-regular);
-  font-size: 14px;
-  line-height: 1.7;
   margin-bottom: 40px;
-  border: 1px dashed #cbd5e1;
-}
-
-.guide-badge {
-  color: #0f766e;
-  font-weight: 600;
-  margin-right: 8px;
-  background: #ccfbf1;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
 }
 
 .detail-paragraph {
   margin: 0;
-  line-height: 1.8;
-  color: var(--gz-text-regular);
-  font-size: 15px;
-}
-
-.detail-related {
-  border-top: 1px solid var(--gz-border-light);
-  padding-top: 48px;
-}
-
-.detail-related__header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.detail-related__header p {
-  margin: 0;
-  color: var(--gz-text-secondary);
+  line-height: var(--line-loose);
+  color: var(--color-text-secondary);
   font-size: 15px;
 }
 
 .related-card {
   cursor: pointer;
   height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 :deep(.related-card .el-card__body) {
@@ -315,60 +250,37 @@ onMounted(loadDetail);
 }
 
 .related-image-box {
-  height: 180px;
-  overflow: hidden;
-}
-
-.related-card__body {
-  padding: 20px;
-  flex: 1;
+  height: 220px;
 }
 
 .related-card__title {
   margin: 0 0 8px;
   font-size: 18px;
-  color: var(--gz-brand-secondary);
+  color: var(--color-text-primary);
   line-height: 1.3;
 }
 
 .related-card__region {
   margin: 0;
-  color: var(--gz-text-secondary);
+  color: var(--color-text-tertiary);
   font-size: 14px;
 }
 
-.topic-next-steps {
-  max-width: 800px;
-  margin: 56px auto 0;
-  padding-top: 40px;
-  border-top: 1px dashed var(--gz-border-light);
-  text-align: center;
+.page-alert--block {
+  margin: 20px 0;
 }
 
-.next-steps-container {
-  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
-  padding: 40px;
-  border-radius: var(--gz-radius-lg);
-}
-
-.next-steps-desc {
-  color: var(--gz-text-regular);
-  font-size: 15px;
-  margin: 0 0 24px;
-}
-
-.next-steps-actions {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  flex-wrap: wrap;
+.detail-alert-actions {
+  margin-bottom: 20px;
 }
 
 @media (max-width: 900px) {
-  .detail-hero,
-  .detail-grid {
+  .detail-hero {
     grid-template-columns: 1fr;
   }
 
+  .detail-hero__image {
+    min-height: 280px;
+  }
 }
 </style>

@@ -1,0 +1,111 @@
+.page-title {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-display);
+  font-size: clamp(2.125rem, 4.6vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: var(--tracking-tight-2);
+}
+
+.page-subtitle {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: var(--line-loose);
+}
+
+.section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.section-eyebrow::before {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+.section-title {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-display);
+  font-size: clamp(1.75rem, 3vw, 2.375rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight-1);
+}
+
+.section-desc {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: var(--line-loose);
+}
+
+.section-copy {
+  max-width: 680px;
+}
+
+.section-copy--center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.section-note {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-relaxed);
+}
+
+.section-note--center {
+  text-align: center;
+}
+
+.body-large {
+  font-size: var(--font-size-ui);
+  line-height: var(--line-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.detail-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: clamp(1.875rem, 3.5vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.14;
+  letter-spacing: var(--tracking-tight-2);
+}
+
+.detail-lead {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: var(--line-loose);
+}
+
+.caption-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  line-height: var(--line-normal);
+}
+
+@media (max-width: 768px) {
+  .section-title {
+    font-size: 1.625rem;
+  }
+
+  .page-title {
+    font-size: clamp(1.875rem, 9vw, 2.5rem);
+  }
+}

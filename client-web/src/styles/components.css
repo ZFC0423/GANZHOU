@@ -1,0 +1,134 @@
+.topic-card,
+.scenic-card,
+.related-card,
+.featured-card,
+.article-card,
+.ai-card,
+.value-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.topic-card:hover,
+.scenic-card:hover,
+.related-card:hover,
+.featured-card:hover,
+.article-card:hover,
+.ai-card:hover {
+  transform: translateY(-4px);
+}
+
+.topic-card__image-wrapper,
+.scenic-card__cover-box,
+.related-image-box,
+.featured-card__img-box,
+.article-card__img-box {
+  overflow: hidden;
+  background: var(--surface-muted);
+}
+
+.topic-card__image,
+.scenic-card__image,
+.related-image-box img,
+.featured-card__img-box img,
+.article-card__img-box img {
+  transition: transform var(--transition-soft);
+}
+
+.topic-card:hover .topic-card__image,
+.scenic-card:hover .scenic-card__image,
+.related-card:hover .image-cover,
+.featured-card:hover .featured-card__img-box img,
+.article-card:hover .article-card__img-box img {
+  transform: scale(1.04);
+}
+
+.topic-card__body,
+.scenic-card__body,
+.related-card__body,
+.featured-card__body,
+.article-card__body {
+  padding: var(--space-6);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.topic-card__meta,
+.featured-card__meta,
+.meta-row {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.topic-card__title,
+.scenic-card__title,
+.related-card__title {
+  color: var(--color-text-primary);
+  letter-spacing: var(--tracking-tight-1);
+}
+
+.topic-card__summary,
+.scenic-card__intro,
+.related-card__body p,
+.featured-card__body p,
+.article-card__body p,
+.detail-paragraph {
+  color: var(--color-text-secondary);
+  line-height: var(--line-relaxed);
+}
+
+.scenic-card__region,
+.topic-hero__badge,
+.article-card__cat,
+.view-count,
+.detail-hero__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-round);
+  background: var(--surface-soft);
+  border: 1px solid rgba(255, 56, 92, 0.16);
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.filter-card,
+.topic-search,
+.ai-chat-card,
+.trip-form-card {
+  background: var(--surface-card);
+  border-radius: var(--radius-panel);
+}
+
+.info-card,
+.trip-day-card,
+.trip-extra-card,
+.trip-summary-card {
+  border-radius: var(--radius-card);
+}
+
+.card-title,
+.trip-extra-card__title {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-ui);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight-1);
+}
+
+@media (max-width: 743px) {
+  .topic-card__body,
+  .scenic-card__body,
+  .related-card__body,
+  .featured-card__body,
+  .article-card__body {
+    padding: 20px;
+  }
+}

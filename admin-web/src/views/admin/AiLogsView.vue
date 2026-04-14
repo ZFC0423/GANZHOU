@@ -169,8 +169,8 @@ onMounted(loadLogs);
     <el-card>
       <template #header>
         <div>
-          <div style="font-size: 18px; font-weight: 600;">AI 日志查看</div>
-          <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">
+          <div class="admin-card-heading">AI 日志查看</div>
+          <div class="admin-card-subtitle">
             查看 AI 问答、行程推荐、文案生成的历史记录
           </div>
         </div>
@@ -185,7 +185,7 @@ onMounted(loadLogs);
         />
       </el-tabs>
 
-      <div v-if="errorText" style="margin-bottom: 16px;">
+      <div v-if="errorText" class="admin-alert-wrap">
         <el-alert :title="errorText" type="error" show-icon :closable="false" />
       </div>
 
@@ -229,7 +229,7 @@ onMounted(loadLogs);
         :description="errorText ? '日志加载失败，请重试' : '当前暂无日志数据'"
       />
 
-      <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+      <div class="admin-pagination">
         <el-pagination
           v-model:current-page="pagination.page"
           v-model:page-size="pagination.pageSize"
@@ -242,7 +242,7 @@ onMounted(loadLogs);
 
     <el-dialog v-model="detailVisible" :title="detailTitle" width="860px">
       <template v-if="detailRecord">
-        <el-descriptions :column="2" border style="margin-bottom: 16px;">
+        <el-descriptions :column="2" border class="admin-dialog-descriptions">
           <el-descriptions-item label="ID">{{ detailRecord.id }}</el-descriptions-item>
           <el-descriptions-item label="Model">{{ detailRecord.model_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="Token">{{ detailRecord.token_usage ?? 0 }}</el-descriptions-item>
@@ -250,22 +250,22 @@ onMounted(loadLogs);
         </el-descriptions>
 
         <template v-if="activeTab === 'chat'">
-          <div style="margin-bottom: 12px;">
-            <div style="font-weight: 600; margin-bottom: 6px;">Question</div>
-            <pre style="white-space: pre-wrap;">{{ detailRecord.question || '-' }}</pre>
+          <div class="admin-detail-section">
+            <div class="admin-detail-section__title">Question</div>
+            <pre class="admin-log-pre">{{ detailRecord.question || '-' }}</pre>
           </div>
-          <div style="margin-bottom: 12px;">
-            <div style="font-weight: 600; margin-bottom: 6px;">Answer</div>
-            <pre style="white-space: pre-wrap;">{{ detailRecord.answer || '-' }}</pre>
+          <div class="admin-detail-section">
+            <div class="admin-detail-section__title">Answer</div>
+            <pre class="admin-log-pre">{{ detailRecord.answer || '-' }}</pre>
           </div>
-          <div>
-            <div style="font-weight: 600; margin-bottom: 6px;">Matched Context</div>
-            <pre style="white-space: pre-wrap;">{{ stringifyValue(detailRecord.matched_context) }}</pre>
+          <div class="admin-detail-section">
+            <div class="admin-detail-section__title">Matched Context</div>
+            <pre class="admin-log-pre">{{ stringifyValue(detailRecord.matched_context) }}</pre>
           </div>
         </template>
 
         <template v-else-if="activeTab === 'trip'">
-          <el-descriptions :column="2" border style="margin-bottom: 16px;">
+          <el-descriptions :column="2" border class="admin-dialog-descriptions">
             <el-descriptions-item label="Days">{{ detailRecord.days || '-' }}</el-descriptions-item>
             <el-descriptions-item label="Pace">{{ detailRecord.pace || '-' }}</el-descriptions-item>
             <el-descriptions-item label="Preferences" :span="2">
@@ -275,28 +275,28 @@ onMounted(loadLogs);
               {{ detailRecord.extra_requirement || '-' }}
             </el-descriptions-item>
           </el-descriptions>
-          <div>
-            <div style="font-weight: 600; margin-bottom: 6px;">Result Content</div>
-            <pre style="white-space: pre-wrap;">{{ stringifyValue(detailRecord.result_content) }}</pre>
+          <div class="admin-detail-section">
+            <div class="admin-detail-section__title">Result Content</div>
+            <pre class="admin-log-pre">{{ stringifyValue(detailRecord.result_content) }}</pre>
           </div>
         </template>
 
         <template v-else>
-          <el-descriptions :column="2" border style="margin-bottom: 16px;">
+          <el-descriptions :column="2" border class="admin-dialog-descriptions">
             <el-descriptions-item label="Target Type">{{ detailRecord.target_type || '-' }}</el-descriptions-item>
             <el-descriptions-item label="Target ID">{{ detailRecord.target_id || '-' }}</el-descriptions-item>
           </el-descriptions>
-          <div style="margin-bottom: 12px;">
-            <div style="font-weight: 600; margin-bottom: 6px;">Input Data</div>
-            <pre style="white-space: pre-wrap;">{{ stringifyValue(detailRecord.input_data) }}</pre>
+          <div class="admin-detail-section">
+            <div class="admin-detail-section__title">Input Data</div>
+            <pre class="admin-log-pre">{{ stringifyValue(detailRecord.input_data) }}</pre>
           </div>
-          <div style="margin-bottom: 12px;">
-            <div style="font-weight: 600; margin-bottom: 6px;">Output Content</div>
-            <pre style="white-space: pre-wrap;">{{ stringifyValue(detailRecord.output_content) }}</pre>
+          <div class="admin-detail-section">
+            <div class="admin-detail-section__title">Output Content</div>
+            <pre class="admin-log-pre">{{ stringifyValue(detailRecord.output_content) }}</pre>
           </div>
-          <div>
-            <div style="font-weight: 600; margin-bottom: 6px;">Prompt Text</div>
-            <pre style="white-space: pre-wrap;">{{ detailRecord.prompt_text || '-' }}</pre>
+          <div class="admin-detail-section">
+            <div class="admin-detail-section__title">Prompt Text</div>
+            <pre class="admin-log-pre">{{ detailRecord.prompt_text || '-' }}</pre>
           </div>
         </template>
       </template>

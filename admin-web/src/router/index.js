@@ -24,6 +24,14 @@ const routes = [
     }
   },
   {
+    path: '/admin/home-recommend',
+    name: 'admin-home-recommend',
+    component: () => import('../views/admin/HomeRecommendView.vue'),
+    meta: {
+      title: 'Home Recommend'
+    }
+  },
+  {
     path: '/admin/scenic',
     name: 'admin-scenic-list',
     component: () => import('../views/admin/ScenicManageView.vue'),
@@ -48,11 +56,43 @@ const routes = [
     }
   },
   {
+    path: '/admin/ai-copywriting',
+    name: 'admin-ai-copywriting',
+    component: () => import('../views/admin/AiCopywritingView.vue'),
+    meta: {
+      title: 'AI Copywriting'
+    }
+  },
+  {
     path: '/admin/ai-logs',
     name: 'admin-ai-logs',
     component: () => import('../views/admin/AiLogsView.vue'),
     meta: {
       title: 'AI Logs'
+    }
+  },
+  {
+    path: '/admin/ai-logs/chat',
+    name: 'admin-ai-chat-logs',
+    component: () => import('../views/admin/AiChatLogsView.vue'),
+    meta: {
+      title: 'AI Chat Logs'
+    }
+  },
+  {
+    path: '/admin/ai-logs/trip',
+    name: 'admin-ai-trip-logs',
+    component: () => import('../views/admin/AiTripLogsView.vue'),
+    meta: {
+      title: 'AI Trip Logs'
+    }
+  },
+  {
+    path: '/admin/settings',
+    name: 'admin-settings',
+    component: () => import('../views/admin/SettingsView.vue'),
+    meta: {
+      title: 'Settings'
     }
   }
 ];

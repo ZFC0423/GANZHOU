@@ -1,0 +1,130 @@
+:root,
+[data-theme='light'] {
+  --color-accent: var(--palette-bg-primary-core);
+  --color-accent-hover: var(--palette-bg-tertiary-core);
+  --color-text-primary: var(--palette-text-primary);
+  --color-text-focused: var(--palette-text-focused);
+  --color-text-secondary: var(--palette-text-secondary);
+  --color-text-tertiary: var(--palette-text-tertiary);
+  --color-text-disabled: var(--palette-text-material-disabled);
+  --color-link-disabled: var(--palette-text-link-disabled);
+  --color-error: var(--palette-text-primary-error);
+
+  --surface-page: var(--palette-surface-page);
+  --surface-card: var(--palette-surface-primary);
+  --surface-muted: var(--palette-surface-secondary);
+  --surface-strong: var(--palette-surface-tertiary);
+  --surface-soft: var(--palette-surface-soft);
+  --surface-elevated: var(--palette-surface-elevated);
+  --surface-inverse: var(--palette-surface-inverse);
+  --surface-overlay: var(--palette-surface-overlay);
+
+  --border-default: var(--palette-border-default);
+  --border-soft: var(--palette-border-soft);
+  --border-strong: var(--palette-border-strong);
+  --border-accent: var(--palette-border-accent);
+
+  --shadow-card: var(--shadow-card-base);
+  --shadow-hover: var(--shadow-hover-base);
+  --shadow-floating: var(--shadow-floating);
+  --shadow-inset: var(--shadow-soft-inset);
+
+  --radius-button: var(--radius-2);
+  --radius-badge: var(--radius-3);
+  --radius-card: var(--radius-4);
+  --radius-panel: var(--radius-5);
+
+  --container-page: var(--container-4);
+  --container-narrow: var(--container-2);
+  --container-reading: var(--container-1);
+  --page-gutter-current: var(--page-gutter);
+
+  /* Backward-compatible aliases for existing client views */
+  --gz-brand-primary: var(--color-accent);
+  --gz-brand-primary-light: var(--surface-soft);
+  --gz-brand-primary-hover: var(--color-accent-hover);
+  --gz-brand-secondary: var(--color-text-primary);
+
+  --gz-text-primary: var(--color-text-primary);
+  --gz-text-regular: var(--color-text-secondary);
+  --gz-text-secondary: var(--color-text-tertiary);
+
+  --gz-bg-page: var(--surface-page);
+  --gz-bg-card: var(--surface-card);
+  --gz-bg-muted: var(--surface-muted);
+  --gz-border-light: var(--border-soft);
+
+  --gz-font-family-base: var(--font-family-base);
+  --gz-text-xs: var(--font-size-xs);
+  --gz-text-sm: var(--font-size-sm);
+  --gz-text-md: var(--font-size-body);
+  --gz-text-base: 15px;
+  --gz-text-lg: var(--font-size-ui);
+  --gz-text-xl: 18px;
+  --gz-text-2xl: var(--font-size-feature);
+  --gz-text-3xl: 24px;
+  --gz-text-4xl: 32px;
+  --gz-text-5xl: var(--font-size-display);
+
+  --gz-space-1: var(--space-1);
+  --gz-space-2: var(--space-2);
+  --gz-space-3: var(--space-3);
+  --gz-space-4: var(--space-4);
+  --gz-space-5: 20px;
+  --gz-space-6: var(--space-6);
+  --gz-space-8: var(--space-7);
+  --gz-space-10: var(--space-8);
+  --gz-space-12: var(--space-9);
+  --gz-space-14: var(--space-10);
+  --gz-space-16: var(--space-11);
+
+  --gz-radius-sm: var(--radius-button);
+  --gz-radius-md: var(--radius-card);
+  --gz-radius-lg: var(--radius-panel);
+  --gz-shadow-card: var(--shadow-card);
+  --gz-shadow-card-hover: var(--shadow-hover);
+
+  --gz-transition-base: var(--transition-base);
+  --gz-container-page: var(--container-page);
+  --gz-container-narrow: var(--container-narrow);
+  --gz-container-reading: var(--container-reading);
+  --gz-page-gutter: var(--page-gutter-current);
+
+  --gz-surface-page: var(--surface-page);
+  --gz-surface-card: var(--surface-card);
+  --gz-surface-muted: var(--surface-muted);
+  --gz-text-main: var(--color-text-primary);
+  --gz-text-muted: var(--color-text-secondary);
+}
+
+[data-theme='dark'] {
+  /* Placeholder only. The client currently targets a light design system. */
+  --color-accent: var(--palette-bg-primary-core);
+  --color-accent-hover: var(--palette-bg-tertiary-core);
+  --color-text-primary: var(--palette-text-primary);
+  --color-text-focused: var(--palette-text-focused);
+  --color-text-secondary: var(--palette-text-secondary);
+  --color-text-tertiary: var(--palette-text-tertiary);
+  --color-text-disabled: var(--palette-text-material-disabled);
+  --color-link-disabled: var(--palette-text-link-disabled);
+  --color-error: var(--palette-text-primary-error);
+
+  --surface-page: var(--palette-surface-page);
+  --surface-card: var(--palette-surface-primary);
+  --surface-muted: var(--palette-surface-secondary);
+  --surface-strong: var(--palette-surface-tertiary);
+  --surface-soft: var(--palette-surface-soft);
+  --surface-elevated: var(--palette-surface-elevated);
+  --surface-inverse: var(--palette-surface-inverse);
+  --surface-overlay: var(--palette-surface-overlay);
+
+  --border-default: var(--palette-border-default);
+  --border-soft: var(--palette-border-soft);
+  --border-strong: var(--palette-border-strong);
+  --border-accent: var(--palette-border-accent);
+
+  --shadow-card: var(--shadow-card-base);
+  --shadow-hover: var(--shadow-hover-base);
+  --shadow-floating: var(--shadow-floating);
+  --shadow-inset: var(--shadow-soft-inset);
+}

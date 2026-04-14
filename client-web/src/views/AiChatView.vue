@@ -128,7 +128,7 @@ onMounted(loadRecommendQuestions);
           type="error"
           show-icon
           :closable="false"
-          style="margin-bottom: 24px;"
+          class="page-alert"
         />
 
         <div class="chat-history">
@@ -243,28 +243,31 @@ onMounted(loadRecommendQuestions);
 <style scoped>
 .ai-chat-hero {
   padding: 40px 32px;
-  border-radius: var(--gz-radius-md);
+  border-radius: var(--radius-panel);
   margin-bottom: 32px;
-  background: linear-gradient(135deg, #e0f2fe, #dcfce7);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  background:
+    radial-gradient(circle at top right, rgba(255, 56, 92, 0.14), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.96));
+  border: 1px solid rgba(236, 231, 223, 0.9);
+  box-shadow: var(--shadow-card);
 }
 
 .ai-chat-hero__eyebrow {
-  color: var(--gz-brand-primary-hover);
-  font-weight: 700;
+  color: var(--color-accent);
+  font-weight: 600;
   margin-bottom: 12px;
-  font-size: 14px;
-  letter-spacing: 1px;
+  font-size: 12px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 
 .chat-container {
-  max-width: 860px;
+  max-width: var(--container-narrow);
   margin: 0 auto;
 }
 
 .ai-chat-card {
   margin-bottom: 32px;
-  border-radius: var(--gz-radius-md) !important;
 }
 
 .ai-chat-card__header {
@@ -277,12 +280,12 @@ onMounted(loadRecommendQuestions);
 
 .chat-header-title {
   font-size: 18px;
-  font-weight: 600;
-  color: var(--gz-brand-secondary);
+  font-weight: 700;
+  color: var(--color-text-primary);
 }
 
 .ai-chat-card__tip {
-  color: var(--gz-text-secondary);
+  color: var(--color-text-tertiary);
   font-size: 13px;
 }
 
@@ -304,7 +307,11 @@ onMounted(loadRecommendQuestions);
 
 .submit-btn {
   padding: 0 32px;
-  border-radius: 20px;
+  border-radius: 999px;
+}
+
+.page-alert {
+  margin-bottom: 24px;
 }
 
 .chat-history {
@@ -335,7 +342,7 @@ onMounted(loadRecommendQuestions);
 }
 
 .chat-bubble--user .bubble-text {
-  background: var(--gz-brand-primary);
+  background: var(--color-accent);
   color: #fff;
   border-radius: 20px 20px 4px 20px;
 }
@@ -345,11 +352,11 @@ onMounted(loadRecommendQuestions);
 }
 
 .chat-bubble--ai .bubble-text {
-  background: #fff;
-  color: var(--gz-text-primary);
-  border-radius: 4px 20px 20px 20px;
-  border: 1px solid var(--gz-border-light);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--color-text-primary);
+  border-radius: 14px 20px 20px 20px;
+  border: 1px solid rgba(236, 231, 223, 0.9);
+  box-shadow: var(--shadow-card);
 }
 
 .bubble-avatar {
@@ -365,13 +372,13 @@ onMounted(loadRecommendQuestions);
 }
 
 .chat-bubble--user .bubble-avatar {
-  background: #bae6fd;
-  color: #0369a1;
+  background: rgba(255, 56, 92, 0.1);
+  color: var(--color-accent);
 }
 
 .chat-bubble--ai .bubble-avatar {
-  background: #ccfbf1;
-  color: var(--gz-brand-primary);
+  background: var(--surface-muted);
+  color: var(--color-text-primary);
 }
 
 .bubble-content {
@@ -394,12 +401,12 @@ onMounted(loadRecommendQuestions);
 
 .bubble-name {
   font-weight: 600;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
 }
 
 .bubble-model {
-  color: #94a3b8;
-  background: #f1f5f9;
+  color: var(--color-text-tertiary);
+  background: var(--surface-muted);
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 11px;
@@ -413,10 +420,10 @@ onMounted(loadRecommendQuestions);
 }
 
 .bubble-body {
-  background: #fff;
-  border-radius: 4px 20px 20px 20px;
-  border: 1px solid var(--gz-border-light);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 14px 20px 20px 20px;
+  border: 1px solid rgba(236, 231, 223, 0.9);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -427,26 +434,26 @@ onMounted(loadRecommendQuestions);
   line-height: 1.75;
   white-space: pre-line;
   font-size: 15px;
-  color: var(--gz-text-primary);
+  color: var(--color-text-primary);
 }
 
 .bubble-cultural {
-  background: #f8fafc;
+  background: rgba(255, 56, 92, 0.06);
   padding: 12px 16px;
-  border-radius: 8px;
-  border-left: 3px solid var(--gz-brand-primary);
+  border-radius: 16px;
+  border-left: 3px solid var(--color-accent);
 }
 
 .section-badge {
   font-size: 12px;
   font-weight: 600;
-  color: var(--gz-brand-primary);
+  color: var(--color-accent);
   margin-bottom: 6px;
 }
 
 .section-content {
   font-size: 14px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
 }
 
 .bubble-related {
@@ -454,7 +461,7 @@ onMounted(loadRecommendQuestions);
   flex-direction: column;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px dashed var(--gz-border-light);
+  border-top: 1px dashed var(--border-soft);
 }
 
 .related-group {
@@ -466,20 +473,21 @@ onMounted(loadRecommendQuestions);
 
 .related-label {
   font-size: 13px;
-  color: var(--gz-text-secondary);
+  color: var(--color-text-tertiary);
 }
 
 .bubble-next-steps {
-  background: #f0fdfa;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 248, 0.96));
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: 16px;
   margin-top: 4px;
+  border: 1px solid rgba(255, 56, 92, 0.12);
 }
 
 .next-step-title {
   font-size: 13px;
   font-weight: 600;
-  color: #0f766e;
+  color: var(--color-accent);
   margin-bottom: 10px;
 }
 
@@ -491,7 +499,7 @@ onMounted(loadRecommendQuestions);
 
 .next-step-item {
   font-size: 14px;
-  color: #0d9488;
+  color: var(--color-text-secondary);
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -502,7 +510,7 @@ onMounted(loadRecommendQuestions);
   display: inline-block;
   width: 4px;
   height: 4px;
-  background-color: #0d9488;
+  background-color: var(--color-accent);
   border-radius: 50%;
   margin-top: 8px;
   flex-shrink: 0;
@@ -511,14 +519,14 @@ onMounted(loadRecommendQuestions);
 .bubble-context {
   margin-top: 8px;
   padding: 12px 16px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px dashed #cbd5e1;
+  background: var(--surface-muted);
+  border-radius: 16px;
+  border: 1px dashed rgba(221, 216, 209, 0.92);
 }
 
 .context-title {
   font-size: 13px;
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   margin-bottom: 10px;
   font-weight: 500;
 }
@@ -537,7 +545,7 @@ onMounted(loadRecommendQuestions);
 }
 
 .loading-text {
-  color: var(--gz-text-regular);
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
@@ -549,7 +557,7 @@ onMounted(loadRecommendQuestions);
 .typing-indicator span {
   width: 6px;
   height: 6px;
-  background: var(--gz-brand-primary);
+  background: var(--color-accent);
   border-radius: 50%;
   animation: typing 1.4s infinite ease-in-out both;
 }

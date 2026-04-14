@@ -90,15 +90,15 @@ onMounted(loadList);
         </div>
       </el-card>
 
-      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" style="margin-bottom: 24px;" />
-      <div v-if="errorMessage" style="margin-bottom: 24px;">
+      <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" class="page-alert" />
+      <div v-if="errorMessage" class="page-alert-actions">
         <el-button @click="loadList">重试请求</el-button>
       </div>
 
       <el-skeleton v-if="loading" :rows="8" animated />
 
       <template v-else>
-        <div class="scenic-guide-box">
+        <div class="reading-guide-box">
           <span class="guide-badge">阅读提示</span>本页从景点浏览出发，帮助您逐步进入相关主题与文化线索。<br/>您可以先查阅代表性景点，再由详情页深入探索。当前内容基于现有平台资料进行缓冲展示，部分未完全中文化的条目保留原始信息语言。
         </div>
         
@@ -133,7 +133,7 @@ onMounted(loadList);
                   <span class="tag-label">相关主题：</span>
                   <el-tag v-for="tag in item.tags" :key="tag" size="small" type="success" effect="plain" round>{{ tag }}</el-tag>
                 </div>
-                <div v-else style="flex:1;"></div>
+                <div v-else class="scenic-card__spacer"></div>
                 <div class="scenic-card__action">
                   查看详情 &rarr;
                 </div>
@@ -153,12 +153,12 @@ onMounted(loadList);
         </div>
 
         <!-- 探索入口层 -->
-        <section class="scenic-next-steps">
+        <section class="topic-next-steps scenic-next-steps">
           <div class="next-steps-container">
             <h3 class="next-steps-title">对当前内容有进一步疑问？</h3>
             <p class="next-steps-desc">您可以带着浏览中发现的主题与文化线索，向智慧问答入口获取更多信息。</p>
             <div class="next-steps-actions">
-              <router-link to="/ai-chat" style="text-decoration: none;">
+              <router-link to="/ai-chat" class="link-reset">
                 <el-button type="primary" plain size="large">围绕以上线索咨询 AI</el-button>
               </router-link>
             </div>
@@ -172,33 +172,25 @@ onMounted(loadList);
 <style scoped>
 .scenic-hero {
   margin-bottom: 32px;
-  padding: 48px 40px;
-  border-radius: var(--gz-radius-lg);
-  background: linear-gradient(135deg, #f0fdf4, #ccfbf1);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.04);
+  padding: clamp(32px, 6vw, 52px);
+  border-radius: var(--radius-panel);
+  background:
+    radial-gradient(circle at top right, rgba(255, 56, 92, 0.14), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.96));
+  border: 1px solid rgba(236, 231, 223, 0.9);
+  box-shadow: var(--shadow-card);
 }
 
 .scenic-hero__title {
-  color: var(--gz-brand-secondary);
-  font-size: 38px;
-  font-weight: 800;
   margin: 0 0 12px;
-  letter-spacing: -0.5px;
 }
 
 .scenic-hero__desc {
-  color: #475569;
-  font-size: 16px;
-  margin: 0;
   max-width: 600px;
-  line-height: 1.6;
 }
 
 .filter-card {
   margin-bottom: 32px;
-  border-radius: var(--gz-radius-md);
-  background: #f8fafc;
-  border: 1px solid var(--gz-border-light);
 }
 
 .filter-bar {
@@ -209,18 +201,16 @@ onMounted(loadList);
 }
 
 .filter-btn {
-  padding: 0 32px;
-  font-weight: 600;
+  min-width: 132px;
+}
+
+.reading-guide-box {
+  margin-bottom: 32px;
 }
 
 .scenic-card {
   cursor: pointer;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: var(--gz-radius-md);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 :deep(.scenic-card .el-card__body) {
@@ -230,32 +220,8 @@ onMounted(loadList);
   flex-direction: column;
 }
 
-.scenic-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-}
-
-.scenic-card:hover .scenic-card__image {
-  transform: scale(1.04);
-}
-
 .scenic-card__cover-box {
-  overflow: hidden;
-  height: 220px;
-}
-
-.scenic-card__image {
-  height: 100%;
-  width: 100%;
-  object-fit: cover;
-  transition: transform 0.6s ease;
-}
-
-.scenic-card__body {
-  padding: 24px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  height: 240px;
 }
 
 .scenic-card__head {
@@ -268,30 +234,17 @@ onMounted(loadList);
 
 .scenic-card__title {
   margin: 0;
-  font-size: 20px;
+  font-size: clamp(18px, 1.4vw, 20px);
   font-weight: 700;
-  color: var(--gz-brand-secondary);
-  line-height: 1.4;
+  line-height: 1.28;
 }
 
 .scenic-card__region {
-  color: #0f766e;
-  font-size: 13px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #f0fdf4;
-  padding: 4px 10px;
-  border-radius: 20px;
   white-space: nowrap;
 }
 
 .scenic-card__intro {
   margin: 0 0 20px;
-  color: var(--gz-text-regular);
-  line-height: 1.7;
-  font-size: 14px;
   flex: 1;
 }
 
@@ -312,62 +265,20 @@ onMounted(loadList);
 
 .tag-label {
   font-size: 13px;
-  color: var(--gz-text-secondary);
+  color: var(--color-text-tertiary);
   font-weight: 500;
 }
 
 .scenic-card__action {
   font-size: 14px;
   font-weight: 600;
-  color: var(--gz-brand-primary);
-  transition: color 0.3s;
+  color: var(--color-accent);
+  transition: color var(--transition-base);
   white-space: nowrap;
 }
 
 .scenic-card:hover .scenic-card__action {
-  color: #0d9488;
-}
-
-.scenic-guide-box {
-  background: var(--gz-bg-page, #f8fafc);
-  padding: 16px 20px;
-  border-radius: var(--gz-radius-sm);
-  color: var(--gz-text-regular);
-  font-size: 14px;
-  line-height: 1.7;
-  margin-bottom: 32px;
-  border: 1px dashed #cbd5e1;
-}
-
-.guide-badge {
-  color: #0f766e;
-  font-weight: 600;
-  margin-right: 8px;
-  background: #ccfbf1;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.list-section-header {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--gz-border-light);
-  padding-bottom: 12px;
-}
-
-.list-section-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--gz-brand-secondary);
-}
-
-.list-section-desc {
-  font-size: 14px;
-  color: var(--gz-text-secondary);
+  color: var(--color-accent-hover);
 }
 
 .pagination-wrap {
@@ -376,37 +287,16 @@ onMounted(loadList);
   justify-content: center;
 }
 
-.scenic-next-steps {
-  margin-top: 64px;
-  padding-top: 40px;
-  border-top: 1px dashed var(--gz-border-light);
-  text-align: center;
+.scenic-card__spacer {
+  flex: 1;
 }
 
-.next-steps-container {
-  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
-  padding: 40px;
-  border-radius: var(--gz-radius-lg);
-  max-width: 800px;
-  margin: 0 auto;
+.page-alert {
+  margin-bottom: 16px;
 }
 
-.next-steps-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--gz-brand-secondary);
-  margin: 0 0 12px;
-}
-
-.next-steps-desc {
-  color: var(--gz-text-regular);
-  font-size: 15px;
-  margin: 0 0 24px;
-}
-
-.next-steps-actions {
-  display: flex;
-  justify-content: center;
+.page-alert-actions {
+  margin-bottom: 24px;
 }
 
 @media (max-width: 900px) {
