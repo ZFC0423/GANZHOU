@@ -1,8 +1,10 @@
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import SiteLayout from '../components/SiteLayout.vue';
 import { postAiTripPlanApi } from '../api/ai';
+import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
+import { getContextCard, pickNarrativeText } from '../utils/immersive-content';
 
 const interestOptions = [
   { label: '自然风光', value: 'natural' },
@@ -11,18 +13,18 @@ const interestOptions = [
   { label: '非遗文化', value: 'heritage' },
   { label: '美食体验', value: 'food' },
   { label: '亲子休闲', value: 'family' },
-  { label: '拍照打卡', value: 'photography' }
+  { label: '拍照漫游', value: 'photography' }
 ];
 
 const paceLabelMap = {
-  relaxed: '轻松漫步',
-  normal: '松弛有度',
-  compact: '充实紧凑'
+  relaxed: '轻松漫游',
+  normal: '适中铺陈',
+  compact: '紧凑推进'
 };
 
 const transportLabelMap = {
   public_transport: '公共交通',
-  self_drive: '自驾出行'
+  self_drive: '自驾'
 };
 
 const slotLabelMap = {
@@ -31,6 +33,13 @@ const slotLabelMap = {
   afternoon: '下午',
   evening: '傍晚'
 };
+
+const dayFrames = [
+  '/immersive/scenic-details/P0-07_Yugutai_official_02.jpg',
+  '/immersive/scenic-details/P0-09_HakkaCultureCity_official_01.jpg',
+  '/immersive/scenic-details/P0-11_Sanbaishan_media_02.jpg',
+  '/immersive/scenic-details/P0-10_Fushougou_media_01.jpg'
+];
 
 const formState = reactive({
   days: 2,
@@ -44,6 +53,35 @@ const loading = ref(false);
 const errorMessage = ref('');
 const result = ref(null);
 
+const routeDays = computed(() => result.value?.days || []);
+const contextCards = computed(() => {
+  if (Array.isArray(result.value?.citations) && result.value.citations.length) {
+    return result.value.citations.map(getContextCard).filter(Boolean);
+  }
+
+  return (result.value?.matchedContext || []).map(getContextCard).filter(Boolean);
+});
+
+const routeWarnings = computed(() => {
+  if (Array.isArray(result.value?.routeWarnings) && result.value.routeWarnings.length) {
+    return result.value.routeWarnings;
+  }
+
+  if (Array.isArray(result.value?.adjustmentSuggestions)) {
+    return result.value.adjustmentSuggestions;
+  }
+
+  return result.value?.adjustmentSuggestions ? [result.value.adjustmentSuggestions] : [];
+});
+
+const packingTips = computed(() => {
+  if (Array.isArray(result.value?.packingTips) && result.value.packingTips.length) {
+    return result.value.packingTips;
+  }
+
+  return result.value?.travelTips || [];
+});
+
 function validateForm() {
   if (!Number.isInteger(formState.days) || formState.days < 1 || formState.days > 5) {
     ElMessage.warning('出行天数需要在 1 到 5 天之间');
@@ -51,17 +89,7 @@ function validateForm() {
   }
 
   if (!formState.interests.length) {
-    ElMessage.warning('请至少选择一个兴趣偏好');
-    return false;
-  }
-
-  if (!formState.pace) {
-    ElMessage.warning('请选择行程节奏');
-    return false;
-  }
-
-  if (!formState.transport) {
-    ElMessage.warning('请选择交通方式');
+    ElMessage.warning('请至少选择一个兴趣方向');
     return false;
   }
 
@@ -90,9 +118,9 @@ async function submitTripPlan() {
       notes: formState.notes
     });
 
-    result.value = response.data;
+    result.value = response.data || null;
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '行程推荐服务暂时繁忙，请稍后再试';
+    errorMessage.value = error.response?.data?.message || '行程推荐服务暂时繁忙，请稍后再试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -106,225 +134,248 @@ function formatTimeSlot(value) {
 function formatContextType(value) {
   return value === 'scenic' ? '景点' : '专题';
 }
+
+function resolveDayFrame(day, index) {
+  const image = day?.coverImage || dayFrames[index % dayFrames.length];
+  return resolveAssetUrl(image, day?.coverSpot || day?.title || '赣州路线');
+}
+
+function resolveCardImage(card) {
+  return resolveAssetUrl(card?.image, card?.title || '赣州导览素材');
+}
 </script>
 
 <template>
   <SiteLayout>
-    <div class="page-shell">
-      <section class="trip-hero">
-        <div class="trip-hero__content">
-          <div class="trip-hero__eyebrow">游览建议</div>
-          <h1 class="page-title">赣州行程辅助</h1>
-          <p class="page-subtitle">
-            根据出行偏好，为您梳理一条具备参考性的探索路线与游览建议。
-          </p>
+    <div class="page-shell route-studio-page">
+      <section class="route-studio-hero">
+        <div class="route-studio-hero__media">
+          <img src="/immersive/hero/P0-01_AncientWall_official_03.jpg" alt="路线工作室" />
+        </div>
+        <div class="route-studio-hero__overlay">
+          <div class="route-studio-hero__copy">
+            <div class="chapter-mark">Route Studio</div>
+            <h1 class="page-title">把兴趣、天数与节奏，整理成一条可进入的赣州路线。</h1>
+            <p class="page-subtitle">
+              这里不是生成表单结果，而是把你的偏好编排成一份有章节感、有重点、可继续讲述的游览作品。
+            </p>
+          </div>
+
+          <div class="route-studio-hero__note">
+            <div class="section-label">工作方式</div>
+            <p>先在左侧定调，再在右侧查看路线长卷。结果会结合站内景点与专题内容生成，而不是脱离内容的空泛建议。</p>
+          </div>
         </div>
       </section>
 
-      <el-card class="trip-form-card">
-        <template #header>
-          <div class="trip-form-card__header">
-            <span class="trip-form-title">出行偏好</span>
-            <span class="trip-form-card__tip">填写您的基本出行信息</span>
+      <section class="page-workspace route-studio-workspace">
+        <aside class="page-workspace__aside route-studio-workspace__aside">
+          <div class="route-studio-form filter-card">
+            <div class="route-studio-form__head">
+              <span class="section-eyebrow">Calibration</span>
+              <h2 class="section-title">先定这次如何进入赣州。</h2>
+            </div>
+
+            <el-form label-position="top">
+              <div class="route-studio-form__grid">
+                <el-form-item label="游览天数">
+                  <el-input-number v-model="formState.days" :min="1" :max="5" />
+                </el-form-item>
+
+                <el-form-item label="行程节奏">
+                  <el-radio-group v-model="formState.pace">
+                    <el-radio-button label="relaxed">轻松</el-radio-button>
+                    <el-radio-button label="normal">适中</el-radio-button>
+                    <el-radio-button label="compact">紧凑</el-radio-button>
+                  </el-radio-group>
+                </el-form-item>
+              </div>
+
+              <el-form-item label="交通方式">
+                <el-radio-group v-model="formState.transport">
+                  <el-radio-button label="public_transport">公共交通</el-radio-button>
+                  <el-radio-button label="self_drive">自驾</el-radio-button>
+                </el-radio-group>
+              </el-form-item>
+
+              <el-form-item label="兴趣方向">
+                <el-checkbox-group v-model="formState.interests" class="route-studio-form__checkboxes">
+                  <el-checkbox v-for="item in interestOptions" :key="item.value" :label="item.value" border>
+                    {{ item.label }}
+                  </el-checkbox>
+                </el-checkbox-group>
+              </el-form-item>
+
+              <el-form-item label="补充说明">
+                <el-input
+                  v-model="formState.notes"
+                  type="textarea"
+                  :rows="4"
+                  maxlength="300"
+                  show-word-limit
+                  placeholder="例如：希望步行强度适中，尽量安排老城夜景和有文化解释的内容。"
+                />
+              </el-form-item>
+            </el-form>
+
+            <el-button type="primary" :loading="loading" @click="submitTripPlan">
+              {{ loading ? '正在生成路线' : '生成路线作品' }}
+            </el-button>
           </div>
-        </template>
 
-        <el-form label-position="top">
-          <div class="trip-form-grid">
-            <el-form-item label="游玩天数">
-              <el-input-number v-model="formState.days" :min="1" :max="5" />
-            </el-form-item>
-
-            <el-form-item label="行程节奏">
-              <el-radio-group v-model="formState.pace">
-                <el-radio-button label="relaxed">轻松</el-radio-button>
-                <el-radio-button label="normal">适中</el-radio-button>
-                <el-radio-button label="compact">紧凑</el-radio-button>
-              </el-radio-group>
-            </el-form-item>
-
-            <el-form-item label="出行方式">
-              <el-radio-group v-model="formState.transport">
-                <el-radio-button label="public_transport">公共交通</el-radio-button>
-                <el-radio-button label="self_drive">自驾出行</el-radio-button>
-              </el-radio-group>
-            </el-form-item>
+          <div class="panel-note-muted route-studio-note">
+            <div class="section-label">填写建议</div>
+            <p>兴趣越明确，生成结果越容易形成章节差异。你也可以反复调整参数，比较不同版本的路线气质。</p>
           </div>
 
-          <el-form-item label="兴趣方向（可多选）">
-            <el-checkbox-group v-model="formState.interests" class="trip-checkbox-group">
-              <el-checkbox
-                v-for="item in interestOptions"
-                :key="item.value"
-                :label="item.value"
-                border
-              >
-                {{ item.label }}
-              </el-checkbox>
-            </el-checkbox-group>
-          </el-form-item>
-
-          <el-form-item label="补充说明（选填）">
-            <el-input
-              v-model="formState.notes"
-              type="textarea"
-              :rows="3"
-              maxlength="300"
-              show-word-limit
-              placeholder="例如：带两位长辈出行，希望步道平缓，尽量包含地道的客家美食推荐。"
-            />
-          </el-form-item>
-        </el-form>
-
-        <div class="trip-form-actions">
-          <el-button type="primary" size="large" :loading="loading" @click="submitTripPlan" class="submit-btn">
-            {{ loading ? '正在生成建议...' : '获取行程建议' }}
-          </el-button>
-        </div>
-      </el-card>
-
-      <el-alert
-        v-if="errorMessage"
-        :title="errorMessage"
-        type="error"
-        show-icon
-        :closable="false"
-        class="page-alert"
-      />
-
-      <section class="trip-result-section" v-if="loading || result">
-        <div class="trip-result-header">
-          <h2 class="trip-result-title">行程建议</h2>
-        </div>
-
-        <div v-if="loading" class="loading-state">
-           <div class="loading-spinner"></div>
-           <p>正在根据偏好检索平台内容...</p>
-        </div>
-
-        <div v-else-if="result" class="trip-result">
           <el-alert
-            v-if="result.pathPositioning"
-            :title="`定位：${result.pathPositioning}`"
-            type="success"
+            v-if="errorMessage"
+            :title="errorMessage"
+            type="error"
+            show-icon
             :closable="false"
-            class="trip-positioning-alert"
+            class="page-alert page-alert--block"
           />
+        </aside>
 
-          <el-card class="trip-summary-card">
-            <div class="trip-summary-card__meta">
-              <el-tag effect="plain" round type="info" size="small">出行节奏：{{ paceLabelMap[formState.pace] }}</el-tag>
-              <el-tag effect="plain" round type="info" size="small">交通：{{ transportLabelMap[formState.transport] }}</el-tag>
-              <el-tag effect="light" round size="small" class="model-tag">生成模型：{{ result.model_name || '默认模型' }}</el-tag>
-            </div>
-            
-            <div class="trip-insight-section" v-if="result.routeHighlights?.length || result.suitableFor">
-              <div class="insight-suitable" v-if="result.suitableFor">
-                <strong>适合人群：</strong>{{ result.suitableFor }}
-              </div>
-              <div class="insight-highlights" v-if="result.routeHighlights?.length">
-                <div class="highlights-title">路线亮点</div>
-                <ul class="highlights-list">
-                  <li v-for="(hl, idx) in result.routeHighlights" :key="idx">{{ hl }}</li>
-                </ul>
-              </div>
-            </div>
+        <div class="page-workspace__main route-studio-workspace__main">
+          <section v-if="!loading && !result" class="route-studio-empty panel-soft-card">
+            <span class="section-eyebrow">Route Canvas</span>
+            <h2 class="section-title">左侧定调之后，右侧会展开一条带节奏的路线长页。</h2>
+            <p class="section-desc">
+              系统会根据你的偏好整合景点与专题内容，输出路线定位、每天安排、亮点和提示，适合继续展示和讲解。
+            </p>
+          </section>
 
-            <div v-if="result.summary" class="trip-summary-card__content">{{ result.summary }}</div>
-            
-            <div class="trip-related" v-if="result.relatedSpots?.length || result.relatedTopics?.length">
-              <div v-if="result.relatedSpots?.length" class="related-group">
-                <span class="related-label">途经景点：</span>
-                <el-tag v-for="spot in result.relatedSpots" :key="spot" size="small" type="success" effect="plain" round>{{ spot }}</el-tag>
-              </div>
-              <div v-if="result.relatedTopics?.length" class="related-group">
-                <span class="related-label">融合主题：</span>
-                <el-tag v-for="topic in result.relatedTopics" :key="topic" size="small" type="warning" effect="plain" round>{{ topic }}</el-tag>
-              </div>
+          <section v-if="loading" class="route-studio-loading panel-soft-card">
+            <div class="route-studio-loading__pulse"></div>
+            <div>
+              <strong>路线工作室正在编排章节</strong>
+              <p>正在检索站内内容并生成更贴近你的游览节奏。</p>
             </div>
-          </el-card>
+          </section>
 
-          <div class="trip-day-list">
-            <el-card
-              v-for="day in result.days || []"
-              :key="day.dayIndex"
-              class="trip-day-card"
-            >
-              <template #header>
-                <div class="trip-day-card__header">
-                  <div class="trip-day-card__title">{{ day.title }}</div>
-                  <div class="day-line"></div>
+          <template v-if="result && !loading">
+            <section class="route-studio-summary">
+              <div class="route-studio-summary__hero panel-soft-card">
+                <div class="section-eyebrow">Route Positioning</div>
+                <div class="route-studio-summary__mood">
+                  {{ result.routeMood || `${formState.days} 天 / ${paceLabelMap[formState.pace]} / ${transportLabelMap[formState.transport]}` }}
                 </div>
-              </template>
+                <h2>{{ result.routeTitle || result.pathPositioning || '这是一条以地方理解为核心的赣州路线。' }}</h2>
+                <p>{{ result.introNote || result.summary }}</p>
+              </div>
 
-              <div v-if="day.items?.length" class="trip-item-list">
-                <div
-                  v-for="(item, index) in day.items"
-                  :key="`${day.dayIndex}-${item.timeSlot}-${index}`"
-                  class="trip-item"
-                >
-                  <div class="trip-item__slot">
-                    <span class="slot-dot"></span>
-                    {{ formatTimeSlot(item.timeSlot) }}
-                  </div>
-                  <div class="trip-item__main">
-                    <div class="trip-item__name">
-                      {{ item.name }}
-                      <el-tag size="small" type="success" effect="light">{{ formatContextType(item.type) }}</el-tag>
-                    </div>
-                    <div class="trip-item__reason">{{ item.reason }}</div>
-                    <div class="trip-item__tips">
-                      <strong>参考提示：</strong>{{ item.tips }}
-                    </div>
-                  </div>
+              <div class="route-studio-summary__meta">
+                <div class="route-studio-summary__meta-card">
+                  <span>行程节奏</span>
+                  <strong>{{ paceLabelMap[formState.pace] }}</strong>
+                </div>
+                <div class="route-studio-summary__meta-card">
+                  <span>交通方式</span>
+                  <strong>{{ transportLabelMap[formState.transport] }}</strong>
+                </div>
+                <div class="route-studio-summary__meta-card">
+                  <span>适合人群</span>
+                  <strong>{{ result.suitableFor || '适合作为首轮赣州导览路线' }}</strong>
                 </div>
               </div>
+            </section>
 
-              <el-empty v-else description="当日暂无具体安排建议" :image-size="70" />
-            </el-card>
-          </div>
+            <section v-if="result.routeHighlights?.length" class="route-studio-highlights panel-note-accent">
+              <div class="section-label">路线亮点</div>
+              <ul>
+                <li v-for="(item, index) in result.routeHighlights" :key="index">{{ item }}</li>
+              </ul>
+            </section>
 
-          <div class="trip-bottom-cards">
-            <el-card class="trip-extra-card">
-              <template #header>
-                 <div class="trip-extra-card__title">游览建议与调整参考</div>
-              </template>
-              <div v-if="result.adjustmentSuggestions" class="adjustment-suggestion">
-                <div class="suggestion-title">调整建议</div>
-                <div class="suggestion-content">{{ result.adjustmentSuggestions }}</div>
-              </div>
-              <div v-if="result.travelTips?.length" class="tips-section" :class="{'mt-4': result.adjustmentSuggestions}">
-                <div class="tips-title" v-if="result.adjustmentSuggestions">通用提示</div>
-                <ul class="trip-tip-list">
-                  <li v-for="(tip, index) in result.travelTips" :key="`${tip}-${index}`">
-                    {{ tip }}
-                  </li>
+            <section class="route-studio-days">
+              <article v-for="(day, index) in routeDays" :key="day.dayIndex" class="route-studio-day">
+                <div class="route-studio-day__frame">
+                  <img
+                    :src="resolveDayFrame(day, index)"
+                    :alt="day.coverSpot || day.title"
+                    @error="(event) => applyImageFallback(event, day.coverSpot || day.title)"
+                  />
+                  <div class="route-studio-day__frame-caption">
+                    <span>{{ day.chapterTitle || `Day ${day.dayIndex}` }}</span>
+                    <strong>{{ day.coverSpot || day.title }}</strong>
+                  </div>
+                </div>
+
+                <div class="route-studio-day__content">
+                  <div class="section-eyebrow">{{ day.chapterTitle || `Day ${day.dayIndex}` }}</div>
+                  <h2>{{ day.title }}</h2>
+
+                  <div class="route-studio-day__items">
+                    <article
+                      v-for="(item, itemIndex) in day.items"
+                      :key="`${day.dayIndex}-${item.timeSlot}-${itemIndex}`"
+                      class="route-studio-day__item"
+                    >
+                      <div class="route-studio-day__item-slot">{{ formatTimeSlot(item.timeSlot) }}</div>
+                      <div class="route-studio-day__item-body">
+                        <div class="route-studio-day__item-head">
+                          <h3>{{ item.name }}</h3>
+                          <span>{{ formatContextType(item.type) }}</span>
+                        </div>
+                        <p>{{ item.reason }}</p>
+                        <div class="route-studio-day__item-meta">
+                          <small>{{ item.visualHint || '作为这一天的叙事节点' }}</small>
+                          <div class="route-studio-day__item-tip">{{ item.tips }}</div>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                </div>
+              </article>
+            </section>
+
+            <section class="route-studio-bottom">
+              <div class="panel-soft-card route-studio-bottom__card">
+                <div class="section-label">调整建议</div>
+                <ul>
+                  <li v-for="(item, index) in routeWarnings" :key="index">{{ item }}</li>
                 </ul>
               </div>
-              <el-empty v-if="!result.adjustmentSuggestions && (!result.travelTips || !result.travelTips.length)" description="暂无额外建议" :image-size="50" />
-            </el-card>
 
-            <el-card class="trip-extra-card">
-              <template #header>
-                <div class="trip-extra-card__title">参考来源</div>
-              </template>
-              <div v-if="result.matchedContext?.length" class="trip-context-tags">
-                <el-tag
-                  v-for="context in result.matchedContext"
-                  :key="`${context.type}-${context.id}`"
-                  type="info"
-                  effect="plain"
-                >
-                  {{ formatContextType(context.type) }} · {{ context.title }}
-                </el-tag>
+              <div class="panel-note-muted route-studio-bottom__card">
+                <div class="section-label">通用提示</div>
+                <ul>
+                  <li v-for="(tip, index) in packingTips" :key="index">{{ tip }}</li>
+                </ul>
               </div>
-              <el-empty v-else description="暂无关联平台内容" :image-size="50" />
-            </el-card>
-          </div>
-          
-          <div class="trip-reference-note">
-            说明：以上为特色参考路线，实际游览请结合当日天气、场馆开放时间与个人节奏灵活调整。
-          </div>
+            </section>
+
+            <section v-if="contextCards.length" class="route-studio-context">
+              <div class="route-studio-context__head">
+                <span class="section-eyebrow">Cited Material</span>
+                <h2 class="section-title">这条路线引用了哪些站内内容？</h2>
+              </div>
+
+              <div class="route-studio-context__grid">
+                <router-link
+                  v-for="card in contextCards"
+                  :key="`${card.type}-${card.id}`"
+                  :to="card.path || '/scenic'"
+                  class="route-studio-context__card"
+                >
+                  <div class="route-studio-context__card-media media-node">
+                    <img
+                      :src="resolveCardImage(card)"
+                      :alt="card.title"
+                      @error="(event) => applyImageFallback(event, card.title)"
+                    />
+                  </div>
+                  <div class="route-studio-context__card-body">
+                    <span>{{ card.type === 'scenic' ? '景点' : '专题' }}</span>
+                    <h3>{{ card.title }}</h3>
+                    <p>{{ pickNarrativeText(card.caption, card.summary || '作为这次路线生成的参考素材。') }}</p>
+                  </div>
+                </router-link>
+              </div>
+            </section>
+          </template>
         </div>
       </section>
     </div>
@@ -332,398 +383,397 @@ function formatContextType(value) {
 </template>
 
 <style scoped>
-.trip-hero {
-  padding: 48px 36px;
-  border-radius: var(--radius-panel);
-  margin-bottom: 32px;
-  background:
-    radial-gradient(circle at top right, rgba(255, 56, 92, 0.14), transparent 30%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.96));
-  border: 1px solid rgba(236, 231, 223, 0.9);
-  box-shadow: var(--shadow-card);
-  text-align: center;
-}
-
-.trip-hero__content {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.trip-hero__eyebrow {
-  color: var(--color-accent);
-  font-weight: 600;
-  margin-bottom: 12px;
-  letter-spacing: var(--tracking-wide);
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.trip-form-card {
-  margin-bottom: 32px;
-  max-width: var(--container-narrow);
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.trip-form-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.trip-form-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.trip-form-card__tip {
-  color: var(--color-text-tertiary);
-  font-size: 13px;
-}
-
-.trip-form-grid {
+.route-studio-page {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+  gap: 40px;
 }
 
-.trip-checkbox-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.trip-form-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
-}
-
-.submit-btn {
-  padding: 0 40px;
-  border-radius: 999px;
-  font-size: 15px;
-}
-
-.trip-result-section {
-  max-width: var(--container-narrow);
-  margin: 0 auto;
-  animation: fadeIn 0.6s ease-out;
-}
-
-.trip-result-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.trip-result-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0;
-  color: var(--color-text-primary);
-}
-
-.trip-result {
-  display: grid;
-  gap: 24px;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 0;
-  color: var(--color-accent);
-  font-weight: 500;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 56, 92, 0.16);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 16px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.page-alert {
-  margin-bottom: 24px;
-}
-
-.trip-positioning-alert {
-  margin-bottom: 8px;
-}
-
-.trip-summary-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.model-tag {
-  color: var(--color-text-tertiary);
-  border-color: rgba(236, 231, 223, 0.92);
-  background: var(--surface-muted);
-}
-
-.trip-summary-card__content {
-  line-height: var(--line-loose);
-  color: var(--color-text-secondary);
-  white-space: pre-line;
-  font-size: 15px;
-}
-
-.trip-day-list {
-  display: grid;
-  gap: 24px;
-}
-
-.trip-day-card__header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.trip-day-card__title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-accent);
-  white-space: nowrap;
-}
-
-.day-line {
-  height: 1px;
-  flex: 1;
-  background: linear-gradient(90deg, rgba(236, 231, 223, 0.96), transparent);
-}
-
-.trip-item-list {
-  display: grid;
-  gap: 20px;
-}
-
-.trip-item {
-  display: grid;
-  grid-template-columns: 80px 1fr;
-  gap: 24px;
+.route-studio-hero {
   position: relative;
-  padding: 4px 0;
+  min-height: min(74vh, 720px);
+  overflow: hidden;
+  border-radius: 42px;
+  box-shadow: var(--shadow-floating);
 }
 
-.trip-item:not(:last-child)::after {
-  content: '';
+.route-studio-hero__media,
+.route-studio-hero__media img {
+  width: 100%;
+  height: 100%;
+}
+
+.route-studio-hero__media {
   position: absolute;
-  left: 21px; 
-  top: 30px;
-  bottom: -20px;
-  width: 1px;
-  background: rgba(236, 231, 223, 0.96);
+  inset: 0;
 }
 
-.trip-item__slot {
-  color: var(--color-text-secondary);
-  font-weight: 600;
-  display: flex;
-  gap: 12px;
-  padding-top: 2px;
+.route-studio-hero__media img {
+  object-fit: cover;
 }
 
-.slot-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-accent);
+.route-studio-hero__overlay {
   position: relative;
-  top: 5px;
-  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.14);
-}
-
-.trip-item__main {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.94));
-  padding: 16px 20px;
-  border-radius: 16px;
-  border: 1px solid rgba(236, 231, 223, 0.9);
+  min-height: min(74vh, 720px);
   display: grid;
-  gap: 12px;
-  transition: var(--transition-base);
-}
-
-.trip-item__main:hover {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(255, 247, 248, 0.98));
-  transform: translateX(4px);
-}
-
-.trip-item__name {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.trip-item__reason {
-  line-height: 1.7;
-  color: var(--color-text-secondary);
-  font-size: 15px;
-}
-
-.trip-item__tips {
-  line-height: 1.7;
-  color: #8a5d19;
-  background: #fdf7ea;
-  padding: 10px 14px;
-  border-radius: 14px;
-  font-size: 14px;
-}
-
-.trip-bottom-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.58fr);
+  align-items: end;
   gap: 24px;
+  padding: 42px;
+  color: #fff2de;
+  background: linear-gradient(180deg, rgba(17, 22, 27, 0.16), rgba(17, 22, 27, 0.84));
 }
 
-.trip-extra-card__title {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.trip-tip-list {
-  margin: 0;
-  padding-left: 20px;
+.route-studio-hero__copy {
   display: grid;
-  gap: 12px;
-  color: var(--color-text-secondary);
-  line-height: 1.7;
+  gap: 18px;
+  max-width: 800px;
 }
 
-.trip-context-tags {
+.route-studio-hero__copy :deep(.page-title),
+.route-studio-hero__copy :deep(.page-subtitle) {
+  color: inherit;
+}
+
+.route-studio-hero__note {
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(255, 242, 222, 0.12);
+  border: 1px solid rgba(255, 242, 222, 0.12);
+}
+
+.route-studio-hero__note p {
+  margin: 0;
+  color: rgba(255, 242, 222, 0.8);
+  line-height: 1.85;
+}
+
+.route-studio-form {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.route-studio-form__head {
+  display: grid;
+  gap: 6px;
+}
+
+.route-studio-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.route-studio-form__checkboxes {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.trip-insight-section {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.94));
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(236, 231, 223, 0.9);
-  margin-bottom: 16px;
-  display: flex;
-  flex-direction: column;
+.route-studio-note {
+  padding: 20px;
+}
+
+.route-studio-note p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.85;
+}
+
+.route-studio-empty,
+.route-studio-loading {
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+}
+
+.route-studio-loading__pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: soft-pulse 1.2s ease-in-out infinite;
+}
+
+.route-studio-summary,
+.route-studio-days,
+.route-studio-bottom,
+.route-studio-context {
+  display: grid;
+  gap: 18px;
+}
+
+.route-studio-summary__hero,
+.route-studio-summary__meta-card,
+.route-studio-bottom__card {
+  padding: 22px;
+}
+
+.route-studio-summary__hero {
+  display: grid;
   gap: 12px;
 }
 
-.insight-suitable {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-
-.highlights-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-accent);
-  margin-bottom: 8px;
-}
-
-.highlights-list {
+.route-studio-summary__hero h2,
+.route-studio-day__content h2,
+.route-studio-context__card-body h3 {
   margin: 0;
-  padding-left: 20px;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
+  font-family: var(--font-family-display);
 }
 
-.trip-related {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px dashed var(--border-soft);
-}
-
-.related-group {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.related-label {
-  font-size: 13px;
-  color: var(--color-text-tertiary);
-}
-
-.adjustment-suggestion {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 248, 0.96));
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 56, 92, 0.14);
-  margin-bottom: 16px;
-}
-
-.suggestion-title {
-  font-size: 14px;
-  font-weight: 600;
+.route-studio-summary__mood {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--color-accent);
-  margin-bottom: 6px;
 }
 
-.suggestion-content {
-  font-size: 14px;
+.route-studio-summary__hero p,
+.route-studio-context__card-body p {
+  margin: 0;
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  line-height: 1.88;
 }
 
-.tips-title {
-  font-size: 14px;
+.route-studio-summary__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.route-studio-summary__meta-card {
+  display: grid;
+  gap: 8px;
+  border-radius: 24px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+}
+
+.route-studio-summary__meta-card span,
+.route-studio-context__card-body span,
+.route-studio-day__frame-caption span {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.route-studio-summary__meta-card span,
+.route-studio-context__card-body span {
+  color: var(--color-accent);
+}
+
+.route-studio-highlights {
+  padding: 22px;
+}
+
+.route-studio-highlights ul,
+.route-studio-bottom__card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-text-secondary);
+  line-height: 1.9;
+}
+
+.route-studio-day {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.route-studio-day__frame {
+  position: relative;
+  border-radius: 30px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.route-studio-day__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  object-fit: cover;
+}
+
+.route-studio-day__frame-caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  gap: 6px;
+  padding: 20px;
+  color: #fff2de;
+  background: linear-gradient(180deg, rgba(17, 22, 27, 0), rgba(17, 22, 27, 0.86));
+}
+
+.route-studio-day__frame-caption span {
+  color: rgba(255, 242, 222, 0.66);
+}
+
+.route-studio-day__frame-caption strong {
+  font-family: var(--font-family-display);
+  font-size: 28px;
+  line-height: 1.08;
+}
+
+.route-studio-day__content {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border-radius: 30px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+}
+
+.route-studio-day__items {
+  display: grid;
+  gap: 14px;
+}
+
+.route-studio-day__item {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.route-studio-day__item-slot {
+  padding-top: 8px;
+  color: var(--color-accent);
   font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--color-text-primary);
 }
 
-.mt-4 {
-  margin-top: 16px;
+.route-studio-day__item-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(142, 48, 40, 0.04);
 }
 
-.trip-reference-note {
-  text-align: center;
+.route-studio-day__item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+}
+
+.route-studio-day__item-head h3 {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 20px;
+  line-height: 1.12;
+}
+
+.route-studio-day__item-head span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(142, 48, 40, 0.08);
+  color: var(--color-accent);
+  font-size: 12px;
+}
+
+.route-studio-day__item-body p,
+.route-studio-day__item-tip {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+.route-studio-day__item-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.route-studio-day__item-meta small {
   color: var(--color-text-tertiary);
-  font-size: 13px;
-  margin-top: 24px;
-  letter-spacing: 0.5px;
 }
 
-@media (max-width: 900px) {
-  .trip-form-grid {
+.route-studio-bottom {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.route-studio-context__head {
+  display: grid;
+  gap: 8px;
+}
+
+.route-studio-context__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.route-studio-context__card {
+  display: grid;
+  gap: 0;
+  border-radius: 26px;
+  overflow: hidden;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+}
+
+.route-studio-context__card-media {
+  min-height: 220px;
+}
+
+.route-studio-context__card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.route-studio-context__card-body {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+@media (max-width: 1023px) {
+  .route-studio-hero__overlay,
+  .route-studio-summary__meta,
+  .route-studio-day,
+  .route-studio-bottom,
+  .route-studio-context__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 743px) {
+  .route-studio-page {
+    gap: 30px;
+  }
+
+  .route-studio-hero,
+  .route-studio-hero__overlay {
+    min-height: 68svh;
+  }
+
+  .route-studio-hero__overlay,
+  .route-studio-form,
+  .route-studio-empty,
+  .route-studio-loading,
+  .route-studio-summary__hero,
+  .route-studio-summary__meta-card,
+  .route-studio-day__content,
+  .route-studio-bottom__card {
+    padding: 22px;
+  }
+
+  .route-studio-form__grid,
+  .route-studio-day__item {
     grid-template-columns: 1fr;
   }
 
-  .trip-item {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .trip-item:not(:last-child)::after {
-    display: none;
-  }
-  
-  .trip-bottom-cards {
-    grid-template-columns: 1fr;
+  .route-studio-day__frame img,
+  .route-studio-context__card-media {
+    min-height: 220px;
   }
 }
 </style>

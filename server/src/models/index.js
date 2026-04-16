@@ -5,6 +5,7 @@ import { ScenicSpot } from './scenic-spot.model.js';
 import { Article } from './article.model.js';
 import { Banner } from './banner.model.js';
 import { HomeRecommend } from './home-recommend.model.js';
+import { ChapterConfig } from './chapter-config.model.js';
 import { AiChatLog } from './ai-chat-log.model.js';
 import { AiTripLog } from './ai-trip-log.model.js';
 import { AiCopywritingLog } from './ai-copywriting-log.model.js';
@@ -38,6 +39,7 @@ export {
   Article,
   Banner,
   HomeRecommend,
+  ChapterConfig,
   AiChatLog,
   AiTripLog,
   AiCopywritingLog,

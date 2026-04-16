@@ -1,5 +1,7 @@
 import { Op } from 'sequelize';
 import { Article, Category } from '../models/index.js';
+import { enhanceArticleView } from '../utils/front-view-models.js';
+import { getActiveChapterConfigMap } from '../utils/content-config.js';
 
 function parseStringList(value) {
   if (!value) {
@@ -12,15 +14,18 @@ function parseStringList(value) {
     .filter(Boolean);
 }
 
-function formatArticleItem(item) {
-  return {
+function formatArticleItem(item, chapterConfigMap = {}) {
+  const categoryCode = item.category?.code || '';
+
+  return enhanceArticleView({
     id: item.id,
     title: item.title,
     categoryId: item.category_id,
     categoryName: item.category?.name || '',
-    categoryCode: item.category?.code || '',
+    categoryCode,
     coverImage: item.cover_image,
     summary: item.summary,
+    quote: item.quote,
     content: item.content,
     source: item.source,
     author: item.author,
@@ -28,8 +33,9 @@ function formatArticleItem(item) {
     recommendFlag: item.recommend_flag,
     viewCount: item.view_count,
     status: item.status,
-    createdAt: item.created_at
-  };
+    createdAt: item.created_at,
+    chapterMeta: chapterConfigMap[categoryCode] || null
+  });
 }
 
 export async function getArticleList(query) {
@@ -51,24 +57,27 @@ export async function getArticleList(query) {
     categoryWhere.code = query.categoryCode;
   }
 
-  const result = await Article.findAndCountAll({
-    where,
-    distinct: true,
-    include: [
-      {
-        model: Category,
-        as: 'category',
-        attributes: ['id', 'name', 'code'],
-        where: categoryWhere
-      }
-    ],
-    order: [['recommend_flag', 'DESC'], ['id', 'DESC']],
-    offset,
-    limit: pageSize
-  });
+  const [chapterConfigMap, result] = await Promise.all([
+    getActiveChapterConfigMap(),
+    Article.findAndCountAll({
+      where,
+      distinct: true,
+      include: [
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'code'],
+          where: categoryWhere
+        }
+      ],
+      order: [['recommend_flag', 'DESC'], ['id', 'DESC']],
+      offset,
+      limit: pageSize
+    })
+  ]);
 
   return {
-    list: result.rows.map(formatArticleItem),
+    list: result.rows.map((item) => formatArticleItem(item, chapterConfigMap)),
     total: result.count,
     page,
     pageSize
@@ -107,24 +116,35 @@ export async function getArticleDetail(id) {
     ]
   });
 
-  const relatedRows = await Article.findAll({
-    where: {
-      id: { [Op.ne]: id },
-      category_id: article.category_id,
-      status: 1
-    },
-    order: [['recommend_flag', 'DESC'], ['id', 'DESC']],
-    limit: 3
-  });
+  const [chapterConfigMap, relatedRows] = await Promise.all([
+    getActiveChapterConfigMap(),
+    Article.findAll({
+      where: {
+        id: { [Op.ne]: id },
+        category_id: article.category_id,
+        status: 1
+      },
+      include: [
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'code'],
+          required: false
+        }
+      ],
+      order: [['recommend_flag', 'DESC'], ['id', 'DESC']],
+      limit: 3
+    })
+  ]);
+
+  const articleDetail = formatArticleItem(article, chapterConfigMap);
 
   return {
-    ...formatArticleItem(article),
-    relatedList: relatedRows.map((item) => ({
-      id: item.id,
-      title: item.title,
-      coverImage: item.cover_image,
-      summary: item.summary,
-      tags: parseStringList(item.tags)
-    }))
+    ...articleDetail,
+    relatedList: relatedRows.map((item) => formatArticleItem(item, chapterConfigMap)),
+    readingRoom: {
+      heading: 'Read the context before moving on',
+      description: articleDetail.curatorNote || articleDetail.summary || ''
+    }
   };
 }

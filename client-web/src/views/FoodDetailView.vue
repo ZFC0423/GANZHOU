@@ -3,5 +3,5 @@ import TopicDetailPage from '../components/TopicDetailPage.vue';
 </script>
 
 <template>
-  <TopicDetailPage page-title="Food Topics" back-path="/food" />
+  <TopicDetailPage page-title="城脉与老城生活" back-path="/food" theme-code="food" />
 </template>

@@ -1,11 +1,17 @@
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { Search } from '@element-plus/icons-vue';
 import SiteLayout from '../components/SiteLayout.vue';
 import { getScenicListApi } from '../api/front';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import { Search, Location } from '@element-plus/icons-vue';
+import {
+  getNarrativeImage,
+  getNarrativeQuote,
+  getScenicGroup,
+  pickNarrativeText
+} from '../utils/immersive-content';
 
 const router = useRouter();
 const loading = ref(false);
@@ -13,13 +19,49 @@ const errorMessage = ref('');
 const listData = ref([]);
 const pagination = reactive({
   page: 1,
-  pageSize: 6,
+  pageSize: 12,
   total: 0
 });
 const filters = reactive({
-  keyword: '',
-  region: '',
-  tag: ''
+  keyword: ''
+});
+
+const groupMetaMap = {
+  city: {
+    title: '城中旧线',
+    desc: '适合先建立老城印象，再走进更具体的空间关系和日常纹理。'
+  },
+  cultural: {
+    title: '文化据点',
+    desc: '石窟、客乡与人文入口在这里形成更清晰的阅读视角。'
+  },
+  mountain: {
+    title: '山水外部',
+    desc: '当城市叙事展开之后，再把呼吸交给山地、水线与更辽阔的留白。'
+  }
+};
+
+const leadSpot = computed(() => listData.value[0] || null);
+
+const atlasGroups = computed(() => {
+  const groups = {
+    city: [],
+    cultural: [],
+    mountain: []
+  };
+
+  listData.value.forEach((item) => {
+    groups[getScenicGroup(item)].push(item);
+  });
+
+  return Object.entries(groups)
+    .filter(([, items]) => items.length)
+    .map(([key, items]) => ({
+      key,
+      ...groupMetaMap[key],
+      lead: items[0],
+      items: items.slice(1, 4)
+    }));
 });
 
 async function loadList() {
@@ -30,15 +72,13 @@ async function loadList() {
     const response = await getScenicListApi({
       page: pagination.page,
       pageSize: pagination.pageSize,
-      keyword: filters.keyword,
-      region: filters.region,
-      tag: filters.tag
+      keyword: filters.keyword
     });
 
-    listData.value = response.data.list;
-    pagination.total = response.data.total;
+    listData.value = response.data.list || [];
+    pagination.total = response.data.total || 0;
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '景点列表加载失败，请稍后重试。';
+    errorMessage.value = error.response?.data?.message || '景点图谱加载失败，请稍后再试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -54,258 +94,439 @@ function goDetail(id) {
   router.push(`/scenic/${id}`);
 }
 
+function resolveScenicImage(item) {
+  return resolveAssetUrl(
+    item?.media?.coverImage || getNarrativeImage(item, 'scenic') || item?.coverImage,
+    item?.name
+  );
+}
+
 watch(() => pagination.page, loadList);
 onMounted(loadList);
 </script>
 
 <template>
   <SiteLayout>
-    <div class="page-shell">
-      <section class="scenic-hero">
-        <div class="scenic-hero__content">
-          <h1 class="page-title scenic-hero__title">景点浏览</h1>
-          <p class="page-subtitle scenic-hero__desc">
-            从这里开始探索赣州的文化遗存与自然景观，为您建立进一步了解的入口。
-          </p>
+    <div class="page-shell scenic-atlas-page">
+      <section class="scenic-atlas-hero">
+        <div class="scenic-atlas-hero__media">
+          <img src="/immersive/hero/P0-01_Yugutai_official_01.jpg" alt="赣州景点图谱" />
+        </div>
+        <div class="scenic-atlas-hero__overlay">
+          <div class="scenic-atlas-hero__copy">
+            <div class="chapter-mark">Scenic Atlas</div>
+            <h1 class="page-title">先记住地方，再记住信息。</h1>
+            <p class="page-subtitle">
+              这里不是后台式列表，而是一张把老城、文化据点与山水外部重新编排后的赣州地方图谱。
+            </p>
+          </div>
+
+          <div class="scenic-atlas-hero__note">
+            <strong>探索方式</strong>
+            <p>先看一处代表地点，再按空间气质进入不同组块。实用字段留在后面，首屏先建立场域感。</p>
+          </div>
         </div>
       </section>
 
-      <el-card class="filter-card" shadow="never">
-        <div class="filter-bar">
-          <el-input v-model="filters.keyword" clearable placeholder="输入景点名称或片段..." @keyup.enter="handleSearch">
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-          
-          <el-input v-model="filters.region" clearable placeholder="例: 章贡区" @keyup.enter="handleSearch">
-            <template #prepend>属地</template>
-          </el-input>
-          
-          <el-input v-model="filters.tag" clearable placeholder="例: 红色文化" @keyup.enter="handleSearch">
-            <template #prepend>主题</template>
-          </el-input>
-          
-          <el-button type="primary" class="filter-btn" @click="handleSearch">筛选查看</el-button>
+      <section class="section-inner scenic-atlas-lens">
+        <div class="section-copy">
+          <span class="section-eyebrow">Atlas Lens</span>
+          <h2 class="section-title">用关键词收窄视线，但不要破坏探索感。</h2>
         </div>
-      </el-card>
+
+        <div class="scenic-atlas-lens__panel filter-card">
+          <div class="scenic-atlas-lens__head">
+            <div>
+              <div class="line-label">景点索引</div>
+              <p>输入地点名、区域或你记得的线索，让图谱重新聚焦。</p>
+            </div>
+            <span>{{ pagination.total || 0 }} 个地点</span>
+          </div>
+
+          <div class="scenic-atlas-lens__bar">
+            <el-input
+              v-model="filters.keyword"
+              clearable
+              placeholder="输入关键词，例如：古城、浮桥、客家、山水"
+              @keyup.enter="handleSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <button type="button" class="scenic-atlas-lens__button" @click="handleSearch">更新图谱</button>
+          </div>
+        </div>
+      </section>
 
       <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" class="page-alert" />
       <div v-if="errorMessage" class="page-alert-actions">
-        <el-button @click="loadList">重试请求</el-button>
+        <el-button @click="loadList">重新请求</el-button>
       </div>
 
-      <el-skeleton v-if="loading" :rows="8" animated />
+      <el-skeleton v-if="loading" :rows="10" animated />
 
       <template v-else>
-        <div class="reading-guide-box">
-          <span class="guide-badge">阅读提示</span>本页从景点浏览出发，帮助您逐步进入相关主题与文化线索。<br/>您可以先查阅代表性景点，再由详情页深入探索。当前内容基于现有平台资料进行缓冲展示，部分未完全中文化的条目保留原始信息语言。
-        </div>
-        
-        <div class="list-section-header">
-          <h2 class="list-section-title">景点与关联主题</h2>
-          <span class="list-section-desc">基于已有平台资料，提供 {{ pagination.total }} 个浏览入口</span>
-        </div>
+        <el-empty v-if="!listData.length" description="当前暂无符合筛选条件的景点。" />
 
-        <el-empty v-if="!listData.length" description="抱歉，未发现符合您期待的景点记录" />
-
-        <div v-else class="card-grid">
-          <el-card v-for="item in listData" :key="item.id" class="scenic-card" shadow="hover" @click="goDetail(item.id)">
-            <div class="scenic-card__cover-box">
+        <template v-else>
+          <section v-if="leadSpot" class="section-inner--wide scenic-atlas-lead">
+            <button type="button" class="scenic-atlas-lead__media media-node" @click="goDetail(leadSpot.id)">
               <img
-                class="image-cover scenic-card__image"
-                :src="resolveAssetUrl(item.coverImage, item.name)"
-                :alt="item.name"
-                @error="(event) => applyImageFallback(event, item.name)"
+                :src="resolveScenicImage(leadSpot)"
+                :alt="leadSpot.name"
+                @error="(event) => applyImageFallback(event, leadSpot.name)"
               />
-            </div>
-            <div class="scenic-card__body">
-              <div class="scenic-card__head">
-                <h3 class="scenic-card__title">{{ item.name }}</h3>
-                <span class="scenic-card__region">
-                  <el-icon><Location /></el-icon> {{ item.region || '未知' }}
-                </span>
-              </div>
-              <p class="scenic-card__intro">{{ item.intro || '该景点的缓冲导读尚未完全收录。' }}</p>
-              
-              <div class="scenic-card__footer">
-                <div class="scenic-card__tags" v-if="item.tags && item.tags.length">
-                  <span class="tag-label">相关主题：</span>
-                  <el-tag v-for="tag in item.tags" :key="tag" size="small" type="success" effect="plain" round>{{ tag }}</el-tag>
-                </div>
-                <div v-else class="scenic-card__spacer"></div>
-                <div class="scenic-card__action">
-                  查看详情 &rarr;
-                </div>
-              </div>
-            </div>
-          </el-card>
-        </div>
+            </button>
 
-        <div class="pagination-wrap">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.pageSize"
-            layout="total, prev, pager, next"
-            :total="pagination.total"
-            background
-          />
-        </div>
-
-        <!-- 探索入口层 -->
-        <section class="topic-next-steps scenic-next-steps">
-          <div class="next-steps-container">
-            <h3 class="next-steps-title">对当前内容有进一步疑问？</h3>
-            <p class="next-steps-desc">您可以带着浏览中发现的主题与文化线索，向智慧问答入口获取更多信息。</p>
-            <div class="next-steps-actions">
-              <router-link to="/ai-chat" class="link-reset">
-                <el-button type="primary" plain size="large">围绕以上线索咨询 AI</el-button>
-              </router-link>
+            <div class="scenic-atlas-lead__copy">
+              <span class="section-eyebrow">Lead Spot</span>
+              <h2 class="section-title">{{ leadSpot.name }}</h2>
+              <p class="section-desc">
+                {{ pickNarrativeText(leadSpot.heroCaption, leadSpot.intro || '从这里开始建立对赣州地方空间的第一印象。') }}
+              </p>
+              <blockquote class="display-quote">
+                “{{ getNarrativeQuote(leadSpot, 'scenic') || '先记住地方，后面的路线才会变得清楚。' }}”
+              </blockquote>
+              <div class="scenic-atlas-lead__facts">
+                <span>{{ pickNarrativeText(leadSpot.region, '赣州') }}</span>
+                <span>{{ pickNarrativeText(leadSpot.categoryName, '精选地点') }}</span>
+                <span>{{ pickNarrativeText(leadSpot.routeLabel, '地方线索') }}</span>
+              </div>
+              <button type="button" class="scenic-atlas-lead__button" @click="goDetail(leadSpot.id)">进入这个地方</button>
             </div>
+          </section>
+
+          <section class="section-inner scenic-atlas-groups">
+            <article v-for="group in atlasGroups" :key="group.key" class="scenic-atlas-group">
+              <div class="scenic-atlas-group__head">
+                <div>
+                  <div class="chapter-mark chapter-mark--dark">{{ group.key }}</div>
+                  <h2 class="section-title">{{ group.title }}</h2>
+                </div>
+                <p class="section-desc">{{ group.desc }}</p>
+              </div>
+
+              <div class="scenic-atlas-group__layout">
+                <button
+                  type="button"
+                  class="scenic-atlas-group__lead media-node"
+                  @click="goDetail(group.lead.id)"
+                >
+                  <img
+                    :src="resolveScenicImage(group.lead)"
+                    :alt="group.lead.name"
+                    @error="(event) => applyImageFallback(event, group.lead.name)"
+                  />
+                  <div class="scenic-atlas-group__lead-copy">
+                    <span>{{ pickNarrativeText(group.lead.routeLabel, group.lead.region || '地方线索') }}</span>
+                    <strong>{{ group.lead.name }}</strong>
+                  </div>
+                </button>
+
+                <div class="scenic-atlas-group__trail">
+                  <button
+                    v-for="item in group.items"
+                    :key="item.id"
+                    type="button"
+                    class="scenic-atlas-group__trail-item"
+                    @click="goDetail(item.id)"
+                  >
+                    <strong>{{ item.name }}</strong>
+                    <p>{{ pickNarrativeText(item.heroCaption, item.intro || '继续沿着这组地方线索往下走。') }}</p>
+                    <small>{{ pickNarrativeText(item.routeLabel, item.region || '赣州') }}</small>
+                  </button>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <div class="scenic-atlas-pagination">
+            <el-pagination
+              v-model:current-page="pagination.page"
+              layout="total, prev, pager, next"
+              :total="pagination.total"
+              background
+            />
           </div>
-        </section>
+        </template>
       </template>
     </div>
   </SiteLayout>
 </template>
 
 <style scoped>
-.scenic-hero {
-  margin-bottom: 32px;
-  padding: clamp(32px, 6vw, 52px);
-  border-radius: var(--radius-panel);
-  background:
-    radial-gradient(circle at top right, rgba(255, 56, 92, 0.14), transparent 30%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.96));
-  border: 1px solid rgba(236, 231, 223, 0.9);
-  box-shadow: var(--shadow-card);
-}
-
-.scenic-hero__title {
-  margin: 0 0 12px;
-}
-
-.scenic-hero__desc {
-  max-width: 600px;
-}
-
-.filter-card {
-  margin-bottom: 32px;
-}
-
-.filter-bar {
+.scenic-atlas-page {
   display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr auto;
-  gap: 16px;
-  align-items: center;
+  gap: 42px;
 }
 
-.filter-btn {
-  min-width: 132px;
+.scenic-atlas-hero {
+  position: relative;
+  min-height: min(74vh, 720px);
+  overflow: hidden;
+  border-radius: 42px;
+  box-shadow: var(--shadow-floating);
 }
 
-.reading-guide-box {
-  margin-bottom: 32px;
-}
-
-.scenic-card {
-  cursor: pointer;
+.scenic-atlas-hero__media,
+.scenic-atlas-hero__media img {
+  width: 100%;
   height: 100%;
 }
 
-:deep(.scenic-card .el-card__body) {
-  padding: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+.scenic-atlas-hero__media {
+  position: absolute;
+  inset: 0;
 }
 
-.scenic-card__cover-box {
-  height: 240px;
+.scenic-atlas-hero__media img {
+  object-fit: cover;
 }
 
-.scenic-card__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 12px;
+.scenic-atlas-hero__overlay {
+  position: relative;
+  min-height: min(74vh, 720px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.56fr);
+  align-items: end;
+  gap: 24px;
+  padding: 42px;
+  color: #fff3e1;
+  background: linear-gradient(180deg, rgba(17, 22, 27, 0.16), rgba(17, 22, 27, 0.82));
 }
 
-.scenic-card__title {
+.scenic-atlas-hero__copy {
+  display: grid;
+  gap: 18px;
+  max-width: 780px;
+}
+
+.scenic-atlas-hero__copy :deep(.page-title),
+.scenic-atlas-hero__copy :deep(.page-subtitle) {
+  color: inherit;
+}
+
+.scenic-atlas-hero__note {
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(255, 243, 225, 0.12);
+  border: 1px solid rgba(255, 243, 225, 0.12);
+}
+
+.scenic-atlas-hero__note p,
+.scenic-atlas-hero__note strong {
   margin: 0;
-  font-size: clamp(18px, 1.4vw, 20px);
-  font-weight: 700;
-  line-height: 1.28;
 }
 
-.scenic-card__region {
-  white-space: nowrap;
+.scenic-atlas-hero__note p {
+  color: rgba(255, 243, 225, 0.82);
+  line-height: 1.85;
 }
 
-.scenic-card__intro {
-  margin: 0 0 20px;
-  flex: 1;
+.scenic-atlas-lens {
+  display: grid;
+  grid-template-columns: minmax(0, 0.84fr) minmax(360px, 1fr);
+  gap: 24px;
 }
 
-.scenic-card__footer {
+.scenic-atlas-lens__panel {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+}
+
+.scenic-atlas-lens__head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  margin-top: auto;
+  gap: 18px;
+}
+
+.scenic-atlas-lens__head p {
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+.scenic-atlas-lens__head span {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.scenic-atlas-lens__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
 }
 
-.scenic-card__tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+.scenic-atlas-lens__button,
+.scenic-atlas-lead__button {
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--color-accent);
+  color: #fff3ea;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scenic-atlas-lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+  gap: 24px;
   align-items: center;
 }
 
-.tag-label {
-  font-size: 13px;
-  color: var(--color-text-tertiary);
-  font-weight: 500;
+.scenic-atlas-lead__media {
+  min-height: 620px;
 }
 
-.scenic-card__action {
-  font-size: 14px;
-  font-weight: 600;
+.scenic-atlas-lead__copy {
+  display: grid;
+  gap: 16px;
+}
+
+.scenic-atlas-lead__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scenic-atlas-lead__facts span {
+  padding: 8px 12px;
+  border-radius: var(--radius-round);
+  background: rgba(142, 48, 40, 0.08);
   color: var(--color-accent);
-  transition: color var(--transition-base);
-  white-space: nowrap;
+  font-size: 13px;
 }
 
-.scenic-card:hover .scenic-card__action {
-  color: var(--color-accent-hover);
+.scenic-atlas-groups {
+  display: grid;
+  gap: 30px;
 }
 
-.pagination-wrap {
-  margin-top: 48px;
+.scenic-atlas-group {
+  display: grid;
+  gap: 18px;
+}
+
+.scenic-atlas-group__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: end;
+}
+
+.scenic-atlas-group__layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.scenic-atlas-group__lead {
+  min-height: 420px;
+}
+
+.scenic-atlas-group__lead img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scenic-atlas-group__lead-copy {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  gap: 6px;
+  padding: 20px;
+  color: #fff2de;
+  background: linear-gradient(180deg, rgba(10, 13, 17, 0), rgba(10, 13, 17, 0.86));
+}
+
+.scenic-atlas-group__lead-copy span {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 242, 222, 0.72);
+}
+
+.scenic-atlas-group__lead-copy strong,
+.scenic-atlas-group__trail-item strong {
+  font-family: var(--font-family-display);
+}
+
+.scenic-atlas-group__lead-copy strong {
+  font-size: 2rem;
+  line-height: 1.06;
+}
+
+.scenic-atlas-group__trail {
+  display: grid;
+  gap: 14px;
+}
+
+.scenic-atlas-group__trail-item {
+  display: grid;
+  gap: 8px;
+  padding: 18px 0;
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+  background: transparent;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  cursor: pointer;
+}
+
+.scenic-atlas-group__trail-item strong {
+  font-size: 1.55rem;
+  line-height: 1.08;
+}
+
+.scenic-atlas-group__trail-item p,
+.scenic-atlas-group__trail-item small {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+.scenic-atlas-pagination {
   display: flex;
   justify-content: center;
 }
 
-.scenic-card__spacer {
-  flex: 1;
-}
-
-.page-alert {
-  margin-bottom: 16px;
-}
-
-.page-alert-actions {
-  margin-bottom: 24px;
-}
-
-@media (max-width: 900px) {
-  .filter-bar {
+@media (max-width: 1023px) {
+  .scenic-atlas-hero__overlay,
+  .scenic-atlas-lens,
+  .scenic-atlas-lead,
+  .scenic-atlas-group__head,
+  .scenic-atlas-group__layout {
     grid-template-columns: 1fr;
   }
-  
-  .filter-btn {
-    width: 100%;
+}
+
+@media (max-width: 743px) {
+  .scenic-atlas-hero,
+  .scenic-atlas-hero__overlay {
+    min-height: 66svh;
+  }
+
+  .scenic-atlas-hero__overlay,
+  .scenic-atlas-lens__panel {
+    padding: 22px;
+  }
+
+  .scenic-atlas-lens__bar {
+    grid-template-columns: 1fr;
+  }
+
+  .scenic-atlas-lead__media,
+  .scenic-atlas-group__lead {
+    min-height: 280px;
   }
 }
 </style>

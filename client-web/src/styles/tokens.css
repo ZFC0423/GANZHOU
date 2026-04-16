@@ -1,45 +1,23 @@
 :root {
-  /* Airbnb-inspired palette tokens, adapted for a warm tourism content site */
-  --palette-bg-primary-core: #ff385c;
-  --palette-bg-tertiary-core: #e00b41;
-  --palette-bg-primary-luxe: #460479;
-  --palette-bg-primary-plus: #92174d;
+  --palette-ink-975: #0b0f12;
+  --palette-ink-950: #11171b;
+  --palette-ink-900: #182126;
+  --palette-ink-750: #324048;
+  --palette-ink-700: #4d5b63;
+  --palette-ink-500: #6e7c84;
+  --palette-ink-350: #98a4aa;
+  --palette-paper-25: #faf6ef;
+  --palette-paper-50: #f5f0e6;
+  --palette-paper-100: #ece4d5;
+  --palette-paper-200: #dfd0b9;
+  --palette-paper-300: #ccb89a;
+  --palette-lacquer-500: #8e3028;
+  --palette-lacquer-600: #74261f;
+  --palette-brass-400: #a67b2f;
+  --palette-moss-400: #65715f;
 
-  --palette-text-primary: #222222;
-  --palette-text-focused: #3f3f3f;
-  --palette-text-secondary: #6a6a6a;
-  --palette-text-tertiary: #8b8b8b;
-  --palette-text-legal: #428bff;
-  --palette-text-primary-error: #c13515;
-  --palette-text-secondary-error-hover: #b32505;
-  --palette-text-material-disabled: rgba(34, 34, 34, 0.34);
-  --palette-text-link-disabled: #929292;
-
-  --palette-surface-page: #fbfaf8;
-  --palette-surface-primary: #ffffff;
-  --palette-surface-secondary: #f7f4ef;
-  --palette-surface-tertiary: #f2f2f2;
-  --palette-surface-soft: #fff7f8;
-  --palette-surface-elevated: rgba(255, 255, 255, 0.82);
-  --palette-surface-inverse: #222222;
-  --palette-surface-overlay: rgba(34, 34, 34, 0.48);
-
-  --palette-border-default: #ddd8d1;
-  --palette-border-soft: #ece7df;
-  --palette-border-strong: #cfc8be;
-  --palette-border-accent: rgba(255, 56, 92, 0.22);
-
-  --shadow-card-base: rgba(0, 0, 0, 0.02) 0px 0px 0px 1px,
-    rgba(0, 0, 0, 0.04) 0px 2px 6px,
-    rgba(0, 0, 0, 0.1) 0px 4px 8px;
-  --shadow-hover-base: rgba(0, 0, 0, 0.08) 0px 4px 12px;
-  --shadow-floating: rgba(34, 34, 34, 0.06) 0px 16px 40px;
-  --shadow-soft-inset: inset 0 1px 0 rgba(255, 255, 255, 0.72);
-
-  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
-  --font-family-display: var(--font-family-base);
-
+  --font-family-base: 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-family-display: 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', serif;
   --font-size-micro: 11px;
   --font-size-xs: 12px;
   --font-size-sm: 13px;
@@ -51,15 +29,15 @@
   --font-size-section: 28px;
   --font-size-display: 40px;
 
-  --line-tight: 1.2;
-  --line-snug: 1.35;
-  --line-normal: 1.45;
-  --line-relaxed: 1.7;
-  --line-loose: 1.85;
+  --line-tight: 1.16;
+  --line-snug: 1.32;
+  --line-normal: 1.5;
+  --line-relaxed: 1.72;
+  --line-loose: 1.88;
 
-  --tracking-tight-1: -0.18px;
-  --tracking-tight-2: -0.44px;
-  --tracking-wide: 0.12em;
+  --tracking-tight-1: -0.02em;
+  --tracking-tight-2: -0.045em;
+  --tracking-wide: 0.24em;
   --tracking-micro: 0.32px;
 
   --space-0: 0;
@@ -83,21 +61,21 @@
   --space-12: 80px;
   --space-13: 96px;
 
-  --radius-1: 4px;
-  --radius-2: 8px;
-  --radius-3: 14px;
-  --radius-4: 20px;
-  --radius-5: 32px;
+  --radius-1: 8px;
+  --radius-2: 14px;
+  --radius-3: 20px;
+  --radius-4: 30px;
+  --radius-5: 42px;
   --radius-round: 999px;
 
   --container-1: 760px;
   --container-2: 860px;
   --container-3: 960px;
-  --container-4: 1180px;
-  --container-5: 1280px;
+  --container-4: 1200px;
+  --container-5: 1360px;
 
   --page-gutter-mobile: 16px;
-  --page-gutter: 24px;
+  --page-gutter: 28px;
 
   --breakpoint-mobile-small: 374px;
   --breakpoint-mobile: 549px;
@@ -111,6 +89,8 @@
   --z-overlay: 80;
   --z-modal: 100;
 
-  --transition-base: 220ms cubic-bezier(0.2, 0, 0, 1);
-  --transition-soft: 320ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-fast: 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-base: 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-soft: 480ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+

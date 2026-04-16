@@ -1,26 +1,28 @@
 :root {
-  --gz-brand-primary: #0f766e;
-  --gz-brand-primary-hover: #0d9488;
-  --gz-brand-primary-light: #f0fdfa;
-  --gz-brand-secondary: #0f172a;
+  --gz-brand-primary: #a83a2e;
+  --gz-brand-primary-hover: #8f2f25;
+  --gz-brand-primary-light: #f7ebe6;
+  --gz-brand-secondary: #131920;
 
-  --gz-text-primary: #111827;
-  --gz-text-regular: #475569;
-  --gz-text-secondary: #64748b;
+  --gz-text-primary: #1a232c;
+  --gz-text-regular: #4b5b68;
+  --gz-text-secondary: #6d7c88;
+  --gz-text-light: #e9ded0;
 
-  --gz-bg-page: #f8fafc;
-  --gz-bg-card: #ffffff;
-  --gz-bg-muted: #f1f5f9;
-  --gz-border-light: #e5e7eb;
+  --gz-bg-page: #f4efe7;
+  --gz-bg-card: #fffaf3;
+  --gz-bg-muted: #efe7db;
+  --gz-bg-dark: #161d25;
+  --gz-border-light: rgba(26, 35, 44, 0.08);
 
-  --gz-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --gz-font-family-base: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
   --gz-text-sm: 13px;
   --gz-text-md: 14px;
   --gz-text-base: 15px;
   --gz-text-lg: 16px;
   --gz-text-xl: 18px;
-  --gz-text-2xl: 20px;
-  --gz-text-3xl: 24px;
+  --gz-text-2xl: 22px;
+  --gz-text-3xl: 30px;
 
   --gz-space-1: 4px;
   --gz-space-2: 8px;
@@ -29,13 +31,16 @@
   --gz-space-5: 20px;
   --gz-space-6: 24px;
   --gz-space-8: 32px;
+  --gz-space-10: 40px;
 
-  --gz-radius-sm: 8px;
-  --gz-radius-md: 16px;
-  --gz-shadow-card: 0 4px 16px rgba(15, 23, 42, 0.04);
-  --gz-shadow-card-hover: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --gz-transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --gz-radius-sm: 10px;
+  --gz-radius-md: 18px;
+  --gz-radius-lg: 28px;
+  --gz-shadow-card: 0 16px 32px rgba(19, 25, 32, 0.06);
+  --gz-shadow-card-hover: 0 22px 42px rgba(19, 25, 32, 0.1);
+  --gz-shadow-sidebar: 0 18px 44px rgba(9, 13, 18, 0.18);
+  --gz-transition-base: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 
-  --gz-admin-sidebar-width: 220px;
-  --gz-admin-header-height: 64px;
+  --gz-admin-sidebar-width: 268px;
+  --gz-admin-header-height: 108px;
 }

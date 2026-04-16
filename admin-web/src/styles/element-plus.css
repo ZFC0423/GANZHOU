@@ -2,6 +2,16 @@
   border-radius: var(--gz-radius-md);
   border-color: var(--gz-border-light);
   box-shadow: var(--gz-shadow-card);
+  background: rgba(255, 250, 243, 0.94);
+}
+
+.el-card__header {
+  padding: 20px 24px 12px;
+  border-bottom-color: rgba(26, 35, 44, 0.06);
+}
+
+.el-card__body {
+  padding: 20px 24px 24px;
 }
 
 .el-menu {
@@ -13,6 +23,7 @@
   margin-bottom: var(--gz-space-1);
   border-radius: var(--gz-radius-sm);
   color: var(--gz-text-regular);
+  min-height: 42px;
 }
 
 .el-menu-item:hover {
@@ -26,9 +37,94 @@
   font-weight: 600;
 }
 
+.el-button {
+  min-height: 40px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
 .el-button--primary {
   --el-button-bg-color: var(--gz-brand-primary);
   --el-button-border-color: var(--gz-brand-primary);
   --el-button-hover-bg-color: var(--gz-brand-primary-hover);
   --el-button-hover-border-color: var(--gz-brand-primary-hover);
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(26, 35, 44, 0.06) inset;
+}
+
+.el-input__wrapper,
+.el-select__wrapper {
+  min-height: 42px;
+}
+
+.el-form-item {
+  margin-bottom: 20px;
+}
+
+.el-form-item__label {
+  color: var(--gz-brand-secondary);
+  font-weight: 600;
+}
+
+.el-dialog {
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.el-dialog__header {
+  margin-right: 0;
+  padding: 22px 24px 0;
+}
+
+.el-dialog__body {
+  padding: 20px 24px 24px;
+}
+
+.el-dialog__footer {
+  padding: 0 24px 24px;
+}
+
+.el-divider__text {
+  color: var(--gz-brand-primary);
+  font-weight: 700;
+  background: rgba(255, 250, 243, 0.96);
+}
+
+.el-table {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.el-table th.el-table__cell {
+  background: #f4ede4;
+  color: var(--gz-brand-secondary);
+  font-weight: 700;
+}
+
+.el-table td.el-table__cell,
+.el-table th.el-table__cell {
+  padding: 14px 12px;
+}
+
+.el-table tr {
+  transition: background-color 0.2s ease;
+}
+
+.el-table .el-table__row:hover td.el-table__cell {
+  background: rgba(168, 58, 46, 0.03);
+}
+
+.el-pagination {
+  gap: 4px;
+}
+
+.el-pagination .btn-prev,
+.el-pagination .btn-next,
+.el-pagination .el-pager li {
+  border-radius: 10px;
 }

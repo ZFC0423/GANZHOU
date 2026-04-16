@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import { ScenicSpot, Category } from '../models/index.js';
+import { enhanceScenicView } from '../utils/front-view-models.js';
 
 function parseStringList(value) {
   if (!value) {
@@ -18,7 +19,7 @@ function parseStringList(value) {
 }
 
 function formatScenicItem(item) {
-  return {
+  return enhanceScenicView({
     id: item.id,
     name: item.name,
     region: item.region,
@@ -28,6 +29,17 @@ function formatScenicItem(item) {
     galleryImages: parseStringList(item.gallery_images),
     intro: item.intro,
     cultureDesc: item.culture_desc,
+    heroCaption: item.hero_caption,
+    routeLabel: item.route_label,
+    moodTone: item.mood_tone,
+    quote: item.quote,
+    bestVisitSeason: item.best_visit_season,
+    visitMode: item.visit_mode,
+    pairingSuggestion: item.pairing_suggestion,
+    bestLightTime: item.best_light_time,
+    walkingIntensity: item.walking_intensity,
+    photoPoint: item.photo_point,
+    familyFriendly: item.family_friendly === 1,
     openTime: item.open_time,
     ticketInfo: item.ticket_info,
     suggestedDuration: item.suggested_duration,
@@ -39,7 +51,7 @@ function formatScenicItem(item) {
     hotScore: item.hot_score,
     status: item.status,
     createdAt: item.created_at
-  };
+  });
 }
 
 export async function getScenicList(query) {
@@ -119,18 +131,28 @@ export async function getScenicDetail(id) {
         { category_id: scenic.category_id }
       ]
     },
+    include: [
+      {
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'code'],
+        required: false
+      }
+    ],
     order: [['recommend_flag', 'DESC'], ['hot_score', 'DESC'], ['id', 'DESC']],
     limit: 3
   });
 
+  const scenicDetail = formatScenicItem(scenic);
+
   return {
-    ...formatScenicItem(scenic),
-    relatedList: relatedRows.map((item) => ({
-      id: item.id,
-      name: item.name,
-      coverImage: item.cover_image,
-      region: item.region,
-      tags: parseStringList(item.tags)
-    }))
+    ...scenicDetail,
+    relatedList: relatedRows.map(formatScenicItem),
+    quickFacts: [
+      { label: 'Region', value: scenicDetail.region || 'Ganzhou' },
+      { label: 'Suggested Duration', value: scenicDetail.suggestedDuration || 'Follow the on-site rhythm' },
+      { label: 'Opening Info', value: scenicDetail.openTime || 'Refer to the current notice' },
+      { label: 'Route Cue', value: scenicDetail.routeLabel || 'Curated on the current page' }
+    ]
   };
 }

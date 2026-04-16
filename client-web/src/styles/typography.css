@@ -1,26 +1,26 @@
 .page-title {
-  margin: 0 0 var(--space-3);
+  margin: 0;
   color: var(--color-text-primary);
   font-family: var(--font-family-display);
-  font-size: clamp(2.125rem, 4.6vw, 3.25rem);
+  font-size: clamp(2.7rem, 6vw, 5.6rem);
   font-weight: 700;
-  line-height: 1.08;
+  line-height: 0.98;
   letter-spacing: var(--tracking-tight-2);
 }
 
 .page-subtitle {
   margin: 0;
   color: var(--color-text-secondary);
-  font-size: 15px;
-  line-height: var(--line-loose);
+  font-size: clamp(1rem, 1.4vw, 1.15rem);
+  line-height: 1.92;
 }
 
 .section-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
-  color: var(--color-accent);
+  margin-bottom: var(--space-4);
+  color: var(--color-accent-alt);
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: var(--tracking-wide);
@@ -29,19 +29,19 @@
 
 .section-eyebrow::before {
   content: '';
-  width: 28px;
+  width: 34px;
   height: 1px;
   background: currentColor;
-  opacity: 0.45;
+  opacity: 0.72;
 }
 
 .section-title {
-  margin: 0 0 var(--space-3);
+  margin: 0;
   color: var(--color-text-primary);
   font-family: var(--font-family-display);
-  font-size: clamp(1.75rem, 3vw, 2.375rem);
+  font-size: clamp(2rem, 3.6vw, 3.4rem);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.04;
   letter-spacing: var(--tracking-tight-1);
 }
 
@@ -49,7 +49,7 @@
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 15px;
-  line-height: var(--line-loose);
+  line-height: 1.9;
 }
 
 .section-copy {
@@ -83,8 +83,38 @@
   color: var(--color-text-primary);
   font-size: clamp(1.875rem, 3.5vw, 2.75rem);
   font-weight: 700;
-  line-height: 1.14;
+  line-height: 1.1;
   letter-spacing: var(--tracking-tight-2);
+}
+
+.chapter-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(245, 239, 226, 0.84);
+  font-size: 12px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.chapter-mark::before {
+  content: '';
+  width: 36px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.chapter-mark--dark {
+  color: var(--color-accent);
+}
+
+.display-quote {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: clamp(1.2rem, 1.8vw, 1.7rem);
+  line-height: 1.72;
+  color: var(--color-text-focused);
 }
 
 .detail-lead {
@@ -102,10 +132,11 @@
 
 @media (max-width: 768px) {
   .section-title {
-    font-size: 1.625rem;
+    font-size: 1.9rem;
   }
 
   .page-title {
-    font-size: clamp(1.875rem, 9vw, 2.5rem);
+    font-size: clamp(2.2rem, 10vw, 3.2rem);
   }
 }
+

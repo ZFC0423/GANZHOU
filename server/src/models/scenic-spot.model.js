@@ -30,6 +30,43 @@ export const ScenicSpot = sequelize.define('ScenicSpot', {
   culture_desc: {
     type: DataTypes.TEXT
   },
+  hero_caption: {
+    type: DataTypes.STRING(255)
+  },
+  route_label: {
+    type: DataTypes.STRING(100)
+  },
+  mood_tone: {
+    type: DataTypes.STRING(30),
+    allowNull: false,
+    defaultValue: 'amber'
+  },
+  quote: {
+    type: DataTypes.STRING(255)
+  },
+  best_visit_season: {
+    type: DataTypes.STRING(100)
+  },
+  visit_mode: {
+    type: DataTypes.STRING(100)
+  },
+  pairing_suggestion: {
+    type: DataTypes.STRING(255)
+  },
+  best_light_time: {
+    type: DataTypes.STRING(100)
+  },
+  walking_intensity: {
+    type: DataTypes.STRING(50)
+  },
+  photo_point: {
+    type: DataTypes.STRING(255)
+  },
+  family_friendly: {
+    type: DataTypes.TINYINT,
+    allowNull: false,
+    defaultValue: 1
+  },
   open_time: {
     type: DataTypes.STRING(100)
   },

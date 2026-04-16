@@ -19,6 +19,14 @@ export const HomeRecommend = sequelize.define('HomeRecommend', {
     type: DataTypes.BIGINT,
     allowNull: false
   },
+  visual_role: {
+    type: DataTypes.STRING(30),
+    allowNull: false,
+    defaultValue: 'support'
+  },
+  summary_override: {
+    type: DataTypes.STRING(255)
+  },
   sort: {
     type: DataTypes.INTEGER,
     allowNull: false,

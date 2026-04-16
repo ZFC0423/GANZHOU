@@ -12,7 +12,8 @@ const routes = [
     component: () => import('../views/admin/LoginView.vue'),
     meta: {
       public: true,
-      title: 'Login'
+      title: '管理员登录',
+      subtitle: '进入赣州长卷后台工作区。'
     }
   },
   {
@@ -20,7 +21,8 @@ const routes = [
     name: 'admin-dashboard',
     component: () => import('../views/admin/DashboardView.vue'),
     meta: {
-      title: 'Dashboard'
+      title: '工作台',
+      subtitle: '快速查看当前内容规模与常用入口。'
     }
   },
   {
@@ -28,7 +30,8 @@ const routes = [
     name: 'admin-home-recommend',
     component: () => import('../views/admin/HomeRecommendView.vue'),
     meta: {
-      title: 'Home Recommend'
+      title: '首页与章节配置',
+      subtitle: '维护首页主视觉、章节语气和推荐编排。'
     }
   },
   {
@@ -36,7 +39,8 @@ const routes = [
     name: 'admin-scenic-list',
     component: () => import('../views/admin/ScenicManageView.vue'),
     meta: {
-      title: 'Scenic Management'
+      title: '景点管理',
+      subtitle: '维护景点基础信息与前台叙事字段。'
     }
   },
   {
@@ -44,7 +48,8 @@ const routes = [
     name: 'admin-article-list',
     component: () => import('../views/admin/ArticleManageView.vue'),
     meta: {
-      title: 'Article Management'
+      title: '专题文章管理',
+      subtitle: '维护专题内容、摘要、引语与展示状态。'
     }
   },
   {
@@ -52,7 +57,8 @@ const routes = [
     name: 'admin-banner',
     component: () => import('../views/admin/BannerManageView.vue'),
     meta: {
-      title: 'Banner Management'
+      title: '横幅素材管理',
+      subtitle: '管理需要单独展示的横幅图片与跳转。'
     }
   },
   {
@@ -60,7 +66,8 @@ const routes = [
     name: 'admin-ai-copywriting',
     component: () => import('../views/admin/AiCopywritingView.vue'),
     meta: {
-      title: 'AI Copywriting'
+      title: 'AI 文案生成',
+      subtitle: '为景点和专题生成可编辑的运营文案。'
     }
   },
   {
@@ -68,7 +75,8 @@ const routes = [
     name: 'admin-ai-logs',
     component: () => import('../views/admin/AiLogsView.vue'),
     meta: {
-      title: 'AI Logs'
+      title: 'AI 日志中心',
+      subtitle: '查看 AI 问答、路线和文案生成记录。'
     }
   },
   {
@@ -76,7 +84,8 @@ const routes = [
     name: 'admin-ai-chat-logs',
     component: () => import('../views/admin/AiChatLogsView.vue'),
     meta: {
-      title: 'AI Chat Logs'
+      title: 'AI 问答日志',
+      subtitle: '查看用户问题、召回内容和最终回答。'
     }
   },
   {
@@ -84,7 +93,8 @@ const routes = [
     name: 'admin-ai-trip-logs',
     component: () => import('../views/admin/AiTripLogsView.vue'),
     meta: {
-      title: 'AI Trip Logs'
+      title: 'AI 路线日志',
+      subtitle: '查看行程输入、推荐结果与召回素材。'
     }
   },
   {
@@ -92,7 +102,8 @@ const routes = [
     name: 'admin-settings',
     component: () => import('../views/admin/SettingsView.vue'),
     meta: {
-      title: 'Settings'
+      title: '系统设置',
+      subtitle: '维护基础配置与运行参数。'
     }
   }
 ];

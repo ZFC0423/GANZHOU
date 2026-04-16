@@ -16,6 +16,7 @@ USE `ganzhou_travel_platform`;
 DROP TABLE IF EXISTS `ai_copywriting_logs`;
 DROP TABLE IF EXISTS `ai_trip_logs`;
 DROP TABLE IF EXISTS `ai_chat_logs`;
+DROP TABLE IF EXISTS `chapter_configs`;
 DROP TABLE IF EXISTS `home_recommends`;
 DROP TABLE IF EXISTS `banners`;
 DROP TABLE IF EXISTS `articles`;
@@ -65,6 +66,17 @@ CREATE TABLE `scenic_spots` (
   `gallery_images` TEXT,
   `intro` TEXT,
   `culture_desc` TEXT,
+  `hero_caption` VARCHAR(255) DEFAULT NULL,
+  `route_label` VARCHAR(100) DEFAULT NULL,
+  `mood_tone` VARCHAR(30) NOT NULL DEFAULT 'amber',
+  `quote` VARCHAR(255) DEFAULT NULL,
+  `best_visit_season` VARCHAR(100) DEFAULT NULL,
+  `visit_mode` VARCHAR(100) DEFAULT NULL,
+  `pairing_suggestion` VARCHAR(255) DEFAULT NULL,
+  `best_light_time` VARCHAR(100) DEFAULT NULL,
+  `walking_intensity` VARCHAR(50) DEFAULT NULL,
+  `photo_point` VARCHAR(255) DEFAULT NULL,
+  `family_friendly` TINYINT NOT NULL DEFAULT 1,
   `open_time` VARCHAR(100) DEFAULT NULL,
   `ticket_info` VARCHAR(100) DEFAULT NULL,
   `suggested_duration` VARCHAR(50) DEFAULT NULL,
@@ -93,6 +105,7 @@ CREATE TABLE `articles` (
   `category_id` BIGINT DEFAULT NULL,
   `cover_image` VARCHAR(255) DEFAULT NULL,
   `summary` TEXT,
+  `quote` VARCHAR(255) DEFAULT NULL,
   `content` LONGTEXT,
   `source` VARCHAR(255) DEFAULT NULL,
   `author` VARCHAR(100) DEFAULT NULL,
@@ -130,6 +143,8 @@ CREATE TABLE `home_recommends` (
   `module_name` VARCHAR(50) NOT NULL,
   `target_type` VARCHAR(50) NOT NULL,
   `target_id` BIGINT NOT NULL,
+  `visual_role` VARCHAR(30) NOT NULL DEFAULT 'support',
+  `summary_override` VARCHAR(255) DEFAULT NULL,
   `sort` INT NOT NULL DEFAULT 0,
   `status` TINYINT NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -140,6 +155,26 @@ CREATE TABLE `home_recommends` (
   KEY `idx_home_recommends_target_id` (`target_id`),
   KEY `idx_home_recommends_status` (`status`),
   KEY `idx_home_recommends_sort` (`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `chapter_configs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `chapter_code` VARCHAR(50) NOT NULL,
+  `chapter_title` VARCHAR(100) NOT NULL,
+  `chapter_subtitle` VARCHAR(255) DEFAULT NULL,
+  `chapter_intro` TEXT,
+  `hero_image` VARCHAR(255) DEFAULT NULL,
+  `hero_caption` VARCHAR(255) DEFAULT NULL,
+  `route_label` VARCHAR(100) DEFAULT NULL,
+  `mood_tone` VARCHAR(30) NOT NULL DEFAULT 'amber',
+  `sort` INT NOT NULL DEFAULT 0,
+  `status` TINYINT NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_chapter_configs_code` (`chapter_code`),
+  KEY `idx_chapter_configs_sort` (`sort`),
+  KEY `idx_chapter_configs_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `ai_chat_logs` (
@@ -250,9 +285,19 @@ INSERT INTO `home_recommends` (`id`, `module_name`, `target_type`, `target_id`, 
 (9, 'scenic', 'scenic', 7, 3, 1),
 (10, 'heritage', 'article', 7, 0, 1);
 
+INSERT INTO `chapter_configs` (
+  `id`, `chapter_code`, `chapter_title`, `chapter_subtitle`, `chapter_intro`,
+  `hero_image`, `hero_caption`, `route_label`, `mood_tone`, `sort`, `status`
+) VALUES
+(1, 'food', '城脉与老城生活', '从味觉、街巷和夜色进入赣州。', '先闻见这座城，再理解这座城的节奏与日常。', '/immersive/topic-headers/P0-03_FoodTopic_official_04.png', '从夜色、街巷和锅气进入赣州，先闻见这座城，再理解这座城。', '夜色、街巷与锅气', 'amber', 1, 1),
+(2, 'heritage', '客乡与手艺', '从器物、聚落和代际传承进入赣州。', '看见地方文化如何在日常里延续，而不只是作为展品存在。', '/immersive/topic-headers/P0-04_HakkaCulture_culture_03.jpg', '器物、动作与人群关系一起构成地方文化，而不是孤立展品。', '手艺、聚落与生活方式', 'earth', 2, 1),
+(3, 'red_culture', '红土与记忆', '从旧址、纪念空间与历史路径进入赣州。', '让地点先开口，再理解记忆的重量。', '/immersive/topic-headers/P0-05_RedCulture_official_04.png', '纪念空间、旧址与公共记忆共同构成叙事，而不是口号。', '旧址、纪念与历史重量', 'crimson', 3, 1);
+
 INSERT INTO `system_configs` (`id`, `config_key`, `config_value`, `remark`) VALUES
 (1, 'site_name', 'Ganzhou Travel Platform', 'site name'),
 (2, 'site_description', 'Ganzhou travel and culture smart service platform', 'site description'),
-(3, 'ai_model_name', 'gpt-4o-mini', 'ai model placeholder');
+(3, 'ai_model_name', 'gpt-4o-mini', 'ai model placeholder'),
+(4, 'home_hero_image', '/immersive/hero/P0-01_AncientWall_official_03.jpg', 'home hero image'),
+(5, 'home_hero_note', '先形成城市气质，再进入章节、地点与 AI 导览。', 'home hero note');
 
 SET FOREIGN_KEY_CHECKS = 1;

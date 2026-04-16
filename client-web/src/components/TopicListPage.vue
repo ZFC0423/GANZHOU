@@ -1,23 +1,28 @@
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { Search, View } from '@element-plus/icons-vue';
 import SiteLayout from './SiteLayout.vue';
 import { getArticleListApi } from '../api/front';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import { View, Search } from '@element-plus/icons-vue';
+import {
+  getArticleMeta,
+  getNarrativeImage,
+  getNarrativeQuote,
+  getThemeMeta,
+  pickNarrativeText
+} from '../utils/immersive-content';
 
 const props = defineProps({
   pageTitle: { type: String, required: true },
   pageDescription: { type: String, required: true },
   categoryCode: { type: String, required: true },
-  detailBasePath: { type: String, required: true },
-  pageEyebrow: { type: String, default: '' },
-  listTitle: { type: String, default: '' },
-  guideText: { type: String, default: '' }
+  detailBasePath: { type: String, required: true }
 });
 
 const router = useRouter();
+const themeMeta = computed(() => getThemeMeta(props.categoryCode));
 const loading = ref(false);
 const errorMessage = ref('');
 const listData = ref([]);
@@ -28,6 +33,19 @@ const pagination = reactive({
 });
 const filters = reactive({
   keyword: ''
+});
+
+const leadItem = computed(() => listData.value[0] || null);
+const supportingItems = computed(() => listData.value.slice(1));
+const chapterBands = computed(() => {
+  const items = supportingItems.value;
+  const bands = [];
+
+  for (let index = 0; index < items.length; index += 2) {
+    bands.push(items.slice(index, index + 2));
+  }
+
+  return bands;
 });
 
 async function loadList() {
@@ -42,10 +60,10 @@ async function loadList() {
       categoryCode: props.categoryCode
     });
 
-    listData.value = response.data.list;
-    pagination.total = response.data.total;
+    listData.value = response.data.list || [];
+    pagination.total = response.data.total || 0;
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '主题内容加载失败，请稍后重试。';
+    errorMessage.value = error.response?.data?.message || '专题内容加载失败，请稍后再试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
@@ -61,247 +79,455 @@ function goDetail(id) {
   router.push(`${props.detailBasePath}/${id}`);
 }
 
+function resolveArticleImage(item) {
+  return resolveAssetUrl(getNarrativeImage(item, 'article') || item?.coverImage, item?.title);
+}
+
+function resolveArticleCaption(item) {
+  return getArticleMeta(item?.id)?.quote || item?.summary || themeMeta.value.heroCaption;
+}
+
 watch(() => pagination.page, loadList);
 onMounted(loadList);
 </script>
 
 <template>
   <SiteLayout>
-    <div class="page-shell">
-      <section class="topic-hero">
-        <div class="topic-hero__accent-line"></div>
-        <div class="topic-hero__content">
-          <div class="topic-hero__badge">
-            {{ pageEyebrow || (categoryCode === 'food' ? '地道美食' : categoryCode === 'heritage' ? '非遗传承' : '红色记忆') }}
+    <div class="page-shell chapter-page">
+      <section class="chapter-poster">
+        <div class="chapter-poster__media">
+          <img :src="themeMeta.heroImage" :alt="pageTitle" />
+        </div>
+        <div class="chapter-poster__overlay">
+          <div class="chapter-poster__copy">
+            <div class="chapter-mark">{{ themeMeta.chapterNo }} / {{ themeMeta.chapterEn }}</div>
+            <h1 class="page-title">{{ pageTitle }}</h1>
+            <p class="page-subtitle">{{ pageDescription }}</p>
           </div>
-          <h1 class="page-title topic-hero__title">{{ pageTitle }}</h1>
-          <p class="page-subtitle topic-hero__desc">{{ pageDescription }}</p>
+
+          <div class="chapter-poster__note">
+            <div class="section-label">策展提示</div>
+            <p>{{ themeMeta.curatorNote }}</p>
+          </div>
         </div>
       </section>
 
-      <el-card class="topic-search" shadow="never">
-        <div class="topic-search__bar">
-          <el-input v-model="filters.keyword" placeholder="输入关键词，筛选该主题下的文化线索..." clearable @keyup.enter="handleSearch">
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-          <el-button type="primary" class="search-btn" @click="handleSearch">筛选内容</el-button>
+      <section class="section-inner chapter-curation">
+        <div class="section-copy">
+          <span class="section-eyebrow">Curatorial Thesis</span>
+          <h2 class="section-title">{{ themeMeta.chapterLabel }}</h2>
+          <p class="section-desc">{{ themeMeta.thesis }}</p>
         </div>
-      </el-card>
+
+        <div class="chapter-curation__search filter-card">
+          <div class="chapter-curation__search-head">
+            <div>
+              <div class="line-label">章节索引</div>
+              <p>按关键词过滤条目，快速找到你想继续深入的线索。</p>
+            </div>
+            <span>{{ filters.keyword ? '已启用筛选' : '自由漫游' }}</span>
+          </div>
+
+          <div class="chapter-curation__search-bar">
+            <el-input
+              v-model="filters.keyword"
+              clearable
+              placeholder="输入关键词，例如：街巷、手艺、旧址、味觉"
+              @keyup.enter="handleSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <button type="button" class="chapter-curation__search-button" @click="handleSearch">更新索引</button>
+          </div>
+        </div>
+      </section>
 
       <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" class="page-alert" />
       <div v-if="errorMessage" class="page-alert-actions">
-        <el-button @click="loadList">重试请求</el-button>
+        <el-button @click="loadList">重新请求</el-button>
       </div>
 
-      <el-skeleton v-if="loading" :rows="8" animated />
+      <el-skeleton v-if="loading" :rows="10" animated />
 
       <template v-else>
-        <el-empty v-if="!listData.length" description="暂无符合该主题的相关文化线索" />
+        <el-empty v-if="!listData.length" description="当前暂无符合筛选条件的条目。" />
 
-        <div v-else>
-          <div class="reading-guide-box">
-            <strong>浏览提示：</strong>{{ guideText || '本页按主题组织已有内容，为您提供清晰的探索入口。当前展示基于平台现有资料，部分原始条目保留了外文命名。' }}
-          </div>
-          
-          <h2 v-if="listTitle" class="topic-list-heading">{{ listTitle }}</h2>
-          
-          <div class="card-grid">
-            <el-card v-for="item in listData" :key="item.id" class="topic-card" shadow="hover" @click="goDetail(item.id)">
-              <div class="topic-card__image-wrapper">
-                <img
-                  class="image-cover topic-card__image"
-                  :src="resolveAssetUrl(item.coverImage, item.title)"
-                  :alt="item.title"
-                  @error="(event) => applyImageFallback(event, item.title)"
-                />
+        <template v-else>
+          <section class="section-inner--wide chapter-lead">
+            <div class="chapter-lead__copy">
+              <span class="section-eyebrow">Lead Exhibit</span>
+              <h2 class="section-title">{{ leadItem.title }}</h2>
+              <p class="section-desc">{{ pickNarrativeText(leadItem.summary, themeMeta.opening) }}</p>
+              <blockquote class="display-quote">
+                “{{ getNarrativeQuote(leadItem, 'article') || themeMeta.quote }}”
+              </blockquote>
+              <div class="chapter-lead__meta">
+                <span>{{ leadItem.categoryName || themeMeta.chapterShort }}</span>
+                <span><el-icon><View /></el-icon>{{ leadItem.viewCount || 0 }}</span>
               </div>
-              <div class="topic-card__body">
-                <div class="topic-card__meta">
-                  <span class="meta-cat">{{ item.categoryName }}</span>
-                  <span class="meta-view"><el-icon><View /></el-icon> {{ item.viewCount }}</span>
-                </div>
-                <h3 class="topic-card__title">{{ item.title }}</h3>
-                <p class="topic-card__summary">{{ item.summary || '暂无核心线索说明。' }}</p>
-                <div class="topic-card__tags" v-if="item.tags && item.tags.length">
-                  <el-tag v-for="tag in item.tags" :key="tag" size="small" type="info" effect="plain">{{ tag }}</el-tag>
-                </div>
-              </div>
-            </el-card>
-          </div>
-        </div>
+              <button type="button" class="chapter-lead__button" @click="goDetail(leadItem.id)">进入这件展品</button>
+            </div>
 
-        <div class="topic-pagination">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.pageSize"
-            layout="total, prev, pager, next"
-            :total="pagination.total"
-            background
-          />
-        </div>
+            <button type="button" class="chapter-lead__media media-node" @click="goDetail(leadItem.id)">
+              <img
+                :src="resolveArticleImage(leadItem)"
+                :alt="leadItem.title"
+                @error="(event) => applyImageFallback(event, leadItem.title)"
+              />
+              <div class="chapter-lead__caption">{{ resolveArticleCaption(leadItem) }}</div>
+            </button>
+          </section>
+
+          <section class="section-inner chapter-bands">
+            <div class="chapter-bands__head">
+              <div>
+                <span class="section-eyebrow">Chapter Bands</span>
+                <h2 class="section-title">{{ themeMeta.atlasTitle }}</h2>
+              </div>
+              <p class="section-desc">{{ themeMeta.atlasNote }}</p>
+            </div>
+
+            <div class="chapter-bands__list">
+              <div v-for="(band, bandIndex) in chapterBands" :key="bandIndex" class="chapter-band">
+                <span class="chapter-band__index">Band {{ bandIndex + 1 }}</span>
+
+                <div class="chapter-band__items">
+                  <article
+                    v-for="item in band"
+                    :key="item.id"
+                    class="chapter-band__item"
+                    @click="goDetail(item.id)"
+                  >
+                    <div class="chapter-band__image media-node">
+                      <img
+                        :src="resolveArticleImage(item)"
+                        :alt="item.title"
+                        @error="(event) => applyImageFallback(event, item.title)"
+                      />
+                    </div>
+                    <div class="chapter-band__copy">
+                      <span>{{ item.categoryName || themeMeta.chapterShort }}</span>
+                      <h3>{{ item.title }}</h3>
+                      <p>{{ pickNarrativeText(item.summary, themeMeta.opening) }}</p>
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </div>
+
+            <div class="chapter-bands__pagination">
+              <el-pagination
+                v-model:current-page="pagination.page"
+                layout="total, prev, pager, next"
+                :total="pagination.total"
+                background
+              />
+            </div>
+          </section>
+
+          <section class="topic-next-steps">
+            <div class="next-steps-container">
+              <div class="section-label align-center">继续向前</div>
+              <p class="next-steps-desc">
+                如果这一章已经让你形成了初步印象，可以把它继续带去 AI 导览，让问题、地点与后续路线自然连接起来。
+              </p>
+              <div class="next-steps-actions">
+                <router-link to="/ai-chat" class="link-reset">
+                  <el-button type="primary" size="large" plain>带着这一章继续提问</el-button>
+                </router-link>
+              </div>
+            </div>
+          </section>
+        </template>
       </template>
     </div>
   </SiteLayout>
 </template>
 
 <style scoped>
-.topic-hero {
+.chapter-page {
+  display: grid;
+  gap: 42px;
+}
+
+.chapter-poster {
   position: relative;
-  margin-bottom: 32px;
-  padding: clamp(32px, 6vw, 52px);
-  border-radius: var(--radius-panel);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 248, 0.94));
-  border: 1px solid rgba(236, 231, 223, 0.9);
-  box-shadow: var(--shadow-card);
+  min-height: min(80vh, 820px);
   overflow: hidden;
+  border-radius: 42px;
+  box-shadow: var(--shadow-floating);
 }
 
-.topic-hero::after {
-  content: '';
+.chapter-poster__media,
+.chapter-poster__media img {
+  width: 100%;
+  height: 100%;
+}
+
+.chapter-poster__media {
   position: absolute;
-  right: -72px;
-  bottom: -112px;
-  width: 260px;
-  height: 260px;
-  background: radial-gradient(circle, rgba(255, 56, 92, 0.16), transparent 70%);
+  inset: 0;
 }
 
-.topic-hero__accent-line {
+.chapter-poster__media img {
+  object-fit: cover;
+}
+
+.chapter-poster__overlay {
   position: relative;
-  z-index: 1;
-  width: 80px;
-  height: 4px;
-  margin-bottom: 16px;
-  border-radius: 999px;
-  background: var(--color-accent);
+  min-height: min(80vh, 820px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.64fr);
+  align-items: end;
+  gap: 24px;
+  padding: 42px;
+  color: #f9f0e1;
+  background: linear-gradient(180deg, rgba(17, 22, 27, 0.12), rgba(17, 22, 27, 0.82));
 }
 
-.topic-hero__content {
-  position: relative;
-  z-index: 1;
-  max-width: 720px;
+.chapter-poster__copy {
+  display: grid;
+  gap: 18px;
+  max-width: 780px;
 }
 
-.topic-hero__badge {
-  margin-bottom: 16px;
+.chapter-poster__copy :deep(.page-title),
+.chapter-poster__copy :deep(.page-subtitle) {
+  color: inherit;
 }
 
-.topic-hero__title {
-  margin: 0 0 16px;
+.chapter-poster__note {
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(248, 240, 225, 0.12);
+  border: 1px solid rgba(248, 240, 225, 0.12);
 }
 
-.topic-hero__desc {
-  max-width: 620px;
+.chapter-poster__note p {
+  margin: 0;
+  color: rgba(249, 240, 225, 0.82);
+  line-height: 1.85;
 }
 
-.topic-search {
-  margin-bottom: 32px;
+.chapter-curation {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(320px, 0.92fr);
+  gap: 26px;
 }
 
-.topic-search__bar {
-  display: flex;
-  gap: 16px;
-  align-items: center;
+.chapter-curation__search {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
 }
 
-.search-btn {
-  min-width: 132px;
-}
-
-.topic-card {
-  cursor: pointer;
-  height: 100%;
-}
-
-:deep(.topic-card .el-card__body) {
-  padding: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.topic-card__image-wrapper {
-  height: 240px;
-}
-
-.topic-card__meta {
+.chapter-curation__search-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  gap: 18px;
+}
+
+.chapter-curation__search-head p {
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+.chapter-curation__search-head span {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.chapter-curation__search-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
 }
 
-.meta-cat {
-  color: var(--color-accent);
+.chapter-curation__search-button,
+.chapter-lead__button {
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--color-accent);
+  color: #fff3ea;
   font-weight: 600;
+  cursor: pointer;
 }
 
-.meta-view {
+.chapter-lead {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.02fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.chapter-lead__copy {
+  display: grid;
+  gap: 16px;
+}
+
+.chapter-lead__meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.chapter-lead__meta span {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--color-text-tertiary);
+  gap: 6px;
 }
 
-.topic-card__title {
-  margin: 0 0 12px;
-  font-size: clamp(18px, 1.4vw, 20px);
-  font-weight: 700;
-  line-height: 1.28;
+.chapter-lead__media {
+  position: relative;
+  min-height: 560px;
 }
 
-.topic-card__summary {
-  margin: 0 0 20px;
-  flex: 1;
+.chapter-lead__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.topic-card__tags {
+.chapter-lead__caption {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(17, 22, 27, 0.72);
+  color: rgba(255, 243, 225, 0.86);
+  line-height: 1.75;
+}
+
+.chapter-bands {
+  display: grid;
+  gap: 24px;
+}
+
+.chapter-bands__head {
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: end;
+}
+
+.chapter-bands__list {
+  display: grid;
+  gap: 20px;
+}
+
+.chapter-band {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.chapter-band__index {
+  color: var(--color-accent);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.chapter-band__items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.chapter-band__item {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 14px;
+  cursor: pointer;
+}
+
+.chapter-band__image {
+  min-height: 200px;
+}
+
+.chapter-band__image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chapter-band__copy {
+  display: grid;
+  align-content: start;
   gap: 8px;
 }
 
-.topic-pagination {
-  margin-top: 40px;
+.chapter-band__copy span {
+  color: var(--color-accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chapter-band__copy h3 {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: 1.7rem;
+  line-height: 1.08;
+}
+
+.chapter-band__copy p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+.chapter-bands__pagination {
   display: flex;
   justify-content: center;
 }
 
-.topic-list-heading {
-  margin: 0 0 20px;
-  color: var(--color-text-primary);
-  font-size: clamp(20px, 2vw, 24px);
-  font-weight: 700;
-  letter-spacing: var(--tracking-tight-1);
-}
-
-.page-alert {
-  margin-bottom: 16px;
-}
-
-.page-alert-actions {
-  margin-bottom: 24px;
-}
-
-@media (max-width: 768px) {
-  .topic-hero {
-    padding: 32px 24px;
-  }
-  
-  .topic-search__bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .search-btn {
-    width: 100%;
+@media (max-width: 1023px) {
+  .chapter-poster__overlay,
+  .chapter-curation,
+  .chapter-lead,
+  .chapter-bands__head,
+  .chapter-band__items,
+  .chapter-band__item {
+    grid-template-columns: 1fr;
   }
 }
 
-.reading-guide-box strong {
-  color: var(--color-accent);
+@media (max-width: 743px) {
+  .chapter-poster,
+  .chapter-poster__overlay {
+    min-height: 68svh;
+  }
+
+  .chapter-poster__overlay,
+  .chapter-curation__search {
+    padding: 22px;
+  }
+
+  .chapter-curation__search-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-lead__media {
+    min-height: 360px;
+  }
+
+  .chapter-band__image {
+    min-height: 220px;
+  }
 }
 </style>

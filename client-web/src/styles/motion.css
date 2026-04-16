@@ -1,7 +1,7 @@
-@keyframes fadeIn {
+@keyframes soft-reveal {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(18px);
   }
 
   to {
@@ -10,10 +10,33 @@
   }
 }
 
-@keyframes fade-in-up {
+@keyframes slow-settle {
+  from {
+    opacity: 0.72;
+    transform: scale(1.03) translate3d(0, 18px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes image-breathe {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: scale(1.025) translate3d(0, -6px, 0);
+  }
+}
+
+@keyframes caption-rise {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(24px);
   }
 
   to {
@@ -45,3 +68,4 @@
     scroll-behavior: auto !important;
   }
 }
+

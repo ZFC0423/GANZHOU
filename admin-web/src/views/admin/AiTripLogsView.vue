@@ -9,12 +9,12 @@ import AdminShell from '../../components/AdminShell.vue';
         <span class="admin-placeholder__eyebrow">AI TRIP LOGS</span>
         <h1 class="admin-placeholder__title">AI 行程推荐日志</h1>
         <p class="admin-placeholder__desc">
-          这里预留给行程推荐日志的独立分页页，后续可以补出发地、天数、节奏等筛选条件和结果详情展示。
+          这里预留给行程推荐日志的独立分页页。后续如果你想单独做“按天数、出发地、节奏”筛选的专门工作台，可以从这里继续扩展。
         </p>
         <div class="admin-placeholder__tips">
           <div class="admin-placeholder__tips-title">当前阶段建议</div>
           <p class="admin-placeholder__tips-text">
-            等你确定日志查询维度后，再补筛选表单，避免前期反复改字段和页面结构。
+            在毕业设计首版里，优先把总日志页做扎实更重要。等你把筛选维度完全稳定下来，再单独拆分日志页会更省返工成本。
           </p>
         </div>
       </el-card>

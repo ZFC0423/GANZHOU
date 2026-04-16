@@ -32,8 +32,8 @@ const form = reactive({
 });
 
 const rules = {
-  title: [{ required: true, message: 'Please input banner title', trigger: 'blur' }],
-  imageUrl: [{ required: true, message: 'Please input image url', trigger: 'blur' }]
+  title: [{ required: true, message: '请输入轮播图标题', trigger: 'blur' }],
+  imageUrl: [{ required: true, message: '请填写轮播图地址', trigger: 'blur' }]
 };
 
 function resetForm() {
@@ -54,11 +54,11 @@ const uploadHeaders = {
 
 function handleBannerUploadSuccess(response) {
   form.imageUrl = response.data.url;
-  ElMessage.success('Banner image uploaded');
+  ElMessage.success('轮播图上传成功');
 }
 
 function handleUploadError() {
-  ElMessage.error('Upload failed');
+  ElMessage.error('上传失败');
 }
 
 async function loadTable() {
@@ -108,27 +108,27 @@ async function submitForm() {
   try {
     if (dialogMode.value === 'create') {
       await createBannerApi(payload);
-      ElMessage.success('Banner created');
+      ElMessage.success('轮播图已创建');
     } else {
       await updateBannerApi(form.id, payload);
-      ElMessage.success('Banner updated');
+      ElMessage.success('轮播图已更新');
     }
 
     dialogVisible.value = false;
     await loadTable();
   } catch (error) {
-    // message handled by request interceptor
+    // 请求拦截器已统一处理提示
   }
 }
 
 async function handleDelete(row) {
   try {
-    await ElMessageBox.confirm(`Delete banner "${row.title}"?`, 'Confirm', { type: 'warning' });
+    await ElMessageBox.confirm(`确认删除轮播图“${row.title}”吗？`, '删除确认', { type: 'warning' });
     await deleteBannerApi(row.id);
-    ElMessage.success('Banner deleted');
+    ElMessage.success('轮播图已删除');
     await loadTable();
   } catch (error) {
-    // ignore cancel, request message handled globally
+    // 取消删除时不额外提示
   }
 }
 
@@ -137,23 +137,36 @@ onMounted(loadTable);
 
 <template>
   <AdminShell>
-    <div class="admin-page">
+    <div class="admin-page admin-page--stack">
       <el-card>
-        <div class="admin-toolbar admin-toolbar--between">
-          <div class="admin-card-heading">Banner List</div>
-          <el-button @click="openCreateDialog">Create</el-button>
+        <div class="admin-toolbar">
+          <div class="admin-toolbar__grow">
+            <div class="admin-page-title">轮播图管理</div>
+            <div class="admin-muted-text">
+              轮播图主要服务旧版首页和后台素材管理。即使前台已经转向沉浸式首页，这里仍建议保持清晰的素材台账。
+            </div>
+          </div>
+          <el-button @click="openCreateDialog">新建轮播图</el-button>
         </div>
+      </el-card>
 
+      <el-card>
         <el-table v-loading="loading" :data="tableData" border>
           <el-table-column prop="id" label="ID" width="70" />
-          <el-table-column prop="title" label="Title" min-width="180" />
-          <el-table-column prop="imageUrl" label="Image URL" min-width="220" />
-          <el-table-column prop="sort" label="Sort" width="100" />
-          <el-table-column prop="status" label="Status" width="100" />
-          <el-table-column label="Actions" width="180" fixed="right">
+          <el-table-column prop="title" label="标题" min-width="180" />
+          <el-table-column prop="imageUrl" label="图片地址" min-width="220" />
+          <el-table-column prop="sort" label="排序" width="100" />
+          <el-table-column prop="status" label="状态" width="100">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openEditDialog(row)">Edit</el-button>
-              <el-button link type="danger" @click="handleDelete(row)">Delete</el-button>
+              <el-tag :type="row.status === 1 ? 'success' : 'info'">
+                {{ row.status === 1 ? '启用' : '停用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
+              <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -169,14 +182,14 @@ onMounted(loadTable);
         </div>
       </el-card>
 
-      <el-dialog v-model="dialogVisible" :title="dialogMode === 'create' ? 'Create Banner' : 'Edit Banner'" width="640px">
+      <el-dialog v-model="dialogVisible" :title="dialogMode === 'create' ? '新建轮播图' : '编辑轮播图'" width="640px">
         <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-          <el-form-item label="Title" prop="title">
+          <el-form-item label="轮播标题" prop="title">
             <el-input v-model="form.title" />
           </el-form-item>
-          <el-form-item label="Image URL" prop="imageUrl">
+          <el-form-item label="图片地址" prop="imageUrl">
             <div class="admin-form-stack">
-              <el-input v-model="form.imageUrl" placeholder="/uploads/..." />
+              <el-input v-model="form.imageUrl" placeholder="/uploads/... 或 /immersive/..." />
               <el-upload
                 :action="uploadAction"
                 :headers="uploadHeaders"
@@ -185,26 +198,26 @@ onMounted(loadTable);
                 @success="handleBannerUploadSuccess"
                 @error="handleUploadError"
               >
-                <el-button>Upload Image</el-button>
+                <el-button>上传图片</el-button>
               </el-upload>
             </div>
           </el-form-item>
-          <el-form-item label="Link Type">
-            <el-input v-model="form.linkType" placeholder="scenic / article / custom" />
+          <el-form-item label="链接类型">
+            <el-input v-model="form.linkType" placeholder="例如：scenic / article / custom" />
           </el-form-item>
-          <el-form-item label="Link Target">
+          <el-form-item label="链接目标">
             <el-input v-model="form.linkTarget" />
           </el-form-item>
-          <el-form-item label="Sort">
+          <el-form-item label="排序">
             <el-input-number v-model="form.sort" :min="0" />
           </el-form-item>
-          <el-form-item label="Status">
+          <el-form-item label="启用状态">
             <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="dialogVisible = false">Cancel</el-button>
-          <el-button type="primary" @click="submitForm">Save</el-button>
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitForm">保存</el-button>
         </template>
       </el-dialog>
     </div>

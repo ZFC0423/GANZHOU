@@ -3,5 +3,5 @@ import TopicDetailPage from '../components/TopicDetailPage.vue';
 </script>
 
 <template>
-  <TopicDetailPage page-title="Heritage Topics" back-path="/heritage" />
+  <TopicDetailPage page-title="客乡与手艺" back-path="/heritage" theme-code="heritage" />
 </template>

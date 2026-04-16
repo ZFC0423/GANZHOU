@@ -17,17 +17,16 @@ body {
   margin: 0;
   font-family: var(--font-family-base);
   font-size: var(--font-size-body);
-  background:
-    radial-gradient(circle at top, rgba(255, 56, 92, 0.06), transparent 34%),
-    linear-gradient(180deg, #ffffff 0%, var(--surface-page) 100%);
+  background: var(--surface-page);
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
 
 ::selection {
-  background: rgba(255, 56, 92, 0.16);
-  color: var(--color-text-primary);
+  background: rgba(142, 48, 40, 0.18);
+  color: #fff8ef;
 }
 
 a {
@@ -67,6 +66,7 @@ textarea {
 strong,
 b {
   color: var(--color-text-primary);
+  font-weight: 700;
 }
 
 main {
@@ -74,7 +74,7 @@ main {
 }
 
 :focus-visible {
-  outline: 2px solid rgba(255, 56, 92, 0.28);
+  outline: 2px solid rgba(142, 48, 40, 0.28);
   outline-offset: 2px;
   border-radius: var(--radius-2);
 }
@@ -83,3 +83,4 @@ main {
   color: inherit;
   text-decoration: none;
 }
+

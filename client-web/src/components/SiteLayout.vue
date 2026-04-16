@@ -1,91 +1,202 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { getThemeMeta, siteManifesto } from '../utils/immersive-content';
 
 const route = useRoute();
+const menuOpen = ref(false);
+const isScrolled = ref(false);
 
-const activeMenu = computed(() => {
-  if (route.path.startsWith('/scenic')) return '/scenic';
-  if (route.path.startsWith('/food')) return '/food';
-  if (route.path.startsWith('/heritage')) return '/heritage';
-  if (route.path.startsWith('/red-culture')) return '/red-culture';
-  if (route.path.startsWith('/ai-chat')) return '/ai-chat';
-  if (route.path.startsWith('/ai-trip')) return '/ai-trip';
-  if (route.path.startsWith('/about')) return '/about';
-  return route.path;
+const navigationEntries = [
+  { label: '首页', path: '/', desc: '片头海报与世界观入口' },
+  { label: '城脉与老城生活', path: '/food', desc: '从味觉、街巷与夜色进入赣州' },
+  { label: '客乡与手艺', path: '/heritage', desc: '从器物、聚落与传承进入地方文化' },
+  { label: '红土与记忆', path: '/red-culture', desc: '让地点先开口，再进入历史重量' },
+  { label: '景点图谱', path: '/scenic', desc: '先记住地方，再记住信息' },
+  { label: 'AI 导览室', path: '/ai-chat', desc: '让导览员继续把线索讲清楚' }
+];
+
+const secondaryEntries = [
+  { label: '路线工作室', path: '/ai-trip', desc: '把兴趣、天数与节奏编排成路线长卷' },
+  { label: '策展附记', path: '/about', desc: '解释这部数字长卷为什么必须这样编排' }
+];
+
+const footerChapters = [
+  { ...getThemeMeta('food'), path: '/food' },
+  { ...getThemeMeta('heritage'), path: '/heritage' },
+  { ...getThemeMeta('red_culture'), path: '/red-culture' }
+];
+
+const isHome = computed(() => route.path === '/');
+const shellLabel = computed(() => route.meta?.shellLabel || 'Ganzhou Scroll');
+const chapterTitle = computed(() => route.meta?.chapterTitle || siteManifesto.title);
+const shellTone = computed(() => route.meta?.shellTone || 'paper');
+
+function updateScrollState() {
+  isScrolled.value = window.scrollY > 18;
+}
+
+function isActive(path) {
+  if (path === '/') {
+    return route.path === '/';
+  }
+
+  return route.path.startsWith(path);
+}
+
+function toggleMenu() {
+  menuOpen.value = !menuOpen.value;
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    menuOpen.value = false;
+  }
+);
+
+watch(menuOpen, (value) => {
+  document.body.style.overflow = value ? 'hidden' : '';
+});
+
+onMounted(() => {
+  updateScrollState();
+  window.addEventListener('scroll', updateScrollState, { passive: true });
+});
+
+onBeforeUnmount(() => {
+  document.body.style.overflow = '';
+  window.removeEventListener('scroll', updateScrollState);
 });
 </script>
 
 <template>
-  <div>
-    <header class="site-header">
-      <div class="site-header__inner">
-        <router-link class="site-logo" to="/">赣州文旅智慧服务平台</router-link>
-        <el-menu :default-active="activeMenu" mode="horizontal" router class="site-menu">
-          <el-menu-item index="/">首页</el-menu-item>
-          <el-menu-item index="/scenic">景点浏览</el-menu-item>
-          <el-sub-menu index="topic">
-            <template #title>专题探索</template>
-            <el-menu-item index="/red-culture">红色文化</el-menu-item>
-            <el-menu-item index="/heritage">非遗传承</el-menu-item>
-            <el-menu-item index="/food">城市风味</el-menu-item>
-          </el-sub-menu>
-          <el-menu-item index="/ai-chat">智慧问答</el-menu-item>
-          <el-menu-item index="/ai-trip">行程建议</el-menu-item>
-          <el-menu-item index="/about">平台介绍</el-menu-item>
-        </el-menu>
-      </div>
-      <div class="mobile-nav-helper">
-        探索赣州的文化线索、代表性景点与智慧导览服务。
-      </div>
-    </header>
+  <div :class="['site-shell', `site-shell--${shellTone}`]">
+    <header
+      :class="[
+        'site-header',
+        {
+          'site-header--home': isHome,
+          'site-header--scrolled': isScrolled || !isHome,
+          'site-header--menu-open': menuOpen
+        }
+      ]"
+    >
+      <div class="site-header__frame">
+        <div class="site-header__context">
+          <span class="site-header__marker">{{ shellLabel }}</span>
+          <router-link class="site-brand" to="/">
+            <span class="site-brand__kicker">Ganzhou Scroll</span>
+            <span class="site-brand__title">{{ siteManifesto.title }}</span>
+          </router-link>
+        </div>
 
-    <main>
-      <slot />
-    </main>
+        <nav class="site-nav site-nav--desktop" aria-label="主导航">
+          <router-link
+            v-for="item in navigationEntries"
+            :key="item.path"
+            :to="item.path"
+            :class="['site-nav__link', { 'site-nav__link--active': isActive(item.path) }]"
+          >
+            {{ item.label }}
+          </router-link>
+        </nav>
 
-    <footer class="site-footer">
-      <div class="footer-main">
-        <div class="footer-main__inner">
-          <div class="footer-brand">
-            <div class="footer-brand__name">赣州旅游文化智慧服务平台</div>
-            <p class="footer-brand__desc">
-              以主题化内容组织、景点导览与智慧服务能力，连接城市文化记忆与旅行探索体验。
-            </p>
-          </div>
-
-          <div class="footer-nav">
-            <div class="footer-nav__title">快速入口</div>
-            <router-link to="/scenic">浏览精选景点</router-link>
-            <router-link to="/red-culture">探索专题内容</router-link>
-            <router-link to="/ai-chat">开启智慧问答</router-link>
-            <router-link to="/ai-trip">获取行程建议</router-link>
-            <router-link to="/about">进入平台介绍</router-link>
-          </div>
-
-          <div class="footer-nav">
-            <div class="footer-nav__title">文化主题</div>
-            <router-link to="/red-culture">红色文化</router-link>
-            <router-link to="/heritage">非遗传承</router-link>
-            <router-link to="/heritage">客家文化</router-link>
-            <router-link to="/food">城市风味</router-link>
-            <router-link to="/food">老城记忆</router-link>
-            <router-link to="/scenic">山水探索</router-link>
-          </div>
-
-          <div class="footer-nav">
-            <div class="footer-nav__title">探索指引</div>
-            <p class="footer-brand__desc footer-brand__desc--compact">
-              从内容理解出发，在浏览、问答与路径建议之间，逐步进入赣州。
-            </p>
-          </div>
+        <div class="site-header__actions">
+          <router-link class="site-header__action" to="/ai-trip">路线工作室</router-link>
+          <button
+            type="button"
+            class="site-header__menu-button"
+            :aria-expanded="menuOpen ? 'true' : 'false'"
+            :aria-label="menuOpen ? '关闭章节导航' : '打开章节导航'"
+            @click="toggleMenu"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
         </div>
       </div>
 
-      <div class="footer-bottom">
-        <div class="footer-bottom__inner">
-          <div class="footer-bottom__row">赣州旅游文化智慧服务平台 · 毕业设计项目展示</div>
-          <div class="footer-bottom__row copyright-note">内容展示以平台现有资料为基础，部分原始条目暂保留既有命名方式。</div>
+      <transition name="shell-sheet">
+        <div v-if="menuOpen" class="site-sheet">
+          <div class="site-sheet__inner">
+            <div class="site-sheet__intro">
+              <div class="chapter-mark chapter-mark--dark">Curated Navigation</div>
+              <h2>{{ chapterTitle }}</h2>
+              <p>
+                这不是在换页面，而是在进入同一部赣州导览长卷里的另一个空间。
+                入口、阅读、地方记忆与 AI 续讲必须属于同一个世界。
+              </p>
+            </div>
+
+            <div class="site-sheet__grid">
+              <router-link
+                v-for="item in navigationEntries"
+                :key="item.path"
+                :to="item.path"
+                :class="['site-sheet__link', { 'site-sheet__link--active': isActive(item.path) }]"
+              >
+                <span>{{ item.label }}</span>
+                <small>{{ item.desc }}</small>
+              </router-link>
+
+              <router-link
+                v-for="item in secondaryEntries"
+                :key="item.path"
+                :to="item.path"
+                :class="[
+                  'site-sheet__link',
+                  'site-sheet__link--secondary',
+                  { 'site-sheet__link--active': isActive(item.path) }
+                ]"
+              >
+                <span>{{ item.label }}</span>
+                <small>{{ item.desc }}</small>
+              </router-link>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </header>
+
+    <main class="site-main">
+      <slot />
+    </main>
+
+    <footer class="site-epilogue">
+      <div class="site-epilogue__inner">
+        <div class="site-epilogue__statement">
+          <div class="chapter-mark chapter-mark--dark">Epilogue</div>
+          <h2>一座城最好的打开方式，不是更快浏览，而是更慢进入。</h2>
+          <p>{{ siteManifesto.subtitle }}</p>
+        </div>
+
+        <div class="site-epilogue__chapters">
+          <router-link
+            v-for="item in footerChapters"
+            :key="item.path"
+            :to="item.path"
+            class="site-epilogue__chapter"
+          >
+            <span>{{ item.chapterNo }}</span>
+            <strong>{{ item.chapterLabel }}</strong>
+            <small>{{ item.heroCaption }}</small>
+          </router-link>
+        </div>
+      </div>
+
+      <div class="site-epilogue__bottom">
+        <div class="site-epilogue__brand">
+          <strong>{{ siteManifesto.title }}</strong>
+          <span>地方记忆、章节阅读与 AI 导览共同构成的数字文化体验。</span>
+        </div>
+
+        <div class="site-epilogue__links">
+          <router-link to="/scenic">景点图谱</router-link>
+          <router-link to="/ai-chat">AI 导览室</router-link>
+          <router-link to="/ai-trip">路线工作室</router-link>
+          <router-link to="/about">策展附记</router-link>
         </div>
       </div>
     </footer>
@@ -93,267 +204,440 @@ const activeMenu = computed(() => {
 </template>
 
 <style scoped>
+.site-shell {
+  min-height: 100vh;
+  background: var(--surface-page);
+  color: var(--color-text-primary);
+}
+
+.site-shell--ink {
+  background:
+    radial-gradient(circle at top, rgba(142, 48, 40, 0.12), transparent 22%),
+    linear-gradient(180deg, #0c1114 0%, #12191d 18%, #f6f1e8 18.1%, #f6f1e8 100%);
+}
+
 .site-header {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
-  background: rgba(255, 255, 255, 0.84);
-  backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(236, 231, 223, 0.92);
-  box-shadow: 0 6px 20px rgba(34, 34, 34, 0.04);
-  transition: var(--transition-base);
+  padding: 12px var(--page-gutter-current) 0;
 }
 
-.site-header__inner {
-  max-width: var(--container-page);
+.site-header__frame {
+  width: min(100%, calc(var(--container-page) + 128px));
   margin: 0 auto;
-  padding: 12px var(--page-gutter-current);
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 24px;
-  min-height: 76px;
+  padding: 18px 0 16px;
+  border-bottom: 1px solid rgba(93, 76, 48, 0.14);
+  transition:
+    border-color var(--transition-base),
+    background-color var(--transition-base),
+    color var(--transition-base),
+    box-shadow var(--transition-base);
 }
 
-.site-logo {
-  position: relative;
-  padding-left: 18px;
-  font-size: 20px;
-  font-weight: 700;
+.site-header--home:not(.site-header--scrolled) .site-header__frame {
+  color: #f5efe2;
+  border-bottom-color: rgba(245, 239, 226, 0.18);
+}
+
+.site-header--scrolled .site-header__frame,
+.site-header:not(.site-header--home) .site-header__frame,
+.site-header--menu-open .site-header__frame {
   color: var(--color-text-primary);
-  white-space: nowrap;
-  letter-spacing: var(--tracking-tight-1);
+  background: linear-gradient(180deg, rgba(246, 241, 232, 0.96), rgba(246, 241, 232, 0.84));
+  backdrop-filter: blur(14px);
+  border-bottom-color: rgba(93, 76, 48, 0.2);
+  box-shadow: var(--shadow-header);
 }
 
-.site-logo::before {
+.site-header__context {
+  display: grid;
+  gap: 8px;
+}
+
+.site-header__marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.site-header__marker::before {
+  content: '';
+  width: 22px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.56;
+}
+
+.site-brand {
+  display: inline-grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.site-brand__kicker {
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.site-brand__title {
+  font-family: var(--font-family-display);
+  font-size: clamp(1.5rem, 2.1vw, 2rem);
+  line-height: 1;
+  letter-spacing: var(--tracking-tight-2);
+}
+
+.site-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.site-nav__link,
+.site-header__action,
+.site-sheet__link,
+.site-epilogue__links a {
+  color: inherit;
+  transition:
+    color var(--transition-base),
+    opacity var(--transition-base),
+    transform var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.site-nav__link {
+  position: relative;
+  padding: 4px 0;
+  font-size: 14px;
+  opacity: 0.68;
+}
+
+.site-nav__link::after {
   content: '';
   position: absolute;
   left: 0;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  box-shadow: 0 0 0 6px rgba(255, 56, 92, 0.12);
-  transform: translateY(-50%);
+  right: 0;
+  bottom: -8px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--transition-base);
+  opacity: 0.64;
 }
 
-.site-menu {
-  border-bottom: none;
-  flex: 1;
-  justify-content: flex-end;
-  min-width: 0;
-  background: transparent;
+.site-nav__link:hover,
+.site-nav__link--active {
+  opacity: 1;
 }
 
-:deep(.site-menu.el-menu--horizontal) {
-  gap: 8px;
-  border-bottom: none;
+.site-nav__link:hover::after,
+.site-nav__link--active::after {
+  transform: scaleX(1);
 }
 
-:deep(.el-menu--horizontal > .el-menu-item),
-:deep(.el-menu--horizontal > .el-sub-menu > .el-sub-menu__title) {
-  height: 44px;
-  padding: 0 14px;
-  border-bottom: none !important;
-  border-radius: 999px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 44px;
-  color: var(--color-text-secondary);
-  transition: var(--transition-base);
-}
-
-:deep(.el-menu--horizontal > .el-menu-item:hover),
-:deep(.el-menu--horizontal > .el-sub-menu > .el-sub-menu__title:hover) {
-  background: rgba(255, 56, 92, 0.06);
-  color: var(--color-text-primary);
-}
-
-:deep(.el-menu--horizontal > .el-menu-item.is-active),
-:deep(.el-menu--horizontal > .el-sub-menu.is-active > .el-sub-menu__title) {
-  color: var(--color-accent) !important;
-  background: rgba(255, 56, 92, 0.08);
-  border-bottom: none !important;
-  font-weight: 600;
-}
-
-/* ================================================
-   全站收束层 Footer
-   ================================================ */
-.site-footer {
-  margin-top: 80px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), #f7f4ef);
-  border-top: 1px solid rgba(236, 231, 223, 0.92);
-  color: var(--color-text-secondary);
-}
-
-/* 第一层：主体内容 */
-.footer-main {
-  border-bottom: 1px solid rgba(221, 216, 209, 0.8);
-}
-
-.footer-main__inner {
-  max-width: var(--container-page);
-  margin: 0 auto;
-  padding: clamp(48px, 7vw, 64px) var(--page-gutter-current) clamp(36px, 6vw, 56px);
-  display: grid;
-  grid-template-columns: 1.5fr 1fr 1fr 0.9fr;
-  gap: 32px 40px;
-}
-
-/* 平台身份 */
-.footer-brand__name {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  letter-spacing: var(--tracking-tight-1);
-  margin-bottom: 14px;
-}
-
-.footer-brand__desc {
-  margin: 0;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  line-height: var(--line-loose);
-  max-width: 360px;
-}
-
-.footer-brand__desc--compact {
-  margin-top: 4px;
-}
-
-/* 导航列 */
-.footer-nav {
+.site-header__actions {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 10px;
 }
 
-.footer-nav__title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-tertiary);
-  letter-spacing: var(--tracking-wide);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-
-.footer-nav a {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  display: inline-block;
-  width: fit-content;
-  position: relative;
-  transition: color var(--transition-base);
-}
-
-.footer-nav a:hover {
-  color: var(--color-text-primary);
-}
-
-.footer-nav a::after {
-  content: '';
-  position: absolute;
-  bottom: -3px;
-  left: 0;
-  width: 0;
-  height: 1px;
-  background: var(--color-accent);
-  transition: width var(--transition-base);
-}
-
-.footer-nav a:hover::after {
-  width: 100%;
-}
-
-.footer-bottom__inner {
-  max-width: var(--container-page);
-  margin: 0 auto;
-  padding: 22px var(--page-gutter-current) 28px;
-  display: flex;
-  flex-direction: column;
+.site-header__action {
+  min-height: 42px;
+  padding: 0 16px;
+  display: inline-flex;
   align-items: center;
+  border-radius: var(--radius-round);
+  border: 1px solid currentColor;
+  border-color: rgba(245, 239, 226, 0.22);
+  font-size: 14px;
+  opacity: 0.88;
+}
+
+.site-header--scrolled .site-header__action,
+.site-header:not(.site-header--home) .site-header__action,
+.site-header--menu-open .site-header__action {
+  border-color: rgba(93, 76, 48, 0.22);
+}
+
+.site-header__action:hover {
+  transform: translateY(-1px);
+}
+
+.site-header__menu-button {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  gap: 4px;
+  border: 1px solid rgba(245, 239, 226, 0.22);
+  border-radius: 50%;
+  color: inherit;
+}
+
+.site-header--scrolled .site-header__menu-button,
+.site-header:not(.site-header--home) .site-header__menu-button,
+.site-header--menu-open .site-header__menu-button {
+  border-color: rgba(93, 76, 48, 0.22);
+}
+
+.site-header__menu-button span {
+  width: 16px;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 999px;
+}
+
+.site-sheet {
+  width: min(100%, calc(var(--container-page) + 128px));
+  margin: 18px auto 0;
+  padding-top: 20px;
+}
+
+.site-sheet__inner {
+  display: grid;
+  gap: 28px;
+  padding: 26px 28px 30px;
+  border-radius: 32px;
+  background: linear-gradient(180deg, rgba(246, 241, 232, 0.98), rgba(236, 228, 214, 0.96));
+  border: 1px solid rgba(93, 76, 48, 0.16);
+  box-shadow: var(--shadow-floating);
+}
+
+.site-sheet__intro {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.site-sheet__intro h2 {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+}
+
+.site-sheet__intro p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+.site-sheet__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.site-sheet__link {
+  display: grid;
+  gap: 8px;
+  padding: 18px 18px 20px;
+  border-radius: 22px;
+  background: rgba(255, 250, 243, 0.72);
+  border: 1px solid rgba(93, 76, 48, 0.1);
+}
+
+.site-sheet__link span {
+  font-family: var(--font-family-display);
+  font-size: 1.35rem;
+  line-height: 1.08;
+}
+
+.site-sheet__link small {
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+.site-sheet__link--active,
+.site-sheet__link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(142, 48, 40, 0.24);
+  color: var(--color-accent);
+}
+
+.site-main {
+  min-height: calc(100vh - 260px);
+}
+
+.site-epilogue {
+  width: min(100%, calc(var(--container-page) + (var(--page-gutter-current) * 2)));
+  margin: 0 auto;
+  padding: 56px var(--page-gutter-current) 36px;
+  display: grid;
+  gap: 22px;
+}
+
+.site-epilogue__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 0.94fr) minmax(320px, 1fr);
+  gap: 28px;
+  padding: 30px;
+  border-top: 1px solid rgba(93, 76, 48, 0.18);
+}
+
+.site-epilogue__statement,
+.site-epilogue__chapters {
+  display: grid;
+  gap: 16px;
+}
+
+.site-epilogue__statement h2 {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: clamp(2rem, 3.4vw, 3.1rem);
+  line-height: 1.06;
+}
+
+.site-epilogue__statement p {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--color-text-secondary);
+  line-height: 1.85;
+}
+
+.site-epilogue__chapters {
+  grid-template-columns: 1fr;
+}
+
+.site-epilogue__chapter {
+  display: grid;
   gap: 6px;
-  font-size: 13px;
-  color: var(--color-text-tertiary);
-  text-align: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(93, 76, 48, 0.12);
 }
 
-.copyright-note {
-  font-size: 12px;
+.site-epilogue__chapter span {
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--color-accent);
 }
 
-.mobile-nav-helper {
-  display: none;
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  background: rgba(255, 255, 255, 0.76);
-  padding: 10px var(--page-gutter-current);
-  text-align: center;
-  border-top: 1px solid rgba(236, 231, 223, 0.72);
+.site-epilogue__chapter strong {
+  font-family: var(--font-family-display);
+  font-size: 1.5rem;
+  line-height: 1.08;
 }
 
-/* ================================================
-   响应式
-   ================================================ */
-@media (max-width: 900px) {
-  .site-header__inner {
-    flex-direction: column;
-    align-items: stretch;
-    padding-bottom: 12px;
-    min-height: auto;
+.site-epilogue__chapter small {
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+}
+
+.site-epilogue__bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: center;
+  padding: 0 30px;
+}
+
+.site-epilogue__brand {
+  display: grid;
+  gap: 6px;
+}
+
+.site-epilogue__brand strong {
+  font-family: var(--font-family-display);
+  font-size: 1.4rem;
+}
+
+.site-epilogue__brand span {
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
+.site-epilogue__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 14px 20px;
+}
+
+.site-epilogue__links a {
+  color: var(--color-text-secondary);
+}
+
+.site-epilogue__links a:hover {
+  color: var(--color-accent);
+}
+
+.shell-sheet-enter-active,
+.shell-sheet-leave-active {
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
+}
+
+.shell-sheet-enter-from,
+.shell-sheet-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+@media (max-width: 1180px) {
+  .site-header__frame,
+  .site-epilogue__inner {
+    grid-template-columns: 1fr;
   }
 
-  .site-menu {
-    width: 100%;
+  .site-nav {
     justify-content: flex-start;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    padding-bottom: 4px;
   }
+}
 
-  .mobile-nav-helper {
-    display: block;
-  }
-
-  .site-menu::-webkit-scrollbar {
+@media (max-width: 1023px) {
+  .site-nav--desktop,
+  .site-header__action {
     display: none;
   }
 
-  :deep(.site-menu.el-menu--horizontal > .el-menu-item) {
-    flex-shrink: 0;
+  .site-sheet__grid,
+  .site-epilogue__inner {
+    grid-template-columns: 1fr;
   }
 
-  :deep(.site-menu.el-menu--horizontal > .el-sub-menu) {
-    flex-shrink: 0;
-  }
-
-  .footer-main__inner {
-    grid-template-columns: 1fr 1fr;
-    gap: 32px 24px;
-  }
-
-  .footer-brand {
-    grid-column: 1 / -1;
+  .site-epilogue__bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0;
   }
 }
 
-@media (max-width: 600px) {
-  .footer-main__inner {
-    grid-template-columns: 1fr;
-    gap: 28px;
+@media (max-width: 743px) {
+  .site-header {
+    padding-top: 10px;
   }
 
-  .footer-brand__desc {
-    max-width: 100%;
+  .site-header__frame {
+    gap: 14px;
+    padding: 16px 0 14px;
   }
 
-  .footer-bottom__inner {
-    align-items: flex-start;
-    text-align: left;
-    gap: 8px;
+  .site-brand__title {
+    font-size: 1.55rem;
+  }
+
+  .site-sheet__inner,
+  .site-epilogue__inner {
+    padding: 22px;
+  }
+
+  .site-epilogue__bottom {
+    gap: 14px;
   }
 }
 </style>

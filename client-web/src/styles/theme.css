@@ -1,33 +1,60 @@
 :root,
 [data-theme='light'] {
-  --color-accent: var(--palette-bg-primary-core);
-  --color-accent-hover: var(--palette-bg-tertiary-core);
-  --color-text-primary: var(--palette-text-primary);
-  --color-text-focused: var(--palette-text-focused);
-  --color-text-secondary: var(--palette-text-secondary);
-  --color-text-tertiary: var(--palette-text-tertiary);
-  --color-text-disabled: var(--palette-text-material-disabled);
-  --color-link-disabled: var(--palette-text-link-disabled);
-  --color-error: var(--palette-text-primary-error);
+  --color-accent: var(--palette-lacquer-500);
+  --color-accent-hover: var(--palette-lacquer-600);
+  --color-accent-alt: var(--palette-brass-400);
+  --color-text-primary: var(--palette-ink-950);
+  --color-text-focused: var(--palette-ink-900);
+  --color-text-secondary: var(--palette-ink-700);
+  --color-text-tertiary: var(--palette-ink-500);
+  --color-text-disabled: rgba(24, 33, 38, 0.42);
+  --color-link-disabled: rgba(24, 33, 38, 0.34);
+  --color-error: #9a342b;
 
-  --surface-page: var(--palette-surface-page);
-  --surface-card: var(--palette-surface-primary);
-  --surface-muted: var(--palette-surface-secondary);
-  --surface-strong: var(--palette-surface-tertiary);
-  --surface-soft: var(--palette-surface-soft);
-  --surface-elevated: var(--palette-surface-elevated);
-  --surface-inverse: var(--palette-surface-inverse);
-  --surface-overlay: var(--palette-surface-overlay);
+  --surface-page:
+    radial-gradient(circle at top left, rgba(142, 48, 40, 0.08), transparent 24%),
+    radial-gradient(circle at top right, rgba(166, 123, 47, 0.08), transparent 20%),
+    linear-gradient(180deg, #f7f2e9 0%, #f2eadc 44%, #f6f1e8 100%);
+  --surface-card: rgba(255, 251, 245, 0.86);
+  --surface-muted: rgba(241, 234, 222, 0.88);
+  --surface-strong: rgba(223, 208, 185, 0.94);
+  --surface-soft: rgba(255, 252, 247, 0.68);
+  --surface-elevated: rgba(253, 249, 242, 0.94);
+  --surface-inverse: rgba(17, 23, 27, 0.96);
+  --surface-overlay: rgba(11, 15, 18, 0.56);
+  --surface-panel:
+    linear-gradient(180deg, rgba(250, 246, 239, 0.98), rgba(239, 230, 215, 0.92));
+  --surface-panel-soft:
+    linear-gradient(180deg, rgba(255, 251, 246, 0.92), rgba(242, 234, 221, 0.86));
+  --surface-panel-accent:
+    radial-gradient(circle at top right, rgba(142, 48, 40, 0.12), transparent 34%),
+    linear-gradient(160deg, rgba(251, 247, 239, 0.98), rgba(236, 227, 210, 0.94));
+  --surface-accent-soft: rgba(142, 48, 40, 0.08);
+  --surface-accent-tint: rgba(142, 48, 40, 0.13);
+  --surface-neutral-tint: rgba(24, 33, 38, 0.05);
+  --surface-overlay-strong: rgba(11, 15, 18, 0.76);
+  --surface-warning-soft: rgba(166, 123, 47, 0.12);
 
-  --border-default: var(--palette-border-default);
-  --border-soft: var(--palette-border-soft);
-  --border-strong: var(--palette-border-strong);
-  --border-accent: var(--palette-border-accent);
+  --border-default: rgba(93, 76, 48, 0.18);
+  --border-soft: rgba(93, 76, 48, 0.12);
+  --border-strong: rgba(93, 76, 48, 0.28);
+  --border-accent: rgba(142, 48, 40, 0.26);
+  --border-subtle: rgba(93, 76, 48, 0.14);
+  --border-subtle-weak: rgba(93, 76, 48, 0.08);
+  --border-subtle-strong: rgba(93, 76, 48, 0.22);
+  --border-accent-soft: rgba(142, 48, 40, 0.12);
+  --border-accent-muted: rgba(142, 48, 40, 0.16);
+  --border-accent-dashed: rgba(142, 48, 40, 0.18);
+  --border-warning-soft: rgba(166, 123, 47, 0.2);
 
-  --shadow-card: var(--shadow-card-base);
-  --shadow-hover: var(--shadow-hover-base);
-  --shadow-floating: var(--shadow-floating);
-  --shadow-inset: var(--shadow-soft-inset);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.64), 0 20px 52px rgba(27, 19, 12, 0.08);
+  --shadow-hover: 0 28px 62px rgba(27, 19, 12, 0.12);
+  --shadow-floating: 0 34px 80px rgba(11, 15, 18, 0.18);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.56);
+  --shadow-header: 0 16px 42px rgba(11, 15, 18, 0.08);
+
+  --color-accent-ghost: rgba(142, 48, 40, 0.14);
+  --color-warning-text: #735323;
 
   --radius-button: var(--radius-2);
   --radius-badge: var(--radius-3);
@@ -38,93 +65,9 @@
   --container-narrow: var(--container-2);
   --container-reading: var(--container-1);
   --page-gutter-current: var(--page-gutter);
-
-  /* Backward-compatible aliases for existing client views */
-  --gz-brand-primary: var(--color-accent);
-  --gz-brand-primary-light: var(--surface-soft);
-  --gz-brand-primary-hover: var(--color-accent-hover);
-  --gz-brand-secondary: var(--color-text-primary);
-
-  --gz-text-primary: var(--color-text-primary);
-  --gz-text-regular: var(--color-text-secondary);
-  --gz-text-secondary: var(--color-text-tertiary);
-
-  --gz-bg-page: var(--surface-page);
-  --gz-bg-card: var(--surface-card);
-  --gz-bg-muted: var(--surface-muted);
-  --gz-border-light: var(--border-soft);
-
-  --gz-font-family-base: var(--font-family-base);
-  --gz-text-xs: var(--font-size-xs);
-  --gz-text-sm: var(--font-size-sm);
-  --gz-text-md: var(--font-size-body);
-  --gz-text-base: 15px;
-  --gz-text-lg: var(--font-size-ui);
-  --gz-text-xl: 18px;
-  --gz-text-2xl: var(--font-size-feature);
-  --gz-text-3xl: 24px;
-  --gz-text-4xl: 32px;
-  --gz-text-5xl: var(--font-size-display);
-
-  --gz-space-1: var(--space-1);
-  --gz-space-2: var(--space-2);
-  --gz-space-3: var(--space-3);
-  --gz-space-4: var(--space-4);
-  --gz-space-5: 20px;
-  --gz-space-6: var(--space-6);
-  --gz-space-8: var(--space-7);
-  --gz-space-10: var(--space-8);
-  --gz-space-12: var(--space-9);
-  --gz-space-14: var(--space-10);
-  --gz-space-16: var(--space-11);
-
-  --gz-radius-sm: var(--radius-button);
-  --gz-radius-md: var(--radius-card);
-  --gz-radius-lg: var(--radius-panel);
-  --gz-shadow-card: var(--shadow-card);
-  --gz-shadow-card-hover: var(--shadow-hover);
-
-  --gz-transition-base: var(--transition-base);
-  --gz-container-page: var(--container-page);
-  --gz-container-narrow: var(--container-narrow);
-  --gz-container-reading: var(--container-reading);
-  --gz-page-gutter: var(--page-gutter-current);
-
-  --gz-surface-page: var(--surface-page);
-  --gz-surface-card: var(--surface-card);
-  --gz-surface-muted: var(--surface-muted);
-  --gz-text-main: var(--color-text-primary);
-  --gz-text-muted: var(--color-text-secondary);
 }
 
 [data-theme='dark'] {
-  /* Placeholder only. The client currently targets a light design system. */
-  --color-accent: var(--palette-bg-primary-core);
-  --color-accent-hover: var(--palette-bg-tertiary-core);
-  --color-text-primary: var(--palette-text-primary);
-  --color-text-focused: var(--palette-text-focused);
-  --color-text-secondary: var(--palette-text-secondary);
-  --color-text-tertiary: var(--palette-text-tertiary);
-  --color-text-disabled: var(--palette-text-material-disabled);
-  --color-link-disabled: var(--palette-text-link-disabled);
-  --color-error: var(--palette-text-primary-error);
-
-  --surface-page: var(--palette-surface-page);
-  --surface-card: var(--palette-surface-primary);
-  --surface-muted: var(--palette-surface-secondary);
-  --surface-strong: var(--palette-surface-tertiary);
-  --surface-soft: var(--palette-surface-soft);
-  --surface-elevated: var(--palette-surface-elevated);
-  --surface-inverse: var(--palette-surface-inverse);
-  --surface-overlay: var(--palette-surface-overlay);
-
-  --border-default: var(--palette-border-default);
-  --border-soft: var(--palette-border-soft);
-  --border-strong: var(--palette-border-strong);
-  --border-accent: var(--palette-border-accent);
-
-  --shadow-card: var(--shadow-card-base);
-  --shadow-hover: var(--shadow-hover-base);
-  --shadow-floating: var(--shadow-floating);
-  --shadow-inset: var(--shadow-soft-inset);
+  --color-accent: var(--palette-lacquer-500);
 }
+

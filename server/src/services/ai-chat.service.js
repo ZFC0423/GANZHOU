@@ -4,6 +4,7 @@ import { Op } from 'sequelize';
 import { env } from '../config/env.js';
 import { AiChatLog, Article, Category, ScenicSpot } from '../models/index.js';
 import { buildChatMessages } from '../prompts/chat.prompt.js';
+import { buildChatViewPayload } from '../utils/front-view-models.js';
 
 const RECOMMEND_QUESTIONS = [
   '赣州有哪些适合周末游玩的地方？',
@@ -140,7 +141,8 @@ function formatScenicContext(item) {
     summary: shortenText(item.intro),
     region: item.region,
     tags: parseStringList(item.tags),
-    categoryName: item.category?.name || ''
+    categoryName: item.category?.name || '',
+    categoryCode: item.category?.code || ''
   };
 }
 
@@ -151,6 +153,7 @@ function formatArticleContext(item) {
     title: item.title,
     summary: shortenText(item.summary || item.content),
     categoryName: item.category?.name || '',
+    categoryCode: item.category?.code || '',
     tags: parseStringList(item.tags)
   };
 }
@@ -718,6 +721,22 @@ export async function chatWithGanzhouAssistant(req) {
     ip: getClientIp(req)
   });
 
+  const matchedContextView = matchedContext.map((item) => ({
+    type: item.type,
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    region: item.region || '',
+    categoryName: item.categoryName || '',
+    categoryCode: item.categoryCode || '',
+    tags: item.tags || []
+  }));
+  const chatView = buildChatViewPayload({
+    question,
+    result: aiResult,
+    matchedContext: matchedContextView
+  });
+
   return {
     answer: aiResult.answer,
     directAnswer: aiResult.directAnswer,
@@ -726,10 +745,7 @@ export async function chatWithGanzhouAssistant(req) {
     relatedSpots: aiResult.relatedSpots,
     nextSteps: aiResult.nextSteps,
     model_name: aiResult.modelName,
-    matchedContext: matchedContext.map((item) => ({
-      type: item.type,
-      id: item.id,
-      title: item.title
-    }))
+    matchedContext: matchedContextView,
+    ...chatView
   };
 }

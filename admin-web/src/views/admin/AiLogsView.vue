@@ -20,9 +20,9 @@ const pagination = reactive({
 });
 
 const tabOptions = [
-  { label: 'Chat Logs', value: 'chat' },
-  { label: 'Trip Logs', value: 'trip' },
-  { label: 'Copywriting Logs', value: 'copywriting' }
+  { label: '问答日志', value: 'chat' },
+  { label: '行程日志', value: 'trip' },
+  { label: '文案日志', value: 'copywriting' }
 ];
 
 const requestMap = {
@@ -33,18 +33,18 @@ const requestMap = {
 
 const detailTitle = computed(() => {
   if (!detailRecord.value) {
-    return 'Log Detail';
+    return '日志详情';
   }
 
   if (activeTab.value === 'chat') {
-    return `Chat Log #${detailRecord.value.id}`;
+    return `问答日志 #${detailRecord.value.id}`;
   }
 
   if (activeTab.value === 'trip') {
-    return `Trip Log #${detailRecord.value.id}`;
+    return `行程日志 #${detailRecord.value.id}`;
   }
 
-  return `Copywriting Log #${detailRecord.value.id}`;
+  return `文案日志 #${detailRecord.value.id}`;
 });
 
 function formatDateTime(value) {
@@ -97,14 +97,14 @@ function getChatSummary(row) {
 }
 
 function getTripSummary(row) {
-  const parts = [`${row.days || 0} day(s)`];
+  const parts = [`${row.days || 0} 天`];
 
   if (row.preferences) {
     parts.push(String(row.preferences));
   }
 
   if (row.pace) {
-    parts.push(`pace: ${row.pace}`);
+    parts.push(`节奏：${row.pace}`);
   }
 
   return truncateText(parts.join(' | '), 80);
@@ -114,7 +114,7 @@ function getCopywritingSummary(row) {
   const parts = [String(row.target_type || '-')];
 
   if (row.target_id) {
-    parts.push(`targetId: ${row.target_id}`);
+    parts.push(`目标 ID：${row.target_id}`);
   }
 
   return parts.join(' | ');
@@ -138,7 +138,7 @@ async function loadLogs() {
   } catch (error) {
     tableData.value = [];
     pagination.total = 0;
-    errorText.value = error.response?.data?.message || 'Failed to load AI logs';
+    errorText.value = error.response?.data?.message || 'AI 日志加载失败';
   } finally {
     loading.value = false;
   }
@@ -166,140 +166,135 @@ onMounted(loadLogs);
 
 <template>
   <AdminShell>
-    <el-card>
-      <template #header>
-        <div>
-          <div class="admin-card-heading">AI 日志查看</div>
-          <div class="admin-card-subtitle">
-            查看 AI 问答、行程推荐、文案生成的历史记录
-          </div>
+    <div class="admin-page admin-page--stack">
+      <el-card>
+        <div class="admin-page-title">AI 日志查看</div>
+        <div class="admin-muted-text">
+          统一查看 AI 问答、行程推荐和文案生成的历史记录。这里既能用于答辩演示，也方便你排查 AI 是否真正引用了平台内容。
         </div>
-      </template>
+      </el-card>
 
-      <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-        <el-tab-pane
-          v-for="item in tabOptions"
-          :key="item.value"
-          :label="item.label"
-          :name="item.value"
+      <el-card>
+        <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+          <el-tab-pane v-for="item in tabOptions" :key="item.value" :label="item.label" :name="item.value" />
+        </el-tabs>
+
+        <div v-if="errorText" class="admin-alert-wrap">
+          <el-alert :title="errorText" type="error" show-icon :closable="false" />
+        </div>
+
+        <el-table v-if="tableData.length" v-loading="loading" :data="tableData" border>
+          <el-table-column prop="id" label="ID" width="80" />
+
+          <el-table-column v-if="activeTab === 'chat'" label="问题摘要" min-width="260">
+            <template #default="{ row }">
+              {{ getChatSummary(row) }}
+            </template>
+          </el-table-column>
+
+          <el-table-column v-if="activeTab === 'trip'" label="行程摘要" min-width="280">
+            <template #default="{ row }">
+              {{ getTripSummary(row) }}
+            </template>
+          </el-table-column>
+
+          <el-table-column v-if="activeTab === 'copywriting'" label="目标对象" min-width="220">
+            <template #default="{ row }">
+              {{ getCopywritingSummary(row) }}
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="model_name" label="模型" width="160" />
+          <el-table-column prop="token_usage" label="Token" width="100" />
+          <el-table-column label="创建时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.created_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="openDetail(row)">查看详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-empty
+          v-else-if="!loading"
+          :description="errorText ? '日志加载失败，请稍后重试' : '当前暂无日志数据'"
         />
-      </el-tabs>
 
-      <div v-if="errorText" class="admin-alert-wrap">
-        <el-alert :title="errorText" type="error" show-icon :closable="false" />
-      </div>
+        <div class="admin-pagination">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            layout="total, prev, pager, next"
+            :total="pagination.total"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </el-card>
 
-      <el-table v-if="tableData.length" v-loading="loading" :data="tableData" border>
-        <el-table-column prop="id" label="ID" width="80" />
-
-        <el-table-column v-if="activeTab === 'chat'" label="Question" min-width="260">
-          <template #default="{ row }">
-            {{ getChatSummary(row) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column v-if="activeTab === 'trip'" label="Trip Summary" min-width="280">
-          <template #default="{ row }">
-            {{ getTripSummary(row) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column v-if="activeTab === 'copywriting'" label="Target" min-width="220">
-          <template #default="{ row }">
-            {{ getCopywritingSummary(row) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="model_name" label="Model" width="160" />
-        <el-table-column prop="token_usage" label="Token" width="100" />
-        <el-table-column label="Created At" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="Action" width="120" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row)">View Detail</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <el-empty
-        v-else-if="!loading"
-        :description="errorText ? '日志加载失败，请重试' : '当前暂无日志数据'"
-      />
-
-      <div class="admin-pagination">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
-          layout="total, prev, pager, next"
-          :total="pagination.total"
-          @current-change="handlePageChange"
-        />
-      </div>
-    </el-card>
-
-    <el-dialog v-model="detailVisible" :title="detailTitle" width="860px">
-      <template v-if="detailRecord">
-        <el-descriptions :column="2" border class="admin-dialog-descriptions">
-          <el-descriptions-item label="ID">{{ detailRecord.id }}</el-descriptions-item>
-          <el-descriptions-item label="Model">{{ detailRecord.model_name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="Token">{{ detailRecord.token_usage ?? 0 }}</el-descriptions-item>
-          <el-descriptions-item label="Created At">{{ formatDateTime(detailRecord.created_at) }}</el-descriptions-item>
-        </el-descriptions>
-
-        <template v-if="activeTab === 'chat'">
-          <div class="admin-detail-section">
-            <div class="admin-detail-section__title">Question</div>
-            <pre class="admin-log-pre">{{ detailRecord.question || '-' }}</pre>
-          </div>
-          <div class="admin-detail-section">
-            <div class="admin-detail-section__title">Answer</div>
-            <pre class="admin-log-pre">{{ detailRecord.answer || '-' }}</pre>
-          </div>
-          <div class="admin-detail-section">
-            <div class="admin-detail-section__title">Matched Context</div>
-            <pre class="admin-log-pre">{{ stringifyValue(detailRecord.matched_context) }}</pre>
-          </div>
-        </template>
-
-        <template v-else-if="activeTab === 'trip'">
+      <el-dialog v-model="detailVisible" :title="detailTitle" width="860px">
+        <template v-if="detailRecord">
           <el-descriptions :column="2" border class="admin-dialog-descriptions">
-            <el-descriptions-item label="Days">{{ detailRecord.days || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="Pace">{{ detailRecord.pace || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="Preferences" :span="2">
-              {{ detailRecord.preferences || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="Extra Requirement" :span="2">
-              {{ detailRecord.extra_requirement || '-' }}
-            </el-descriptions-item>
+            <el-descriptions-item label="ID">{{ detailRecord.id }}</el-descriptions-item>
+            <el-descriptions-item label="模型">{{ detailRecord.model_name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="Token">{{ detailRecord.token_usage ?? 0 }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ formatDateTime(detailRecord.created_at) }}</el-descriptions-item>
           </el-descriptions>
-          <div class="admin-detail-section">
-            <div class="admin-detail-section__title">Result Content</div>
-            <pre class="admin-log-pre">{{ stringifyValue(detailRecord.result_content) }}</pre>
-          </div>
-        </template>
 
-        <template v-else>
-          <el-descriptions :column="2" border class="admin-dialog-descriptions">
-            <el-descriptions-item label="Target Type">{{ detailRecord.target_type || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="Target ID">{{ detailRecord.target_id || '-' }}</el-descriptions-item>
-          </el-descriptions>
-          <div class="admin-detail-section">
-            <div class="admin-detail-section__title">Input Data</div>
-            <pre class="admin-log-pre">{{ stringifyValue(detailRecord.input_data) }}</pre>
-          </div>
-          <div class="admin-detail-section">
-            <div class="admin-detail-section__title">Output Content</div>
-            <pre class="admin-log-pre">{{ stringifyValue(detailRecord.output_content) }}</pre>
-          </div>
-          <div class="admin-detail-section">
-            <div class="admin-detail-section__title">Prompt Text</div>
-            <pre class="admin-log-pre">{{ detailRecord.prompt_text || '-' }}</pre>
-          </div>
+          <template v-if="activeTab === 'chat'">
+            <div class="admin-detail-section">
+              <div class="admin-detail-section__title">用户问题</div>
+              <pre class="admin-log-pre">{{ detailRecord.question || '-' }}</pre>
+            </div>
+            <div class="admin-detail-section">
+              <div class="admin-detail-section__title">AI 回答</div>
+              <pre class="admin-log-pre">{{ detailRecord.answer || '-' }}</pre>
+            </div>
+            <div class="admin-detail-section">
+              <div class="admin-detail-section__title">命中上下文</div>
+              <pre class="admin-log-pre">{{ stringifyValue(detailRecord.matched_context) }}</pre>
+            </div>
+          </template>
+
+          <template v-else-if="activeTab === 'trip'">
+            <el-descriptions :column="2" border class="admin-dialog-descriptions">
+              <el-descriptions-item label="天数">{{ detailRecord.days || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="节奏">{{ detailRecord.pace || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="偏好" :span="2">
+                {{ detailRecord.preferences || '-' }}
+              </el-descriptions-item>
+              <el-descriptions-item label="额外要求" :span="2">
+                {{ detailRecord.extra_requirement || '-' }}
+              </el-descriptions-item>
+            </el-descriptions>
+            <div class="admin-detail-section">
+              <div class="admin-detail-section__title">生成结果</div>
+              <pre class="admin-log-pre">{{ stringifyValue(detailRecord.result_content) }}</pre>
+            </div>
+          </template>
+
+          <template v-else>
+            <el-descriptions :column="2" border class="admin-dialog-descriptions">
+              <el-descriptions-item label="目标类型">{{ detailRecord.target_type || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="目标 ID">{{ detailRecord.target_id || '-' }}</el-descriptions-item>
+            </el-descriptions>
+            <div class="admin-detail-section">
+              <div class="admin-detail-section__title">输入数据</div>
+              <pre class="admin-log-pre">{{ stringifyValue(detailRecord.input_data) }}</pre>
+            </div>
+            <div class="admin-detail-section">
+              <div class="admin-detail-section__title">输出结果</div>
+              <pre class="admin-log-pre">{{ stringifyValue(detailRecord.output_content) }}</pre>
+            </div>
+            <div class="admin-detail-section">
+              <div class="admin-detail-section__title">Prompt 文本</div>
+              <pre class="admin-log-pre">{{ detailRecord.prompt_text || '-' }}</pre>
+            </div>
+          </template>
         </template>
-      </template>
-    </el-dialog>
+      </el-dialog>
+    </div>
   </AdminShell>
 </template>

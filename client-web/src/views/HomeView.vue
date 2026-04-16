@@ -1,17 +1,22 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import SiteLayout from '../components/SiteLayout.vue';
 import { getHomeApi } from '../api/front';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import { Location } from '@element-plus/icons-vue';
+import {
+  getNarrativeImage,
+  getNarrativeQuote,
+  getThemeEntries,
+  pickNarrativeText,
+  siteManifesto
+} from '../utils/immersive-content';
+import { createSceneMotion, createSceneReveals } from '../utils/scene-motion';
 
+const rootRef = ref(null);
 const loading = ref(false);
 const errorMessage = ref('');
 const homeData = ref({
-  siteName: '',
-  siteDescription: '',
-  banners: [],
   recommends: {
     scenic: [],
     food: [],
@@ -20,39 +25,94 @@ const homeData = ref({
   }
 });
 
-const recommendedArticles = computed(() => {
-  const articleGroups = [
-    { items: homeData.value.recommends.food, detailBasePath: '/food' },
-    { items: homeData.value.recommends.heritage, detailBasePath: '/heritage' },
-    { items: homeData.value.recommends.redCulture, detailBasePath: '/red-culture' }
-  ];
-  const result = [];
-  let itemIndex = 0;
+let cleanupMotion = () => {};
 
-  while (result.length < 4) {
-    let addedInThisRound = false;
+const heroData = computed(() => {
+  const hero = homeData.value.hero || {};
 
-    articleGroups.forEach(({ items, detailBasePath }) => {
-      const item = items[itemIndex];
-      if (!item || result.length >= 4) {
-        return;
-      }
-
-      result.push({
-        ...item,
-        detailPath: `${detailBasePath}/${item.id}`
-      });
-      addedInThisRound = true;
-    });
-
-    if (!addedInThisRound) {
-      break;
+  return {
+    title: pickNarrativeText(hero.title, siteManifesto.title),
+    subtitle: pickNarrativeText(hero.subtitle, siteManifesto.subtitle),
+    image: hero.image || '/immersive/hero/P0-01_AncientWall_official_03.jpg',
+    note: pickNarrativeText(
+      hero.note,
+      '先感到赣州的气质，再进入章节、地方与 AI 导览。'
+    ),
+    primaryAction: hero.primaryAction || {
+      label: '进入景点图谱',
+      path: '/scenic'
+    },
+    secondaryAction: hero.secondaryAction || {
+      label: '向 AI 导览员提问',
+      path: '/ai-chat'
     }
+  };
+});
 
-    itemIndex += 1;
+const chapterEntries = computed(() => getThemeEntries(homeData.value));
+const apertureLead = computed(() => chapterEntries.value[0] || null);
+const apertureTrail = computed(() => chapterEntries.value.slice(1, 3));
+
+const featuredScenic = computed(() => {
+  const items = Array.isArray(homeData.value.featuredScenic) && homeData.value.featuredScenic.length
+    ? homeData.value.featuredScenic
+    : homeData.value.recommends?.scenic || [];
+
+  return items.slice(0, 5);
+});
+
+const leadScenic = computed(() => featuredScenic.value[0] || null);
+const scenicTrail = computed(() => featuredScenic.value.slice(1, 4));
+
+const curatedArticles = computed(() => {
+  if (Array.isArray(homeData.value.curatedArticles) && homeData.value.curatedArticles.length) {
+    return homeData.value.curatedArticles.map((item) => ({
+      ...item,
+      basePath: item.path?.replace(/\/\d+$/, '') || item.basePath || '/food'
+    }));
   }
 
-  return result;
+  const sources = [
+    { basePath: '/food', items: homeData.value.recommends?.food || [] },
+    { basePath: '/heritage', items: homeData.value.recommends?.heritage || [] },
+    { basePath: '/red-culture', items: homeData.value.recommends?.redCulture || [] }
+  ];
+
+  return sources
+    .flatMap((source) => source.items.slice(0, 2).map((item) => ({ ...item, basePath: source.basePath })))
+    .slice(0, 4);
+});
+
+const readingLead = computed(() => curatedArticles.value[0] || null);
+const readingTrail = computed(() => curatedArticles.value.slice(1, 4));
+
+const guideEntry = computed(() => {
+  const entry = homeData.value.aiEntry || {};
+
+  return {
+    title: pickNarrativeText(
+      entry.title,
+      'AI 不在站外，它就在这部长卷里面继续带路。'
+    ),
+    description: pickNarrativeText(
+      entry.description,
+      '问答像导览员，路线像工作室，把你已经看到的内容继续整理成清晰的路径。'
+    ),
+    chatPath: entry.chatPath || '/ai-chat',
+    tripPath: entry.tripPath || '/ai-trip'
+  };
+});
+
+const epilogue = computed(() => {
+  const value = homeData.value.epilogue || {};
+
+  return {
+    title: pickNarrativeText(
+      value.title,
+      '这不是把内容更整齐地摆出来，而是把进入赣州的方式重新编排。'
+    ),
+    description: pickNarrativeText(value.description, siteManifesto.subtitle)
+  };
 });
 
 async function loadHomeData() {
@@ -61,1105 +121,849 @@ async function loadHomeData() {
 
   try {
     const response = await getHomeApi();
-    homeData.value = response.data;
+    homeData.value = response.data || homeData.value;
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || '主页数据加载失败，服务可能正在维护中。';
+    errorMessage.value = error.response?.data?.message || '首页数据加载失败，请稍后再试。';
     ElMessage.error(errorMessage.value);
   } finally {
     loading.value = false;
   }
 }
 
+function resolveScenicImage(item) {
+  const image = item?.media?.coverImage || getNarrativeImage(item, 'scenic') || item?.coverImage;
+  return resolveAssetUrl(image, item?.name || '赣州地方线索');
+}
+
+function resolveArticleImage(item) {
+  const image = item?.media?.coverImage || getNarrativeImage(item, 'article') || item?.coverImage;
+  return resolveAssetUrl(image, item?.title || '赣州专题');
+}
+
+function resolveArticleLink(item) {
+  if (item?.path) {
+    return item.path;
+  }
+
+  return `${item.basePath || '/food'}/${item.id}`;
+}
+
+function resolveChapterImage(item) {
+  return resolveAssetUrl(
+    item?.heroImage || item?.leadItem?.media?.coverImage || item?.leadItem?.coverImage,
+    item?.chapterLabel || '赣州章节'
+  );
+}
+
+function setupMotion() {
+  cleanupMotion();
+
+  if (!rootRef.value || loading.value) {
+    return;
+  }
+
+  cleanupMotion = createSceneMotion(rootRef.value, ({ gsap, ScrollTrigger }) => {
+    gsap
+      .timeline({
+        defaults: {
+          ease: 'power3.out'
+        }
+      })
+      .from('.home-hero__media img', { scale: 1.08, duration: 1.6 }, 0)
+      .from('.home-hero__copy > *', { autoAlpha: 0, y: 28, stagger: 0.08, duration: 0.9 }, 0.16)
+      .from('.home-hero__threshold > *', { autoAlpha: 0, y: 22, stagger: 0.08, duration: 0.8 }, 0.32);
+
+    createSceneReveals({
+      gsap,
+      ScrollTrigger,
+      sceneSelector: '.home-scene',
+      y: 30,
+      duration: 0.82
+    });
+
+    const leadPanel = rootRef.value.querySelector('.home-aperture__lead');
+    if (leadPanel) {
+      ScrollTrigger.create({
+        trigger: '.home-aperture',
+        start: 'top center',
+        end: 'bottom top',
+        scrub: true,
+        onUpdate: ({ progress }) => {
+          gsap.to(leadPanel, {
+            y: progress * -38,
+            duration: 0.2,
+            overwrite: true
+          });
+        }
+      });
+    }
+  });
+}
+
+watch(loading, async (value) => {
+  if (!value) {
+    await nextTick();
+    setupMotion();
+  }
+});
+
 onMounted(loadHomeData);
+
+onBeforeUnmount(() => {
+  cleanupMotion();
+});
 </script>
 
 <template>
   <SiteLayout>
-    <div class="home-page">
+    <div ref="rootRef" class="home-page">
       <div v-if="errorMessage" class="page-feedback">
         <el-alert :title="errorMessage" type="error" show-icon :closable="false" />
       </div>
       <div v-if="errorMessage" class="page-feedback page-feedback--actions">
-        <el-button @click="loadHomeData">重试请求</el-button>
+        <el-button @click="loadHomeData">重新加载</el-button>
       </div>
 
       <el-skeleton v-if="loading" :rows="12" animated class="page-skeleton" />
 
       <template v-else>
+        <section class="home-hero">
+          <div class="home-hero__media">
+            <img :src="resolveAssetUrl(heroData.image, heroData.title)" :alt="heroData.title" />
+          </div>
+          <div class="home-hero__veil"></div>
 
-        <!-- ========================================== -->
-        <!-- 模块 1：非对称 Hero 首屏 -->
-        <!-- ========================================== -->
-        <section class="hero">
-          <div class="hero__inner section-inner">
-            <div class="hero__visual">
-              <el-carousel
-                v-if="homeData.banners.length"
-                class="hero__carousel"
-                height="100%"
-                :interval="5000"
-                arrow="never"
-                indicator-position="none"
+          <div class="home-hero__inner">
+            <div class="home-hero__copy">
+              <div class="chapter-mark">Opening Sequence</div>
+              <div class="home-hero__brand">Ganzhou Scroll</div>
+              <h1 class="home-hero__title">{{ heroData.title }}</h1>
+              <p class="home-hero__subtitle">{{ heroData.subtitle }}</p>
+
+              <div class="home-hero__actions">
+                <router-link class="home-hero__button home-hero__button--primary" :to="heroData.primaryAction.path">
+                  {{ heroData.primaryAction.label }}
+                </router-link>
+                <router-link class="home-hero__button" :to="heroData.secondaryAction.path">
+                  {{ heroData.secondaryAction.label }}
+                </router-link>
+              </div>
+            </div>
+
+            <div class="home-hero__threshold">
+              <div class="line-label">进入方式</div>
+              <p>{{ heroData.note }}</p>
+
+              <div class="home-hero__threshold-meta">
+                <span>{{ chapterEntries.length }} 章叙事入口</span>
+                <span>{{ featuredScenic.length }} 条地方线索</span>
+              </div>
+
+              <router-link
+                v-if="leadScenic"
+                class="home-hero__threshold-link"
+                :to="`/scenic/${leadScenic.id}`"
               >
-                <el-carousel-item v-for="item in homeData.banners" :key="item.id">
-                  <router-link :to="item.linkTarget || '/'" class="hero__visual-link">
-                    <img
-                      class="hero__visual-img"
-                      :src="resolveAssetUrl(item.imageUrl, item.title)"
-                      :alt="item.title"
-                      @error="(event) => applyImageFallback(event, item.title)"
-                    />
-                    <div class="hero__visual-caption">
-                      {{ item.title }}
-                      <div class="hero__visual-caption-note">真实场景与主题化编排，共同构成赣州的城市记忆与旅行入口。</div>
-                    </div>
-                  </router-link>
-                </el-carousel-item>
-              </el-carousel>
-              <div v-else class="hero__visual-placeholder">
-                <span class="hero__visual-placeholder-text">当前内容已进入整理阶段，图片素材将随页面内容一并补齐。</span>
-              </div>
+                <strong>{{ leadScenic.name }}</strong>
+                <small>{{ pickNarrativeText(leadScenic.routeLabel, '从一个地方开始建立印象') }}</small>
+              </router-link>
             </div>
+          </div>
+        </section>
 
-            <div class="hero__copy">
-              <span class="hero__eyebrow">探索赣州</span>
-              <h1 class="hero__title">从景点、主题与智慧导览进入赣州</h1>
-              <p class="hero__desc">
-                平台围绕赣州旅游资源、城市文化与智慧服务体验构建，帮助用户从浏览、阅读、问答与行程建议中，逐步建立更清晰的探索路径。
+        <section class="home-aperture section-inner--wide home-scene">
+          <div class="section-copy" data-reveal>
+            <span class="section-eyebrow">Three Entrances</span>
+            <h2 class="section-title">这不是三个栏目，而是三种进入赣州的方式。</h2>
+            <p class="section-desc">
+              每一章都应该有自己的画面、节奏和阅读姿态，而不是继续共用同一种模板。
+            </p>
+          </div>
+
+          <div class="home-aperture__grid">
+            <router-link
+              v-if="apertureLead"
+              :to="apertureLead.path"
+              class="home-aperture__lead media-node"
+              data-reveal
+            >
+              <img :src="resolveChapterImage(apertureLead)" :alt="apertureLead.chapterLabel" />
+              <div class="home-aperture__overlay">
+                <div class="chapter-mark">{{ apertureLead.chapterNo }}</div>
+                <h3>{{ apertureLead.chapterLabel }}</h3>
+                <p>{{ pickNarrativeText(apertureLead.heroCaption, '进入这一章的主视角。') }}</p>
+                <span>{{ pickNarrativeText(apertureLead.routeLabel, '章节入口') }}</span>
+              </div>
+            </router-link>
+
+            <div class="home-aperture__stack">
+              <router-link
+                v-for="item in apertureTrail"
+                :key="item.path"
+                :to="item.path"
+                class="home-aperture__card"
+                data-reveal
+              >
+                <div class="home-aperture__card-media media-node">
+                  <img :src="resolveChapterImage(item)" :alt="item.chapterLabel" />
+                </div>
+                <div class="home-aperture__card-copy">
+                  <div class="line-label">{{ item.chapterNo }}</div>
+                  <h3>{{ item.chapterLabel }}</h3>
+                  <p>{{ pickNarrativeText(item.heroCaption, '沿着这道章节视角继续进入。') }}</p>
+                </div>
+              </router-link>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="leadScenic" class="home-locus section-inner--wide home-scene">
+          <router-link class="home-locus__media media-node" :to="`/scenic/${leadScenic.id}`" data-reveal>
+            <img
+              :src="resolveScenicImage(leadScenic)"
+              :alt="leadScenic.name"
+              @error="(event) => applyImageFallback(event, leadScenic.name)"
+            />
+          </router-link>
+
+          <div class="home-locus__copy">
+            <div data-reveal>
+              <span class="section-eyebrow">One Place First</span>
+              <h2 class="section-title">{{ leadScenic.name }}</h2>
+              <p class="section-desc">
+                {{ pickNarrativeText(leadScenic.heroCaption, leadScenic.intro || '先记住一个地方，再慢慢打开赣州。') }}
               </p>
-              <div class="hero__cta">
-                <router-link to="/scenic">
-                  <el-button type="primary" size="large" round class="cta-primary">浏览精选景点</el-button>
-                </router-link>
-                <router-link to="/ai-chat">
-                  <el-button size="large" round class="cta-ghost">开启智慧问答</el-button>
-                </router-link>
-              </div>
             </div>
 
-            <div class="hero__ai-float">
-              <div class="ai-float__dot"></div>
-              <div class="ai-float__label">路线说明</div>
-              <p class="ai-float__desc">从代表性景点进入城市线索，从主题阅读进入文化理解，从 AI 导览进入更高效的探索方式。</p>
+            <blockquote class="display-quote" data-reveal>
+              “{{ getNarrativeQuote(leadScenic, 'scenic') || '一个地方先成立，后面的阅读才会变得有重量。' }}”
+            </blockquote>
+
+            <div class="home-locus__facts" data-reveal>
+              <span>{{ pickNarrativeText(leadScenic.region, '赣州') }}</span>
+              <span>{{ pickNarrativeText(leadScenic.categoryName, '地方线索') }}</span>
+              <span>{{ pickNarrativeText(leadScenic.routeLabel, '从这里开始') }}</span>
+            </div>
+
+            <div v-if="scenicTrail.length" class="home-locus__trail" data-reveal>
+              <router-link
+                v-for="item in scenicTrail"
+                :key="item.id"
+                :to="`/scenic/${item.id}`"
+                class="home-locus__trail-item"
+              >
+                <strong>{{ item.name }}</strong>
+                <small>{{ pickNarrativeText(item.routeLabel, item.region || '继续沿着地方线索走') }}</small>
+              </router-link>
             </div>
           </div>
         </section>
 
-        <!-- ========================================== -->
-        <!-- 模块 2：AI 智慧服务入口区 -->
-        <!-- ========================================== -->
-        <section class="ai-services">
-          <div class="ai-services__inner section-inner">
-            <div class="ai-services__header">
-              <span class="section-eyebrow">智慧服务</span>
-              <h2 class="section-title">让问题、路径与内容之间建立更自然的连接</h2>
-              <p class="section-desc">AI 在这里不是替代浏览，而是帮助你更快理解景点、主题与行程线索。<br/>你可以从提问开始，也可以从一次参考性的导览路径开始。</p>
+        <section class="home-guide section-inner home-scene">
+          <div class="home-guide__panel" data-reveal>
+            <div class="home-guide__copy">
+              <div class="chapter-mark chapter-mark--dark">Guide Room</div>
+              <h2 class="section-title">{{ guideEntry.title }}</h2>
+              <p class="section-desc">{{ guideEntry.description }}</p>
             </div>
 
-            <div class="ai-services__grid">
-              <router-link to="/ai-chat" class="ai-card ai-card--chat">
-                <div class="ai-card__icon">
-                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <div class="home-guide__doors">
+              <router-link class="home-guide__door" :to="guideEntry.chatPath">
+                <span>随行讲解员</span>
+                <strong>继续追问、继续解释、继续串联。</strong>
+              </router-link>
+              <router-link class="home-guide__door" :to="guideEntry.tripPath">
+                <span>路线工作室</span>
+                <strong>把兴趣、天数与节奏整理成可展示的路线长卷。</strong>
+              </router-link>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="readingLead" class="home-reading section-inner--wide home-scene">
+          <div class="section-copy" data-reveal>
+            <span class="section-eyebrow">Reading Rail</span>
+            <h2 class="section-title">继续读，不急着退出。</h2>
+            <p class="section-desc">让条目像展品一样继续排开，把地方理解慢慢做厚。</p>
+          </div>
+
+          <div class="home-reading__layout">
+            <router-link class="home-reading__lead media-node" :to="resolveArticleLink(readingLead)" data-reveal>
+              <img
+                :src="resolveArticleImage(readingLead)"
+                :alt="readingLead.title"
+                @error="(event) => applyImageFallback(event, readingLead.title)"
+              />
+              <div class="home-reading__lead-copy">
+                <div class="line-label">
+                  {{ pickNarrativeText(readingLead.categoryName, readingLead.subtitle || '专题阅读') }}
                 </div>
-                <h3 class="ai-card__title">智慧问答</h3>
-                <p class="ai-card__desc">
-                  围绕赣州景点、文化主题与旅行问题，提供更直接的信息获取与解释辅助。
+                <h3>{{ readingLead.title }}</h3>
+                <p>
+                  {{ pickNarrativeText(readingLead.quote, readingLead.summary || '沿着这一章继续往下读。') }}
                 </p>
-                <span class="ai-card__action">开启智慧问答 →</span>
-              </router-link>
+              </div>
+            </router-link>
 
-              <router-link to="/ai-trip" class="ai-card ai-card--trip">
-                <div class="ai-card__icon">
-                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                </div>
-                <h3 class="ai-card__title">行程建议</h3>
-                <p class="ai-card__desc">
-                  根据出行天数、兴趣方向与节奏偏好，生成一份可参考的探索路径。
-                </p>
-                <span class="ai-card__action">获取行程建议 →</span>
-              </router-link>
-            </div>
-
-            <div class="section-note section-note--center ai-services__note">
-              所有结果均基于平台现有内容进行组织与辅助，适合用作浏览、理解与初步规划的参考。
-            </div>
-          </div>
-        </section>
-
-        <!-- ========================================== -->
-        <!-- 模块 3：精选探索区 -->
-        <!-- ========================================== -->
-        <section class="explore">
-          <div class="explore__inner section-inner">
-            <div class="explore__header">
-              <span class="section-eyebrow">精选探索</span>
-              <h2 class="section-title">从三个主题切口开始理解这座城市</h2>
-              <p class="section-desc">如果你是第一次进入平台，建议先从主题切口开始。<br/>不同的主题，会带你进入不同的城市记忆、文化线索与旅行体验。</p>
-            </div>
-
-            <div class="explore__grid">
-              <router-link to="/red-culture" class="explore-card explore-card--large">
-                <div class="explore-card__bg">
+            <div class="home-reading__trail">
+              <router-link
+                v-for="item in readingTrail"
+                :key="item.id"
+                :to="resolveArticleLink(item)"
+                class="home-reading__trail-item"
+                data-reveal
+              >
+                <div class="home-reading__trail-image media-node">
                   <img
-                    v-if="homeData.recommends.redCulture[0]"
-                    :src="resolveAssetUrl(homeData.recommends.redCulture[0].coverImage, homeData.recommends.redCulture[0].title)"
-                    :alt="homeData.recommends.redCulture[0]?.title"
-                    @error="(event) => applyImageFallback(event, '红色文化')"
+                    :src="resolveArticleImage(item)"
+                    :alt="item.title"
+                    @error="(event) => applyImageFallback(event, item.title)"
                   />
-                  <div v-else class="explore-card__fallback explore-card__fallback--red"></div>
                 </div>
-                <div class="explore-card__overlay">
-                  <span class="explore-card__tag">主题探索</span>
-                  <h3 class="explore-card__title">红色文化</h3>
-                  <p class="explore-card__desc">从真实历史地点与重要文化线索进入赣州在红色记忆中的位置。</p>
-                  <span class="explore-card__link explore-card__link--large">进入主题 →</span>
-                </div>
-              </router-link>
-
-              <router-link to="/heritage" class="explore-card">
-                <div class="explore-card__bg">
-                  <img
-                    v-if="homeData.recommends.heritage[0]"
-                    :src="resolveAssetUrl(homeData.recommends.heritage[0].coverImage, homeData.recommends.heritage[0].title)"
-                    :alt="homeData.recommends.heritage[0]?.title"
-                    @error="(event) => applyImageFallback(event, '非遗')"
-                  />
-                  <div v-else class="explore-card__fallback explore-card__fallback--heritage"></div>
-                </div>
-                <div class="explore-card__overlay">
-                  <span class="explore-card__tag">主题探索</span>
-                  <h3 class="explore-card__title">非遗与客家文化</h3>
-                  <p class="explore-card__desc explore-card__desc--compact">从手艺、迁徙与地方生活方式中，理解赣州更深层的人文结构。</p>
-                  <span class="explore-card__link">进入主题 →</span>
-                </div>
-              </router-link>
-
-               <router-link to="/food" class="explore-card">
-                <div class="explore-card__bg">
-                  <img
-                    v-if="homeData.recommends.food[0]"
-                    :src="resolveAssetUrl(homeData.recommends.food[0].coverImage, homeData.recommends.food[0].title)"
-                    :alt="homeData.recommends.food[0]?.title"
-                    @error="(event) => applyImageFallback(event, '美食')"
-                  />
-                  <div v-else class="explore-card__fallback explore-card__fallback--food"></div>
-                </div>
-                <div class="explore-card__overlay">
-                  <span class="explore-card__tag">主题探索</span>
-                  <h3 class="explore-card__title">城市风味与老城体验</h3>
-                  <p class="explore-card__desc explore-card__desc--compact">从地方风味、街区记忆与日常生活切面，进入更具温度的城市阅读路径。</p>
-                  <span class="explore-card__link">进入主题 →</span>
+                <div class="home-reading__trail-copy">
+                  <span>{{ pickNarrativeText(item.categoryName, item.subtitle || '专题阅读') }}</span>
+                  <strong>{{ item.title }}</strong>
+                  <small>{{ pickNarrativeText(item.summary, '继续沿着这条主题带往下走。') }}</small>
                 </div>
               </router-link>
             </div>
           </div>
         </section>
 
-        <!-- ========================================== -->
-        <!-- 模块 4：精选推荐内容区 -->
-        <!-- ========================================== -->
-        <section class="featured">
-          <div class="featured__inner section-inner">
-            <div class="featured-block">
-              <div class="featured-block__header featured-block__header--stacked">
-                <div>
-                  <span class="section-eyebrow">推荐内容</span>
-                  <h2 class="section-title">从代表性景点与内容节点开始浏览</h2>
-                  <p class="section-desc featured-block__desc">如果你更希望从具体地点进入，平台会为你保留一条更直接的浏览路径。你可以先看代表性景点，再延伸到相关主题、文化线索与智慧服务。</p>
-                </div>
-              </div>
-
-              <p class="featured-block__note">以下内容为平台当前阶段优先整理的代表性节点，适合作为浏览起点。</p>
-
-              <el-empty v-if="!homeData.recommends.scenic.length" description="当前推荐内容仍在补充中。你可以先从专题探索或智慧服务入口继续浏览。" />
-
-              <div class="featured-grid" v-else>
-                <router-link
-                  v-for="item in homeData.recommends.scenic.slice(0, 3)"
-                  :key="item.id"
-                  :to="`/scenic/${item.id}`"
-                  class="featured-card"
-                >
-                  <div class="featured-card__img-box">
-                    <img
-                      :src="resolveAssetUrl(item.coverImage, item.name)"
-                      :alt="item.name"
-                      @error="(event) => applyImageFallback(event, item.name)"
-                    />
-                  </div>
-                  <div class="featured-card__body">
-                    <h3>{{ item.name }}</h3>
-                    <p>{{ item.intro || '平台已按中文阅读路径进行整理与导览，适合作为进入主题的第一站。' }}</p>
-                    <div class="featured-card__meta meta-row">
-                      <span class="meta-region"><el-icon><Location /></el-icon> {{ item.region || '赣州' }}</span>
-                      <span class="featured-card__link">查看详情</span>
-                    </div>
-                  </div>
-                </router-link>
-              </div>
-            </div>
-
-            <!-- 推荐文章 -->
-            <div class="featured-block" v-if="homeData.recommends.food.length || homeData.recommends.heritage.length || homeData.recommends.redCulture.length">
-              <div class="featured-grid featured-grid--articles">
-                <router-link
-                  v-for="item in recommendedArticles"
-                  :key="item.id"
-                  :to="item.detailPath"
-                  class="article-card"
-                >
-                  <div class="article-card__img-box">
-                    <img
-                      :src="resolveAssetUrl(item.coverImage, item.title)"
-                      :alt="item.title"
-                      @error="(event) => applyImageFallback(event, item.title)"
-                    />
-                  </div>
-                  <div class="article-card__body">
-                    <span class="article-card__cat">相关主题</span>
-                    <h3>{{ item.title }}</h3>
-                    <p>{{ item.summary || '从这里开始了解相关线索，可继续延伸到相关景点与内容。' }}</p>
-                    <div class="article-card__link">
-                      继续探索 →
-                    </div>
-                  </div>
-                </router-link>
-              </div>
-            </div>
+        <section class="home-epilogue section-inner home-scene">
+          <div class="home-epilogue__panel" data-reveal>
+            <div class="chapter-mark chapter-mark--dark">Closing Frame</div>
+            <h2>{{ epilogue.title }}</h2>
+            <p>{{ epilogue.description }}</p>
+            <router-link class="editorial-link" to="/about">阅读策展附记</router-link>
           </div>
         </section>
-
-        <!-- ========================================== -->
-        <!-- 模块 5：平台价值说明区 -->
-        <!-- ========================================== -->
-        <section class="value">
-          <div class="value__inner section-inner">
-            <div class="value__header">
-              <span class="section-eyebrow">平台定位</span>
-              <h2 class="section-title">它不是只展示景点，也不仅是一个 AI 功能入口</h2>
-              <p class="section-desc section-copy section-copy--center">平台尝试把主题化内容组织、景点浏览、文化解释与路径建议放在同一套探索系统中。<br/>用户既可以从内容进入，也可以从 AI 进入，再回到景点与主题继续阅读。</p>
-            </div>
-            <div class="value__grid">
-              <div class="value-card">
-                <div class="value-card__number">01</div>
-                <h3>主题化组织</h3>
-                <p>不只罗列内容，而是围绕文化主题建立更清晰的阅读入口。</p>
-              </div>
-              <div class="value-card">
-                <div class="value-card__number">02</div>
-                <h3>景点导览</h3>
-                <p>不把景点当作孤立条目，而是让它们与主题、线索与后续探索建立关系。</p>
-              </div>
-              <div class="value-card">
-                <div class="value-card__number">03</div>
-                <h3>智慧辅助</h3>
-                <p>AI 在这里承担解释与路径辅助的角色，帮助用户更高效地进入内容，而不是替代内容本身。</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ========================================== -->
-        <!-- 模块 6：收束式 Pre-Footer -->
-        <!-- ========================================== -->
-        <section class="closing">
-          <div class="closing__inner">
-            <h2 class="closing__title">从一次浏览开始，逐步进入赣州</h2>
-            <p class="closing__desc">你可以先看景点，也可以先从主题进入；<br/>如果已经有明确问题，也可以直接通过智慧服务继续探索。</p>
-            <div class="closing__actions">
-              <router-link to="/scenic">
-                <el-button type="primary" size="large" round class="cta-primary">浏览精选景点</el-button>
-              </router-link>
-              <router-link to="/ai-chat">
-                <el-button size="large" round class="closing__btn-ghost">开启智慧问答</el-button>
-              </router-link>
-            </div>
-            <div class="section-note section-note--center closing__note">
-              在内容、景点与智慧导览之间，建立一条属于你的探索路径。
-            </div>
-          </div>
-        </section>
-
       </template>
     </div>
   </SiteLayout>
 </template>
 
 <style scoped>
-/* ================================================
-   通用节拍系统
-   ================================================ */
 .home-page {
-  background: transparent;
-}
-
-.home-page .section-desc {
-  max-width: 520px;
-}
-
-.section-more {
-  color: var(--color-accent);
-  font-weight: 600;
-  font-size: 15px;
-  white-space: nowrap;
-  transition: opacity 0.2s;
-}
-
-.section-more:hover {
-  opacity: 0.75;
-}
-
-/* ================================================
-   模块 1：非对称 Hero
-   ================================================ */
-.hero {
-  padding: 0 var(--page-gutter-current);
-  margin-bottom: 80px;
-}
-
-.hero__inner {
-  padding-top: 40px;
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  grid-template-rows: auto auto;
-  gap: 24px;
-  animation: fadeIn 0.7s ease-out;
+  gap: clamp(56px, 8vw, 88px);
+  padding-bottom: clamp(88px, 10vw, 132px);
 }
 
-.hero__visual {
-  grid-row: 1 / 3;
-  border-radius: var(--radius-panel);
+.home-hero {
+  position: relative;
+  width: 100vw;
+  margin-top: -104px;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  min-height: 100svh;
   overflow: hidden;
-  background: var(--surface-muted);
-  position: relative;
-  height: 540px;
-  min-height: 540px;
-  box-shadow: var(--shadow-card);
+  background: #11161b;
 }
 
-.hero__carousel {
-  height: 100%;
-}
-
-:deep(.hero__carousel .el-carousel__container),
-:deep(.hero__carousel .el-carousel__item) {
-  height: 100% !important;
-}
-
-.hero__visual-link {
-  display: block;
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.hero__visual-img {
-  width: 100%;
-  height: 540px;
-  object-fit: cover;
-  transition: transform 0.8s ease;
-}
-
-.hero__visual-link:hover .hero__visual-img {
-  transform: scale(1.03);
-}
-
-.hero__visual-caption {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 48px 32px 28px;
-  background: linear-gradient(180deg, transparent, rgba(34, 34, 34, 0.62));
-  color: #fff;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: var(--tracking-tight-1);
-}
-
-.hero__visual-caption-note {
-  margin-top: 4px;
-  font-size: 13px;
-  font-weight: 400;
-  opacity: 0.8;
-}
-
-.hero__visual-placeholder {
-  width: 100%;
-  height: 100%;
-  min-height: 540px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    radial-gradient(circle at top right, rgba(255, 56, 92, 0.12), transparent 35%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.96));
-  color: var(--color-text-tertiary);
-  font-size: 24px;
-  font-weight: 500;
-  letter-spacing: 4px;
-}
-
-.hero__visual-placeholder-text {
-  padding: 20px;
-  font-size: 15px;
-  text-align: center;
-}
-
-.hero__copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 16px 0;
-}
-
-.hero__eyebrow {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: var(--tracking-wide);
-  color: var(--color-accent);
-  margin-bottom: 16px;
-  text-transform: uppercase;
-}
-
-.hero__title {
-  font-size: 46px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  line-height: 1.1;
-  margin: 0 0 20px;
-  letter-spacing: var(--tracking-tight-2);
-}
-
-.hero__desc {
-  font-size: 15px;
-  color: var(--color-text-secondary);
-  line-height: var(--line-loose);
-  margin: 0 0 28px;
-}
-
-.hero__cta {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.cta-primary {
-  padding: 0 36px;
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.cta-ghost {
-  padding: 0 28px;
-  font-weight: 600;
-  font-size: 15px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--border-soft);
-  color: var(--color-text-primary);
-}
-
-.cta-ghost:hover {
-  border-color: var(--border-accent);
-  color: var(--color-accent);
-}
-
-.hero__ai-float {
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: var(--radius-card);
-  padding: 24px 28px;
-  box-shadow: var(--shadow-card);
-  border: 1px solid rgba(236, 231, 223, 0.9);
-  position: relative;
-}
-
-.ai-float__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  position: absolute;
-  top: 28px;
-  right: 28px;
-  animation: soft-pulse 2s infinite;
-}
-
-.ai-float__label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 6px;
-}
-
-.ai-float__desc {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 13.5px;
-  font-weight: 400;
-  line-height: 1.7;
-}
-
-.ai-float__link {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--gz-brand-primary);
-}
-
-.ai-float__link:hover {
-  opacity: 0.7;
-}
-
-/* ================================================
-   模块 2：AI 智慧服务
-   ================================================ */
-.ai-services {
-  padding: 0 var(--page-gutter-current);
-  margin-bottom: 96px;
-}
-
-.ai-services__header {
-  text-align: center;
-  margin-bottom: 48px;
-}
-
-.ai-services__header .section-desc {
-  margin: 0 auto;
-}
-
-.ai-services__note {
-  margin-top: 32px;
-}
-
-.ai-services__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.ai-card {
-  padding: 40px 36px;
-  cursor: pointer;
-}
-
-.ai-card__icon {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-badge);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 24px;
-}
-
-.ai-card--chat .ai-card__icon {
-  background: rgba(255, 56, 92, 0.1);
-  color: var(--color-accent);
-}
-
-.ai-card--trip .ai-card__icon {
-  background: rgba(34, 34, 34, 0.06);
-  color: var(--color-text-primary);
-}
-
-.ai-card__title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0 0 12px;
-  letter-spacing: var(--tracking-tight-1);
-}
-
-.ai-card__desc {
-  font-size: 15px;
-  color: var(--color-text-secondary);
-  line-height: 1.75;
-  margin: 0 0 24px;
-  flex: 1;
-}
-
-.ai-card__action {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-accent);
-}
-
-/* ================================================
-   模块 3：精选探索区（策展入口墙）
-   ================================================ */
-.explore {
-  padding: 0 var(--page-gutter-current);
-  margin-bottom: 96px;
-}
-
-.explore__header {
-  margin-bottom: 40px;
-}
-
-.explore__grid {
-  display: grid;
-  grid-template-columns: 1.4fr 0.6fr;
-  grid-template-rows: 260px 260px;
-  gap: 20px;
-}
-
-.explore-card {
-  position: relative;
-  border-radius: var(--radius-panel);
-  overflow: hidden;
-  cursor: pointer;
-  display: block;
-  box-shadow: var(--shadow-card);
-}
-
-.explore-card__bg {
+.home-hero__media,
+.home-hero__media img,
+.home-hero__veil {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #2f2424, #4a2e34);
-}
-
-.explore-card__bg img {
   width: 100%;
   height: 100%;
+}
+
+.home-hero__media img {
   object-fit: cover;
-  opacity: 0.7;
-  transition: transform 0.6s ease, opacity 0.4s ease;
 }
 
-.explore-card:hover .explore-card__bg img {
-  transform: scale(1.05);
-  opacity: 0.55;
-}
-
-.explore-card__overlay {
-  position: relative;
-  z-index: 2;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 28px 32px;
-  color: #fff;
-}
-
-.explore-card__fallback {
-  width: 100%;
-  height: 100%;
-}
-
-.explore-card__fallback--red {
-  background: linear-gradient(135deg, #553139, #8a3e4d);
-}
-
-.explore-card__fallback--heritage {
-  background: linear-gradient(135deg, #2d2b33, #5b5146);
-}
-
-.explore-card__fallback--food {
-  background: linear-gradient(135deg, #5f4335, #8d5c44);
-}
-
-.explore-card__tag {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: var(--tracking-wide);
-  opacity: 0.8;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-
-.explore-card__title {
-  font-size: 26px;
-  font-weight: 700;
-  margin: 0 0 6px;
-  line-height: 1.2;
-}
-
-.explore-card__desc {
-  font-size: 14px;
-  margin: 0;
-  opacity: 0.85;
-  line-height: 1.6;
-  max-width: 380px;
-}
-
-.explore-card__desc--compact {
-  font-size: 13px;
-}
-
-.explore-card__link {
-  display: inline-block;
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.explore-card__link--large {
-  margin-top: 16px;
-  font-size: 14px;
-}
-
-.explore-card--large {
-  grid-row: 1 / 3;
-}
-
-.explore-card--large .explore-card__title {
-  font-size: 34px;
-}
-
-/* ================================================
-   模块 4：精选推荐内容区
-   ================================================ */
-.featured {
-  padding: 0 var(--page-gutter-current);
-  margin-bottom: 96px;
-}
-
-.featured-block {
-  margin-bottom: 64px;
-}
-
-.featured-block:last-child {
-  margin-bottom: 0;
-}
-
-.featured-block__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.featured-block__header--stacked {
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.featured-block__desc {
-  margin-top: 12px;
-  max-width: 600px;
-}
-
-.featured-block__note {
-  margin: 0 0 24px;
-  color: var(--color-text-secondary);
-  font-size: var(--gz-text-md);
-}
-
-.featured-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-.featured-grid--articles {
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.featured-card {
-}
-
-.featured-card__img-box {
-  height: 200px;
-}
-
-.featured-card__body h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0 0 10px;
-  line-height: 1.35;
-}
-
-.featured-card__body p {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  line-height: 1.7;
-  margin: 0;
-  flex: 1;
-}
-
-.featured-card__meta {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--gz-border-light);
-  font-size: 13px;
-  color: var(--gz-text-secondary);
-}
-
-.featured-card__link {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-.meta-region {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* 文章卡片 */
-.article-card {
-}
-
-.article-card__img-box {
-  height: 160px;
-}
-
-.article-card__cat {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-accent);
-  margin-bottom: 6px;
-}
-
-.article-card__body h3 {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0 0 8px;
-  line-height: 1.35;
-}
-
-.article-card__body p {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  margin: 0;
-  flex: 1;
-}
-
-.article-card__link {
-  margin-top: 16px;
-  font-size: 13px;
-  color: var(--color-accent);
-  font-weight: 600;
-  text-align: right;
-}
-
-/* ================================================
-   模块 5：平台价值说明
-   ================================================ */
-.value {
-  padding: 80px 20px;
-  background: rgba(255, 255, 255, 0.88);
-  border-top: 1px solid rgba(236, 231, 223, 0.92);
-  border-bottom: 1px solid rgba(236, 231, 223, 0.92);
-  margin-bottom: 0;
-}
-
-.value__header {
-  text-align: center;
-  margin-bottom: 56px;
-}
-
-.value__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 48px;
-}
-
-.value-card {
-  text-align: center;
-}
-
-.value-card__number {
-  font-size: 48px;
-  font-weight: 800;
-  color: rgba(255, 56, 92, 0.18);
-  line-height: 1;
-  margin-bottom: 20px;
-}
-
-.value-card h3 {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0 0 12px;
-}
-
-.value-card p {
-  font-size: 15px;
-  color: var(--color-text-secondary);
-  line-height: 1.75;
-  margin: 0;
-}
-
-/* ================================================
-   模块 6：收束区
-   ================================================ */
-.closing {
-  padding: 96px 20px;
-  text-align: center;
+.home-hero__veil {
   background:
-    radial-gradient(circle at top, rgba(255, 56, 92, 0.08), transparent 36%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.95));
+    linear-gradient(90deg, rgba(10, 13, 17, 0.86) 0%, rgba(10, 13, 17, 0.54) 34%, rgba(10, 13, 17, 0.18) 66%, rgba(10, 13, 17, 0.24) 100%),
+    linear-gradient(180deg, rgba(10, 13, 17, 0.12) 0%, rgba(10, 13, 17, 0.2) 38%, rgba(10, 13, 17, 0.82) 100%);
 }
 
-.closing__inner {
-  max-width: 640px;
+.home-hero__inner {
+  position: relative;
+  z-index: 1;
+  width: min(100%, calc(var(--container-page) + (var(--page-gutter-current) * 2)));
+  min-height: 100svh;
   margin: 0 auto;
+  padding:
+    clamp(128px, 16vh, 168px)
+    var(--page-gutter-current)
+    clamp(34px, 6vh, 52px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.14fr) minmax(280px, 0.52fr);
+  gap: 28px;
+  align-content: end;
+  color: #f9f0e1;
 }
 
-.closing__title {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0 0 16px;
+.home-hero__copy {
+  display: grid;
+  gap: 18px;
+  max-width: 760px;
+}
+
+.home-hero__brand {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(249, 240, 225, 0.72);
+}
+
+.home-hero__title {
+  margin: 0;
+  font-family: var(--font-family-display);
+  font-size: clamp(56px, 8vw, 112px);
+  line-height: 0.98;
   letter-spacing: var(--tracking-tight-2);
 }
 
-.closing__desc {
-  font-size: 16px;
-  color: var(--color-text-secondary);
-  margin: 0 0 36px;
-  line-height: var(--line-loose);
+.home-hero__subtitle {
+  margin: 0;
+  max-width: 30em;
+  font-size: clamp(17px, 1.9vw, 21px);
+  line-height: 1.9;
+  color: rgba(249, 240, 225, 0.88);
 }
 
-.closing__actions {
+.home-hero__actions {
   display: flex;
-  justify-content: center;
-  gap: 16px;
   flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 6px;
 }
 
-.closing__note {
-  margin-top: 24px;
-  letter-spacing: 1px;
+.home-hero__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(249, 240, 225, 0.18);
+  background: rgba(249, 240, 225, 0.08);
+  color: inherit;
+  font-weight: 600;
+  transition:
+    transform var(--transition-base),
+    background-color var(--transition-base),
+    border-color var(--transition-base);
 }
 
-.closing__btn-ghost {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--border-soft);
+.home-hero__button:hover {
+  transform: translateY(-2px);
+}
+
+.home-hero__button--primary {
+  background: rgba(249, 240, 225, 0.96);
   color: var(--color-text-primary);
 }
 
-.closing__btn-ghost:hover {
-  border-color: var(--border-accent);
+.home-hero__threshold {
+  align-self: end;
+  display: grid;
+  gap: 14px;
+  padding: 18px 0 2px;
+  border-top: 1px solid rgba(249, 240, 225, 0.18);
+}
+
+.home-hero__threshold p,
+.home-hero__threshold strong,
+.home-hero__threshold small {
+  margin: 0;
+}
+
+.home-hero__threshold p {
+  line-height: 1.9;
+  color: rgba(249, 240, 225, 0.82);
+}
+
+.home-hero__threshold-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  color: rgba(249, 240, 225, 0.66);
+  font-size: 13px;
+}
+
+.home-hero__threshold-link {
+  display: grid;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(249, 240, 225, 0.1);
+  color: inherit;
+}
+
+.home-hero__threshold-link strong {
+  font-size: 15px;
+}
+
+.home-hero__threshold-link small {
+  color: rgba(249, 240, 225, 0.7);
+  line-height: 1.75;
+}
+
+.home-aperture,
+.home-locus,
+.home-guide,
+.home-reading,
+.home-epilogue {
+  display: grid;
+  gap: 26px;
+}
+
+.home-aperture__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.66fr);
+  gap: 22px;
+}
+
+.home-aperture__lead {
+  min-height: 720px;
+}
+
+.home-aperture__lead img,
+.home-reading__lead img,
+.home-locus__media img,
+.home-aperture__card-media img,
+.home-reading__trail-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-aperture__overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  gap: 14px;
+  padding: 28px 28px 32px;
+  color: #fff2de;
+  background: linear-gradient(180deg, rgba(10, 13, 17, 0), rgba(10, 13, 17, 0.82));
+}
+
+.home-aperture__overlay h3,
+.home-aperture__card-copy h3,
+.home-reading__lead-copy h3,
+.home-epilogue__panel h2 {
+  margin: 0;
+  font-family: var(--font-family-display);
+}
+
+.home-aperture__overlay h3 {
+  font-size: clamp(38px, 4vw, 56px);
+  line-height: 1.02;
+}
+
+.home-aperture__overlay p {
+  margin: 0;
+  max-width: 28rem;
+  line-height: 1.85;
+  color: rgba(255, 242, 222, 0.82);
+}
+
+.home-aperture__overlay span {
+  color: rgba(255, 242, 222, 0.74);
+  font-size: 13px;
+}
+
+.home-aperture__stack {
+  display: grid;
+  gap: 18px;
+}
+
+.home-aperture__card {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  padding: 16px;
+  border-radius: 28px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+}
+
+.home-aperture__card-media {
+  min-height: 220px;
+}
+
+.home-aperture__card-copy {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.home-aperture__card-copy h3 {
+  font-size: clamp(1.8rem, 2.4vw, 2.5rem);
+  line-height: 1.08;
+}
+
+.home-aperture__card-copy p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.85;
+}
+
+.home-locus {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.78fr);
+  align-items: stretch;
+}
+
+.home-locus__media {
+  min-height: 680px;
+}
+
+.home-locus__copy {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding-top: 10px;
+}
+
+.home-locus__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.home-locus__facts span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(142, 48, 40, 0.08);
+  color: var(--color-accent);
+  font-size: 13px;
+}
+
+.home-locus__trail {
+  display: grid;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.home-locus__trail-item {
+  display: grid;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.home-locus__trail-item strong,
+.home-guide__door strong,
+.home-reading__trail-copy strong {
+  font-family: var(--font-family-display);
+  line-height: 1.08;
+}
+
+.home-locus__trail-item strong {
+  font-size: 1.5rem;
+}
+
+.home-locus__trail-item small {
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+}
+
+.home-guide__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
+  gap: 24px;
+  padding: 34px;
+  border-radius: 34px;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+}
+
+.home-guide__copy {
+  display: grid;
+  gap: 14px;
+}
+
+.home-guide__doors {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.home-guide__door {
+  display: grid;
+  gap: 8px;
+  padding: 20px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.home-guide__door:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.home-guide__door span,
+.home-reading__trail-copy span {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--color-accent);
 }
 
-/* ================================================
-   响应式
-   ================================================ */
-@media (max-width: 1024px) {
-  .hero__inner {
+.home-guide__door strong {
+  font-size: 1.45rem;
+}
+
+.home-reading__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.72fr);
+  gap: 22px;
+}
+
+.home-reading__lead {
+  min-height: 620px;
+}
+
+.home-reading__lead-copy {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  gap: 10px;
+  padding: 26px;
+  color: #fff2de;
+  background: linear-gradient(180deg, rgba(10, 13, 17, 0), rgba(10, 13, 17, 0.84));
+}
+
+.home-reading__lead-copy h3 {
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.04;
+}
+
+.home-reading__lead-copy p {
+  margin: 0;
+  max-width: 30rem;
+  color: rgba(255, 242, 222, 0.84);
+  line-height: 1.8;
+}
+
+.home-reading__trail {
+  display: grid;
+  gap: 16px;
+}
+
+.home-reading__trail-item {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  padding: 16px;
+  border-radius: 26px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+}
+
+.home-reading__trail-image {
+  min-height: 180px;
+}
+
+.home-reading__trail-copy {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.home-reading__trail-copy strong {
+  font-size: 1.45rem;
+}
+
+.home-reading__trail-copy small {
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+}
+
+.home-epilogue__panel {
+  display: grid;
+  gap: 14px;
+  padding: 32px;
+  border-radius: 32px;
+  background: rgba(255, 251, 245, 0.78);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+}
+
+.home-epilogue__panel h2 {
+  font-size: clamp(2rem, 3.1vw, 3rem);
+  line-height: 1.06;
+}
+
+.home-epilogue__panel p {
+  margin: 0;
+  max-width: 46rem;
+  color: var(--color-text-secondary);
+  line-height: 1.85;
+}
+
+@media (max-width: 1180px) {
+  .home-hero__inner,
+  .home-aperture__grid,
+  .home-locus,
+  .home-guide__panel,
+  .home-reading__layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto;
-  }
-
-  .hero__visual {
-    height: 320px;
-    grid-row: auto;
-    min-height: 320px;
-  }
-
-  .hero__visual-img {
-    height: 320px;
-  }
-
-  .hero__title {
-    font-size: 36px;
-  }
-
-  .explore__grid {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 220px 220px;
-  }
-
-  .explore-card--large {
-    grid-row: auto;
-  }
-
-  .explore-card--large .explore-card__title {
-    font-size: 26px;
-  }
-
-  .featured-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .featured-grid--articles {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 768px) {
-  .hero__inner {
-    padding-top: 20px;
-  }
-
-  .hero__visual {
-    height: 280px;
-    min-height: 280px;
-  }
-
-  .hero__visual-img {
-    height: 280px;
-  }
-
-  .hero__visual-placeholder {
-    min-height: 280px;
-  }
-
-  .hero__title {
-    font-size: 30px;
-  }
-
-  .hero {
-    margin-bottom: 48px;
-  }
-
-  .ai-services__grid {
+@media (max-width: 1023px) {
+  .home-aperture__card,
+  .home-reading__trail-item {
     grid-template-columns: 1fr;
   }
 
-  .ai-card {
-    padding: 28px 24px;
+  .home-aperture__lead {
+    min-height: 560px;
   }
 
-  .ai-services,
-  .explore,
-  .featured {
-    margin-bottom: 64px;
+  .home-locus__media,
+  .home-reading__lead {
+    min-height: 480px;
+  }
+}
+
+@media (max-width: 743px) {
+  .home-page {
+    gap: 48px;
   }
 
-  .explore__grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(4, 200px);
+  .home-hero {
+    margin-top: -82px;
+    min-height: 90svh;
   }
 
-  .featured-grid,
-  .featured-grid--articles {
-    grid-template-columns: 1fr;
+  .home-hero__inner {
+    min-height: 90svh;
+    padding-top: 120px;
+    padding-bottom: 26px;
   }
 
-  .value__grid {
-    grid-template-columns: 1fr;
-    gap: 40px;
+  .home-hero__title {
+    font-size: clamp(42px, 13vw, 64px);
   }
 
-  .value {
-    padding: 56px 20px;
+  .home-aperture__overlay,
+  .home-guide__panel,
+  .home-epilogue__panel {
+    padding: 22px;
   }
 
-  .closing {
-    padding: 56px 20px;
+  .home-aperture__lead,
+  .home-locus__media,
+  .home-reading__lead {
+    min-height: 360px;
   }
 
-  .closing__title {
-    font-size: 26px;
-  }
-
-  .closing__actions {
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .closing__actions .el-button {
-    width: 100%;
-    max-width: 280px;
+  .home-aperture__card-media,
+  .home-reading__trail-image {
+    min-height: 220px;
   }
 }
 </style>

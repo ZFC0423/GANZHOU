@@ -20,6 +20,9 @@ export const Article = sequelize.define('Article', {
   summary: {
     type: DataTypes.TEXT
   },
+  quote: {
+    type: DataTypes.STRING(255)
+  },
   content: {
     type: DataTypes.TEXT('long')
   },

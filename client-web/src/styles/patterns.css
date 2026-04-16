@@ -1,38 +1,9 @@
-.guide-box,
-.reading-guide-box {
-  display: grid;
-  gap: var(--space-2);
-  margin-bottom: var(--space-7);
-  padding: 18px 20px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 248, 0.92));
-  border: 1px dashed rgba(255, 56, 92, 0.2);
-  border-radius: var(--radius-card);
-  color: var(--color-text-secondary);
-  font-size: 15px;
-  line-height: var(--line-relaxed);
-  box-shadow: var(--shadow-card);
-}
-
-.guide-badge {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  padding: 4px 10px;
-  border-radius: var(--radius-badge);
-  background: rgba(255, 56, 92, 0.08);
-  color: var(--color-accent);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
 .section-kicker,
 .section-label {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid rgba(221, 216, 209, 0.8);
+  margin-bottom: var(--space-3);
   color: var(--color-accent);
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -54,8 +25,6 @@
   gap: var(--space-4);
   flex-wrap: wrap;
   margin-bottom: var(--space-6);
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(236, 231, 223, 0.92);
 }
 
 .list-section-title {
@@ -77,7 +46,7 @@
 }
 
 .detail-related {
-  border-top: 1px solid rgba(236, 231, 223, 0.92);
+  border-top: 1px solid var(--border-subtle-strong);
   padding-top: clamp(32px, 5vw, 48px);
 }
 
@@ -97,8 +66,6 @@
   max-width: var(--container-3);
   margin: clamp(40px, 6vw, 64px) auto 0;
   padding-top: clamp(28px, 4vw, 40px);
-  border-top: 1px dashed rgba(221, 216, 209, 0.9);
-  text-align: center;
 }
 
 .next-steps-panel,
@@ -107,11 +74,9 @@
   max-width: 820px;
   margin: 0 auto;
   padding: clamp(28px, 5vw, 40px);
-  border-radius: var(--radius-panel);
-  background:
-    radial-gradient(circle at top right, rgba(255, 56, 92, 0.08), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 239, 0.95));
-  border: 1px solid rgba(236, 231, 223, 0.9);
+  border-radius: 30px;
+  background: var(--surface-panel-accent);
+  border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-card);
 }
 
@@ -144,14 +109,12 @@
   gap: var(--space-4);
   margin-bottom: var(--space-7);
   padding-bottom: var(--space-4);
-  border-bottom: 1px solid rgba(236, 231, 223, 0.92);
+  border-bottom: 1px solid var(--border-subtle-strong);
   color: var(--color-text-tertiary);
   font-size: 15px;
 }
 
 @media (max-width: 743px) {
-  .reading-guide-box,
-  .guide-box,
   .next-steps-panel,
   .next-steps-container {
     padding: 20px;
@@ -166,3 +129,4 @@
     width: 100%;
   }
 }
+

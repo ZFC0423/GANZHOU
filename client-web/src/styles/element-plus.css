@@ -1,16 +1,16 @@
 :root {
   --el-color-primary: var(--color-accent);
-  --el-color-primary-light-3: #ff6d87;
-  --el-color-primary-light-5: #ff8da2;
-  --el-color-primary-light-7: #ffb0bd;
-  --el-color-primary-light-8: #ffc2cc;
-  --el-color-primary-light-9: #fff0f3;
+  --el-color-primary-light-3: #b84a41;
+  --el-color-primary-light-5: #ca776f;
+  --el-color-primary-light-7: #ddb0aa;
+  --el-color-primary-light-8: #ead0cc;
+  --el-color-primary-light-9: #f7ece9;
   --el-color-primary-dark-2: var(--color-accent-hover);
-  --el-color-success: #8b6b3d;
+  --el-color-success: #77694d;
   --el-color-success-light-9: #faf5ec;
-  --el-color-warning: #9a6b24;
+  --el-color-warning: #8d6930;
   --el-color-warning-light-9: #fdf7ea;
-  --el-color-info: #6a6a6a;
+  --el-color-info: #65727a;
   --el-color-info-light-9: #f7f4ef;
   --el-color-danger: var(--color-error);
 
@@ -20,7 +20,7 @@
   --el-fill-color-blank: var(--surface-card);
   --el-fill-color-light: var(--surface-muted);
   --el-fill-color-lighter: var(--surface-soft);
-  --el-fill-color-extra-light: rgba(255, 255, 255, 0.65);
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.68);
 
   --el-text-color-primary: var(--color-text-primary);
   --el-text-color-regular: var(--color-text-secondary);
@@ -83,7 +83,7 @@
 }
 
 .el-button:focus-visible {
-  box-shadow: 0 0 0 4px rgba(255, 56, 92, 0.16);
+  box-shadow: 0 0 0 4px rgba(142, 48, 40, 0.12);
 }
 
 .el-button--primary {
@@ -152,7 +152,7 @@
 .el-textarea__inner:hover,
 .el-input-number:hover,
 .el-select__wrapper:hover {
-  box-shadow: 0 0 0 1px rgba(255, 56, 92, 0.18) inset !important;
+  box-shadow: 0 0 0 1px rgba(142, 48, 40, 0.18) inset !important;
 }
 
 .el-input__wrapper.is-focus,
@@ -160,8 +160,8 @@
 .el-input-number.is-focus,
 .el-select__wrapper.is-focused {
   box-shadow:
-    0 0 0 1px rgba(255, 56, 92, 0.28) inset,
-    0 0 0 4px rgba(255, 56, 92, 0.1) !important;
+    0 0 0 1px rgba(142, 48, 40, 0.24) inset,
+    0 0 0 4px rgba(142, 48, 40, 0.08) !important;
   background: #fffafb;
 }
 
@@ -180,7 +180,7 @@
 }
 
 .el-checkbox.is-bordered.is-checked {
-  border-color: rgba(255, 56, 92, 0.32);
+  border-color: rgba(142, 48, 40, 0.28);
   background: var(--surface-soft);
 }
 
@@ -229,11 +229,11 @@
 
 .el-alert {
   border-radius: var(--radius-card);
-  border-color: rgba(255, 56, 92, 0.14);
+  border-color: rgba(142, 48, 40, 0.14);
 }
 
 .el-menu {
-  --el-menu-hover-bg-color: rgba(255, 56, 92, 0.06);
+  --el-menu-hover-bg-color: rgba(142, 48, 40, 0.06);
   --el-menu-active-color: var(--color-accent);
   --el-menu-text-color: var(--color-text-secondary);
   --el-menu-hover-text-color: var(--color-text-primary);

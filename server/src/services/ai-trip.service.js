@@ -4,6 +4,7 @@ import { Op } from 'sequelize';
 import { env } from '../config/env.js';
 import { AiTripLog, Article, Category, ScenicSpot } from '../models/index.js';
 import { buildTripPlanMessages } from '../prompts/trip-plan.prompt.js';
+import { buildTripViewPayload } from '../utils/front-view-models.js';
 
 const ALLOWED_INTERESTS = [
   'natural',
@@ -216,7 +217,8 @@ function formatScenicContext(item) {
     region: item.region || '',
     summary: shortenText(item.intro || item.culture_desc),
     tags: parseStringList(item.tags),
-    categoryName: item.category?.name || ''
+    categoryName: item.category?.name || '',
+    categoryCode: item.category?.code || ''
   };
 }
 
@@ -228,7 +230,8 @@ function formatArticleContext(item) {
     region: '',
     summary: shortenText(item.summary || item.content),
     tags: parseStringList(item.tags),
-    categoryName: item.category?.name || ''
+    categoryName: item.category?.name || '',
+    categoryCode: item.category?.code || ''
   };
 }
 
@@ -973,17 +976,31 @@ export async function generateGanzhouTripPlan(req) {
 
   const matchedContext = await recallMatchedContext(input);
   const aiResult = await requestTripPlanCompletion(input, matchedContext);
+  const matchedContextView = matchedContext.map((item) => ({
+    type: item.type === 'scenic' ? 'scenic' : 'article_or_theme',
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    region: item.region || '',
+    categoryName: item.categoryName || '',
+    categoryCode: item.categoryCode || '',
+    tags: item.tags || []
+  }));
   const result = {
     ...aiResult.result,
-    matchedContext: matchedContext.map((item) => ({
-      type: item.type === 'scenic' ? 'scenic' : 'article_or_theme',
-      id: item.id,
-      title: item.title
-    })),
+    matchedContext: matchedContextView,
     model_name: aiResult.result.model_name
   };
+  const tripView = buildTripViewPayload({
+    input,
+    result,
+    matchedContext: matchedContextView
+  });
 
   await writeTripLog(input, result, aiResult.tokenUsage);
 
-  return result;
+  return {
+    ...result,
+    ...tripView
+  };
 }
