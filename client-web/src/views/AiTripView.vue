@@ -1,10 +1,22 @@
 <script setup>
 import { computed, reactive, ref } from 'vue';
-import { ElMessage } from 'element-plus';
-import SiteLayout from '../components/SiteLayout.vue';
+import {
+  ElAlert,
+  ElButton,
+  ElCheckbox,
+  ElCheckboxGroup,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElRadioButton,
+  ElRadioGroup
+} from 'element-plus';
 import { postAiTripPlanApi } from '../api/ai';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import { getContextCard, pickNarrativeText } from '../utils/immersive-content';
+import { pickNarrativeText } from '../utils/narrative-text';
+import { normalizeContextCards } from '../view-models/narrative-cards';
 
 const interestOptions = [
   { label: '自然风光', value: 'natural' },
@@ -56,10 +68,10 @@ const result = ref(null);
 const routeDays = computed(() => result.value?.days || []);
 const contextCards = computed(() => {
   if (Array.isArray(result.value?.citations) && result.value.citations.length) {
-    return result.value.citations.map(getContextCard).filter(Boolean);
+    return normalizeContextCards(result.value.citations);
   }
 
-  return (result.value?.matchedContext || []).map(getContextCard).filter(Boolean);
+  return normalizeContextCards(result.value?.matchedContext || []);
 });
 
 const routeWarnings = computed(() => {
@@ -146,8 +158,7 @@ function resolveCardImage(card) {
 </script>
 
 <template>
-  <SiteLayout>
-    <div class="page-shell route-studio-page">
+  <div class="page-shell route-studio-page">
       <section class="route-studio-hero">
         <div class="route-studio-hero__media">
           <img src="/immersive/hero/P0-01_AncientWall_official_03.jpg" alt="路线工作室" />
@@ -378,8 +389,7 @@ function resolveCardImage(card) {
           </template>
         </div>
       </section>
-    </div>
-  </SiteLayout>
+  </div>
 </template>
 
 <style scoped>
@@ -464,12 +474,65 @@ function resolveCardImage(card) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  align-items: start;
 }
 
 .route-studio-form__checkboxes {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.route-studio-form :deep(.el-form) {
+  display: grid;
+  gap: 18px;
+}
+
+.route-studio-form :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.route-studio-form :deep(.el-form-item__label) {
+  padding-bottom: 8px;
+  line-height: 1.4;
+}
+
+.route-studio-form :deep(.el-input-number) {
+  width: 100%;
+  max-width: 132px;
+}
+
+.route-studio-form :deep(.el-input-number .el-input__wrapper) {
+  width: 100%;
+}
+
+.route-studio-form :deep(.el-radio-group) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.route-studio-form :deep(.el-radio-button) {
+  margin: 0;
+}
+
+.route-studio-form :deep(.el-radio-button__inner) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 40px;
+  line-height: 1.2;
+}
+
+.route-studio-form :deep(.el-checkbox.is-bordered) {
+  display: inline-flex;
+  align-items: center;
+}
+
+.route-studio-form :deep(.el-checkbox__label) {
+  line-height: 1.35;
 }
 
 .route-studio-note {

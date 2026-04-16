@@ -1,10 +1,8 @@
 <script setup>
-import SiteLayout from '../components/SiteLayout.vue';
 </script>
 
 <template>
-  <SiteLayout>
-    <div class="page-shell about-page">
+  <div class="page-shell about-page">
       <section class="about-hero">
         <div class="about-hero__media">
           <img src="/immersive/hero/P0-01_JiangnanSongcheng_official_02.jpg" alt="策展声明" />
@@ -94,8 +92,7 @@ import SiteLayout from '../components/SiteLayout.vue';
           </router-link>
         </div>
       </section>
-    </div>
-  </SiteLayout>
+  </div>
 </template>
 
 <style scoped>

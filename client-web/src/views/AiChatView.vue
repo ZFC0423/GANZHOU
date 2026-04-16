@@ -1,13 +1,14 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import SiteLayout from '../components/SiteLayout.vue';
+import { ElAlert, ElButton, ElInput, ElMessage } from 'element-plus';
 import { getRecommendQuestionsApi, postAiChatApi } from '../api/ai';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import { getContextCard, pickNarrativeText } from '../utils/immersive-content';
-import { createSceneMotion, createSceneReveals } from '../utils/scene-motion';
+import { pickNarrativeText } from '../utils/narrative-text';
+import { buildChatRecord } from '../view-models/ai-chat-view-model';
+import { createSceneMotion, prefersReducedMotion } from '../utils/scene-motion';
 
 const rootRef = ref(null);
+const latestSessionRef = ref(null);
 const question = ref('');
 const loading = ref(false);
 const recommendLoading = ref(false);
@@ -16,63 +17,10 @@ const recommendQuestions = ref([]);
 const chatRecords = ref([]);
 
 let cleanupMotion = () => {};
+let latestRevealTimer = 0;
 
 const latestRecord = computed(() => chatRecords.value[0] || null);
 const historyRecords = computed(() => chatRecords.value.slice(1, 4));
-
-function buildAnswerBlocks(data) {
-  if (Array.isArray(data.answerBlocks) && data.answerBlocks.length) {
-    return data.answerBlocks.filter((item) => item?.content);
-  }
-
-  const blocks = [];
-
-  if (data.directAnswer || data.answer) {
-    blocks.push({
-      type: 'lead',
-      title: '导览首答',
-      content: data.directAnswer || data.answer
-    });
-  }
-
-  if (data.culturalContext) {
-    blocks.push({
-      type: 'context',
-      title: '文化线索',
-      content: data.culturalContext
-    });
-  }
-
-  return blocks;
-}
-
-function normalizeCards(items = []) {
-  return items.map(getContextCard).filter(Boolean);
-}
-
-function buildRecord(data, currentQuestion) {
-  const citations = normalizeCards(Array.isArray(data.citations) ? data.citations : []);
-  const relatedCards = normalizeCards(Array.isArray(data.relatedCards) ? data.relatedCards : []);
-  const heroSpotlight = getContextCard(data.heroSpotlight)
-    || relatedCards[0]
-    || citations[0]
-    || null;
-  const followupPrompts = Array.isArray(data.followupPrompts) && data.followupPrompts.length
-    ? data.followupPrompts
-    : data.nextSteps || [];
-
-  return {
-    question: currentQuestion,
-    leadTitle: pickNarrativeText(data.leadTitle, `关于“${currentQuestion}”的导览回答`),
-    answerBlocks: buildAnswerBlocks(data),
-    citations: citations.length ? citations : relatedCards,
-    followupPrompts,
-    heroSpotlight,
-    relatedTopics: data.relatedTopics || [],
-    relatedSpots: data.relatedSpots || [],
-    modelName: data.model_name || ''
-  };
-}
 
 async function loadRecommendQuestions() {
   recommendLoading.value = true;
@@ -104,7 +52,7 @@ async function submitQuestion(customQuestion) {
 
   try {
     const response = await postAiChatApi({ question: currentQuestion });
-    chatRecords.value.unshift(buildRecord(response.data || {}, currentQuestion));
+    chatRecords.value.unshift(buildChatRecord(response.data || {}, currentQuestion));
     question.value = '';
   } catch (error) {
     errorMessage.value = error.response?.data?.message || '问答服务暂时繁忙，请稍后再试。';
@@ -135,54 +83,121 @@ function resolveCardType(card) {
   return card?.type === 'scenic' ? '景点' : '专题';
 }
 
-function setupMotion() {
+function setupStaticMotion() {
   cleanupMotion();
 
   if (!rootRef.value) {
     return;
   }
 
-  cleanupMotion = createSceneMotion(rootRef.value, ({ gsap, ScrollTrigger }) => {
-    gsap
-      .timeline({
-        defaults: {
-          ease: 'power3.out'
-        }
-      })
-      .from('.guide-threshold__media img', { scale: 1.06, duration: 1.4 }, 0)
-      .from('.guide-threshold__copy > *', { autoAlpha: 0, y: 24, stagger: 0.08, duration: 0.84 }, 0.14)
-      .from('.guide-composer__panel > *', { autoAlpha: 0, y: 18, stagger: 0.05, duration: 0.72 }, 0.28);
+  cleanupMotion = createSceneMotion(rootRef.value, ({ gsap, matchMedia, select }) => {
+    const thresholdMedia = select('.guide-threshold__media img');
+    const thresholdCopyItems = select('.guide-threshold__copy > *');
+    const composerPanelItems = select('.guide-composer__panel > *');
 
-    createSceneReveals({
-      gsap,
-      ScrollTrigger,
-      sceneSelector: '.guide-scene'
+    const buildIntro = ({ mediaScale, copyY, composerY, mediaDuration }) => {
+      gsap
+        .timeline({
+          defaults: {
+            ease: 'power3.out'
+          }
+        })
+        .from(thresholdMedia, { scale: mediaScale, duration: mediaDuration }, 0)
+        .from(thresholdCopyItems, { autoAlpha: 0, y: copyY, stagger: 0.08, duration: 0.84 }, 0.14)
+        .from(composerPanelItems, { autoAlpha: 0, y: composerY, stagger: 0.05, duration: 0.72 }, 0.28);
+    };
+
+    matchMedia.add('(max-width: 743px)', () => {
+      buildIntro({
+        mediaScale: 1.03,
+        copyY: 18,
+        composerY: 14,
+        mediaDuration: 1.08
+      });
+    });
+
+    matchMedia.add('(min-width: 744px)', () => {
+      buildIntro({
+        mediaScale: 1.06,
+        copyY: 24,
+        composerY: 18,
+        mediaDuration: 1.4
+      });
     });
   });
 }
 
+function animateLatestSession() {
+  if (!latestSessionRef.value) {
+    return;
+  }
+
+  const targets = Array.from(latestSessionRef.value.querySelectorAll('[data-live-reveal]'));
+
+  if (!targets.length) {
+    return;
+  }
+
+  const sessionRect = latestSessionRef.value.getBoundingClientRect();
+  const needsViewportSync = sessionRect.top < 112 || sessionRect.top > window.innerHeight * 0.72;
+
+  if (needsViewportSync) {
+    latestSessionRef.value.scrollIntoView({
+      behavior: 'auto',
+      block: 'start'
+    });
+  }
+
+  window.clearTimeout(latestRevealTimer);
+
+  const reducedMotion = prefersReducedMotion();
+
+  targets.forEach((target, index) => {
+    target.dataset.liveRevealed = reducedMotion ? 'true' : '';
+
+    if (!reducedMotion) {
+      target.style.setProperty('--guide-reveal-delay', `${index * 90}ms`);
+    }
+  });
+
+  if (reducedMotion) {
+    return;
+  }
+
+  latestRevealTimer = window.setTimeout(() => {
+    targets.forEach((target) => {
+      target.dataset.liveRevealed = 'true';
+      target.style.removeProperty('--guide-reveal-delay');
+    });
+  }, 1200);
+}
+
 watch(
-  () => chatRecords.value.length,
-  async () => {
+  latestRecord,
+  async (record) => {
+    if (!record) {
+      return;
+    }
+
     await nextTick();
-    setupMotion();
+    animateLatestSession();
   }
 );
 
 onMounted(async () => {
-  await loadRecommendQuestions();
   await nextTick();
-  setupMotion();
+  setupStaticMotion();
+  loadRecommendQuestions();
 });
 
 onBeforeUnmount(() => {
+  window.clearTimeout(latestRevealTimer);
   cleanupMotion();
 });
 </script>
 
 <template>
-  <SiteLayout>
-    <div ref="rootRef" class="page-shell guide-room">
+  <div ref="rootRef" class="page-shell guide-room">
       <section class="guide-threshold">
         <div class="guide-threshold__media">
           <img src="/immersive/hero/P0-01_JiangnanSongcheng_official_02.jpg" alt="AI 导览室" />
@@ -270,8 +285,12 @@ onBeforeUnmount(() => {
         </p>
       </section>
 
-      <section v-if="latestRecord" class="section-inner--wide guide-session guide-scene guide-session--latest">
-        <div class="guide-session__question" data-reveal>
+      <section
+        v-if="latestRecord"
+        ref="latestSessionRef"
+        class="section-inner--wide guide-session guide-session--latest"
+      >
+        <div class="guide-session__question" data-live-reveal>
           <span class="section-eyebrow">Current Reading</span>
           <h2 class="section-title">{{ latestRecord.leadTitle }}</h2>
           <p class="guide-session__question-text">{{ latestRecord.question }}</p>
@@ -288,7 +307,7 @@ onBeforeUnmount(() => {
           v-if="latestRecord.heroSpotlight"
           :to="resolveCardPath(latestRecord.heroSpotlight)"
           class="guide-spotlight"
-          data-reveal
+          data-live-reveal
         >
           <div class="guide-spotlight__media media-node">
             <img
@@ -316,14 +335,14 @@ onBeforeUnmount(() => {
             v-for="(block, index) in latestRecord.answerBlocks"
             :key="`${block.title}-${index}`"
             :class="['guide-block', `guide-block--${block.type || 'lead'}`]"
-            data-reveal
+            data-live-reveal
           >
             <div class="section-label">{{ block.title }}</div>
             <p>{{ block.content }}</p>
           </article>
         </div>
 
-        <div v-if="latestRecord.citations.length" class="guide-citations" data-reveal>
+        <div v-if="latestRecord.citations.length" class="guide-citations" data-live-reveal>
           <div class="guide-citations__head">
             <span class="section-eyebrow">Cited Clues</span>
             <h3>这次回答引用了哪些站内内容？</h3>
@@ -352,7 +371,11 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="latestRecord.followupPrompts.length" class="guide-followups panel-note-muted" data-reveal>
+        <div
+          v-if="latestRecord.followupPrompts.length"
+          class="guide-followups panel-note-muted"
+          data-live-reveal
+        >
           <div class="section-label">下一步路标</div>
           <div class="guide-followups__list">
             <button
@@ -368,8 +391,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section v-if="historyRecords.length" class="section-inner guide-archive guide-scene">
-        <div class="guide-archive__head" data-reveal>
+      <section v-if="historyRecords.length" class="section-inner guide-archive">
+        <div class="guide-archive__head">
           <span class="section-eyebrow">Previous Threads</span>
           <h2 class="section-title">前面的追问，留作同一条导览轨迹的余光。</h2>
         </div>
@@ -379,7 +402,6 @@ onBeforeUnmount(() => {
             v-for="(record, index) in historyRecords"
             :key="`${record.leadTitle}-${index}`"
             class="guide-archive__item"
-            data-reveal
           >
             <h3>{{ record.leadTitle }}</h3>
             <p>{{ record.question }}</p>
@@ -395,8 +417,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section v-if="latestRecord" class="section-inner guide-handoff guide-scene">
-        <div class="guide-handoff__panel" data-reveal>
+      <section v-if="latestRecord" class="section-inner guide-handoff">
+        <div class="guide-handoff__panel">
           <div>
             <span class="section-eyebrow">Route Studio</span>
             <h2 class="section-title">如果这次讲解已经打开思路，下一步就把它变成路线。</h2>
@@ -408,11 +430,24 @@ onBeforeUnmount(() => {
           <router-link to="/ai-trip" class="guide-handoff__link">进入路线工作室</router-link>
         </div>
       </section>
-    </div>
-  </SiteLayout>
+  </div>
 </template>
 
 <style scoped>
+@keyframes guide-session-reveal {
+  from {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(34px);
+  }
+
+  to {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+}
+
 .guide-room {
   display: grid;
   gap: 36px;
@@ -576,6 +611,15 @@ onBeforeUnmount(() => {
 .guide-session {
   display: grid;
   gap: 20px;
+  scroll-margin-top: 112px;
+}
+
+.guide-session--latest [data-live-reveal]:not([data-live-revealed='true']) {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(34px);
+  animation: guide-session-reveal 0.82s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--guide-reveal-delay, 0ms);
 }
 
 .guide-session__question {
@@ -806,6 +850,15 @@ onBeforeUnmount(() => {
   .guide-archive__list {
     grid-template-columns: 1fr;
   }
+
+  .guide-threshold__content {
+    align-items: end;
+  }
+
+  .guide-spotlight__copy {
+    padding: 0;
+    align-content: start;
+  }
 }
 
 @media (max-width: 743px) {
@@ -815,7 +868,7 @@ onBeforeUnmount(() => {
 
   .guide-threshold,
   .guide-threshold__content {
-    min-height: 62svh;
+    min-height: 56svh;
   }
 
   .guide-threshold__content,
@@ -828,14 +881,131 @@ onBeforeUnmount(() => {
     padding: 22px;
   }
 
+  .guide-threshold__content {
+    gap: 18px;
+  }
+
+  .guide-threshold__note {
+    gap: 8px;
+    padding-top: 14px;
+  }
+
   .guide-citations__item,
   .guide-handoff__panel {
     grid-template-columns: 1fr;
   }
 
+  .guide-composer__head,
+  .guide-composer__actions {
+    align-items: stretch;
+  }
+
+  .guide-composer__head {
+    flex-direction: column;
+  }
+
+  .guide-composer__prompts {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .guide-composer__prompt,
+  .guide-followups__item {
+    width: 100%;
+    text-align: left;
+  }
+
+  .guide-composer__actions :deep(.el-button) {
+    width: 100%;
+  }
+
+  .guide-session__tags {
+    gap: 8px;
+  }
+
+  .guide-session__tags span,
+  .guide-composer__prompt,
+  .guide-followups__item {
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+
+  .guide-spotlight__copy h3,
+  .guide-citations__copy strong,
+  .guide-archive__item h3 {
+    font-size: 1.3rem;
+  }
+
   .guide-citations__thumb,
   .guide-spotlight__media {
     min-height: 220px;
+  }
+}
+
+@media (max-width: 549px) {
+  .guide-room {
+    gap: 24px;
+  }
+
+  .guide-threshold,
+  .guide-threshold__content {
+    min-height: 52svh;
+    border-radius: 28px;
+  }
+
+  .guide-threshold__content,
+  .guide-composer__panel,
+  .guide-loading,
+  .guide-empty,
+  .guide-block,
+  .guide-followups,
+  .guide-handoff__panel {
+    padding: 18px;
+  }
+
+  .guide-composer__panel,
+  .guide-loading,
+  .guide-empty,
+  .guide-session,
+  .guide-citations,
+  .guide-followups,
+  .guide-archive {
+    gap: 16px;
+  }
+
+  .guide-session__script {
+    gap: 12px;
+  }
+
+  .guide-spotlight {
+    gap: 14px;
+    padding: 12px;
+    border-radius: 24px;
+  }
+
+  .guide-spotlight__media,
+  .guide-citations__thumb {
+    min-height: 188px;
+  }
+
+  .guide-citations__item,
+  .guide-archive__item {
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .guide-spotlight__copy h3,
+  .guide-citations__head h3 {
+    font-size: 1.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-session--latest [data-live-reveal]:not([data-live-revealed='true']) {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
   }
 }
 </style>

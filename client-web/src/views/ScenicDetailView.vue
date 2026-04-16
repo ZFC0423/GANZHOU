@@ -1,178 +1,30 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import SiteLayout from '../components/SiteLayout.vue';
+import { ElAlert, ElButton, ElEmpty, ElMessage, ElSkeleton } from 'element-plus';
 import { getScenicDetailApi } from '../api/front';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import {
-  getNarrativeQuote,
-  getScenicGallery,
-  getScenicMeta,
-  pickNarrativeText
-} from '../utils/immersive-content';
+import { buildScenicDetailViewModel } from '../view-models/scenic-detail-view-model';
 import { createSceneMotion, createSceneReveals } from '../utils/scene-motion';
 
 const route = useRoute();
 const rootRef = ref(null);
+const heroImageRef = ref(null);
 const loading = ref(false);
 const errorMessage = ref('');
 const detail = ref(null);
 
 let cleanupMotion = () => {};
 
-const scenicMeta = computed(() => getScenicMeta(detail.value?.id));
-
-const heroData = computed(() => {
-  const value = detail.value || {};
-
-  return {
-    title: value.name || '赣州地方线索',
-    region: pickNarrativeText(value.region, '赣州'),
-    category: pickNarrativeText(value.categoryName, '地方 dossier'),
-    intro: pickNarrativeText(
-      value.intro,
-      scenicMeta.value.heroCaption || '先让地方成立，再让信息慢慢跟上。'
-    ),
-    quote: getNarrativeQuote(value, 'scenic') || '先记住这个地方，再去理解它与赣州的关系。',
-    image: value.media?.coverImage || scenicMeta.value.heroImage || value.coverImage || '',
-    caption: pickNarrativeText(value.media?.caption, scenicMeta.value.heroCaption || value.intro || '')
-  };
-});
-
-const quickFacts = computed(() => {
-  const facts = Array.isArray(detail.value?.quickFacts) && detail.value.quickFacts.length
-    ? detail.value.quickFacts
-    : [
-        { label: 'Region', value: detail.value?.region || '赣州' },
-        { label: 'Suggested Duration', value: detail.value?.suggestedDuration || detail.value?.visitMode || '按现场节奏停留' },
-        { label: 'Opening Info', value: detail.value?.openTime || '以现场公告为准' },
-        { label: 'Route Cue', value: detail.value?.routeLabel || scenicMeta.value.routeLabel || '继续沿着地方线索走' }
-      ];
-
-  const labelMap = {
-    Region: '所在区域',
-    'Suggested Duration': '建议停留',
-    'Opening Info': '开放信息',
-    'Route Cue': '路线线索'
-  };
-
-  return facts.map((item) => ({
-    label: labelMap[item.label] || item.label,
-    value: item.value
-  }));
-});
-
-const dossierSections = computed(() => {
-  const serviceSections = Array.isArray(detail.value?.dossierSections)
-    ? detail.value.dossierSections.filter((item) => item?.content)
-    : [];
-
-  if (serviceSections.length) {
-    return serviceSections.map((item) => ({
-      kicker: pickNarrativeText(item.kicker, 'Dossier'),
-      title: pickNarrativeText(item.title, '地方叙事'),
-      content: item.content
-    }));
-  }
-
-  return [
-    {
-      kicker: 'Arrival',
-      title: '先抵达这处地方',
-      content: pickNarrativeText(detail.value?.intro, '当前暂无地点概览内容。')
-    },
-    {
-      kicker: 'Context',
-      title: '再理解它的文化与历史层',
-      content: pickNarrativeText(detail.value?.cultureDesc, '当前暂无更深入的文化背景说明。')
-    },
-    {
-      kicker: 'Route',
-      title: '最后安排行进、停留与观看方式',
-      content: pickNarrativeText(
-        detail.value?.trafficGuide,
-        pickNarrativeText(detail.value?.tips, '建议结合天气、步行强度和现场公告灵活调整。')
-      )
-    }
-  ].filter((item) => item.content);
-});
-
-const sidebarNotes = computed(() => {
-  const notes = [
-    {
-      label: '路线线索',
-      content: pickNarrativeText(detail.value?.routeLabel, scenicMeta.value.routeLabel || '从当前地点继续进入地方叙事。')
-    },
-    {
-      label: '最佳时段',
-      content: pickNarrativeText(detail.value?.bestLightTime, detail.value?.openTime || '白天更适合建立空间印象。')
-    },
-    {
-      label: '停留方式',
-      content: pickNarrativeText(detail.value?.visitMode, detail.value?.suggestedDuration || '按现场节奏漫游停留。')
-    },
-    {
-      label: '建议季节',
-      content: pickNarrativeText(detail.value?.bestVisitSeason, '四季皆宜。')
-    }
-  ];
-
-  return notes.filter((item) => item.content);
-});
-
-const servicePanels = computed(() => {
-  const panels = [
-    {
-      label: '门票与开放',
-      content: pickNarrativeText(detail.value?.ticketInfo, '当前暂无门票信息。')
-    },
-    {
-      label: '地址',
-      content: pickNarrativeText(detail.value?.address, '当前暂无详细地址。')
-    },
-    {
-      label: '出行提示',
-      content: pickNarrativeText(detail.value?.tips, '建议结合天气、体力和现场公告灵活安排。'),
-      muted: true
-    }
-  ];
-
-  return panels.filter((item) => item.content);
-});
-
-const gallerySequence = computed(() => {
-  const raw = Array.isArray(detail.value?.gallerySequence) && detail.value.gallerySequence.length
-    ? detail.value.gallerySequence
-    : getScenicGallery(detail.value).map((image) => ({ image }));
-
-  const captions = [
-    heroData.value.caption || '建立场域的首图。',
-    '补充空间关系，让地点的结构更加具体。',
-    '把观看重心收窄到细节，让记忆停住。',
-    '把这处地方的气口留给最后一张图。'
-  ];
-
-  return raw.slice(0, 4).map((item, index) => ({
-    src: resolveAssetUrl(item.image || item.src || item, heroData.value.title),
-    caption: pickNarrativeText(item.caption, captions[index] || captions[captions.length - 1])
-  }));
-});
-
-const routeNodes = computed(() => {
-  const items = Array.isArray(detail.value?.routeBridge) && detail.value.routeBridge.length
-    ? detail.value.routeBridge
-    : detail.value?.relatedList || [];
-
-  return items.slice(0, 3).map((item) => ({
-    id: item.id,
-    title: item.title || item.name,
-    subtitle: pickNarrativeText(item.routeLabel, item.region || '继续沿着地方线索走'),
-    summary: pickNarrativeText(item.heroCaption, item.intro || '从这里继续打开更完整的空间关系。'),
-    image: item.media?.coverImage || item.coverImage || '',
-    path: item.path || `/scenic/${item.id}`
-  }));
-});
+const pageModel = computed(() => buildScenicDetailViewModel(detail.value));
+const scenicMeta = computed(() => pageModel.value.scenicMeta);
+const heroData = computed(() => pageModel.value.heroData);
+const quickFacts = computed(() => pageModel.value.quickFacts);
+const dossierSections = computed(() => pageModel.value.dossierSections);
+const sidebarNotes = computed(() => pageModel.value.sidebarNotes);
+const servicePanels = computed(() => pageModel.value.servicePanels);
+const gallerySequence = computed(() => pageModel.value.gallerySequence);
+const routeNodes = computed(() => pageModel.value.routeNodes);
 
 async function loadDetail() {
   loading.value = true;
@@ -197,35 +49,77 @@ function setupMotion() {
     return;
   }
 
-  cleanupMotion = createSceneMotion(rootRef.value, ({ gsap, ScrollTrigger }) => {
+  cleanupMotion = createSceneMotion(rootRef.value, ({ gsap, ScrollTrigger, matchMedia, root, select }) => {
+    const heroMedia = select('.scenic-hero__media img');
+    const heroCopyItems = select('.scenic-hero__copy > *');
+    const heroLedgerItems = select('.scenic-hero__ledger > *');
+
     gsap
       .timeline({
         defaults: {
           ease: 'power3.out'
         }
       })
-      .from('.scenic-hero__media img', { scale: 1.08, duration: 1.5 }, 0)
-      .from('.scenic-hero__copy > *', { autoAlpha: 0, y: 26, stagger: 0.08, duration: 0.86 }, 0.16)
-      .from('.scenic-hero__ledger > *', { autoAlpha: 0, y: 18, stagger: 0.06, duration: 0.74 }, 0.3);
+      .from(heroMedia, { scale: 1.08, duration: 1.5 }, 0)
+      .from(heroCopyItems, { autoAlpha: 0, y: 26, stagger: 0.08, duration: 0.86 }, 0.16)
+      .from(heroLedgerItems, { autoAlpha: 0, y: 18, stagger: 0.06, duration: 0.74 }, 0.3);
 
-    createSceneReveals({
-      gsap,
-      ScrollTrigger,
-      sceneSelector: '.scenic-scene'
+    matchMedia.add('(max-width: 743px)', () => {
+      createSceneReveals({
+        gsap,
+        ScrollTrigger,
+        root,
+        select,
+        sceneSelector: '.scenic-scene',
+        start: 'top 90%',
+        y: 20,
+        duration: 0.72,
+        stagger: 0.06,
+        initialThreshold: 0.92
+      });
     });
 
-    ScrollTrigger.create({
-      trigger: '.scenic-hero',
-      start: 'top top',
-      end: 'bottom top',
-      scrub: true,
-      onUpdate: ({ progress }) => {
-        gsap.to('.scenic-hero__media img', {
-          yPercent: progress * 6,
-          duration: 0.18,
-          overwrite: true
-        });
+    matchMedia.add('(min-width: 744px)', () => {
+      createSceneReveals({
+        gsap,
+        ScrollTrigger,
+        root,
+        select,
+        sceneSelector: '.scenic-scene',
+        start: 'top 78%',
+        y: 28,
+        duration: 0.8,
+        stagger: 0.08,
+        initialThreshold: 0.82
+      });
+
+      if (!heroImageRef.value) {
+        return undefined;
       }
+
+      const heroSection = select('.scenic-hero')[0];
+
+      if (!heroSection) {
+        return undefined;
+      }
+
+      ScrollTrigger.create({
+        trigger: heroSection,
+        start: 'top top',
+        end: 'bottom top',
+        scrub: true,
+        onUpdate: ({ progress }) => {
+          gsap.to(heroImageRef.value, {
+            yPercent: progress * 6,
+            duration: 0.18,
+            overwrite: true
+          });
+        }
+      });
+
+      return () => {
+        gsap.set(heroImageRef.value, { clearProps: 'transform' });
+      };
     });
   });
 }
@@ -251,8 +145,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <SiteLayout>
-    <div ref="rootRef" class="page-shell scenic-dossier">
+  <div ref="rootRef" class="page-shell scenic-dossier">
       <div class="scenic-dossier__nav">
         <router-link to="/scenic" class="scenic-dossier__back">返回景点图谱</router-link>
         <span>Scenic Dossier</span>
@@ -277,6 +170,7 @@ onBeforeUnmount(() => {
         <section class="scenic-hero">
           <div class="scenic-hero__media">
             <img
+              ref="heroImageRef"
               :src="resolveAssetUrl(heroData.image, heroData.title)"
               :alt="heroData.title"
               @error="(event) => applyImageFallback(event, heroData.title)"
@@ -391,7 +285,7 @@ onBeforeUnmount(() => {
             >
               <div class="scenic-route__node-image media-node">
                 <img
-                  :src="resolveAssetUrl(item.image, item.title)"
+                  :src="item.image"
                   :alt="item.title"
                   @error="(event) => applyImageFallback(event, item.title)"
                 />
@@ -417,9 +311,8 @@ onBeforeUnmount(() => {
         </section>
       </template>
 
-      <el-empty v-else description="当前未获取到该景点详情。" />
-    </div>
-  </SiteLayout>
+    <el-empty v-else description="当前未获取到该景点详情。" />
+  </div>
 </template>
 
 <style scoped>
@@ -653,6 +546,16 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1023px) {
+  .scenic-hero,
+  .scenic-hero__overlay {
+    min-height: min(72vh, 720px);
+  }
+
+  .scenic-hero__overlay {
+    gap: 24px;
+    padding: 32px;
+  }
+
   .scenic-hero__ledger,
   .scenic-gallery__grid {
     grid-template-columns: 1fr 1fr;
@@ -669,11 +572,13 @@ onBeforeUnmount(() => {
 @media (max-width: 743px) {
   .scenic-dossier__nav {
     display: grid;
+    gap: 6px;
   }
 
   .scenic-hero,
   .scenic-hero__overlay {
-    min-height: 74svh;
+    min-height: 62svh;
+    border-radius: 32px;
   }
 
   .scenic-hero__overlay,
@@ -682,14 +587,102 @@ onBeforeUnmount(() => {
     padding: 22px;
   }
 
+  .scenic-hero__overlay {
+    gap: 16px;
+  }
+
+  .scenic-hero__copy {
+    gap: 12px;
+  }
+
+  .scenic-hero__copy :deep(.page-title) {
+    font-size: clamp(2.7rem, 12vw, 4rem);
+  }
+
+  .scenic-hero__copy :deep(.page-subtitle),
+  .scenic-hero__copy :deep(.display-quote) {
+    line-height: 1.7;
+  }
+
   .scenic-hero__ledger,
   .scenic-gallery__grid {
     grid-template-columns: 1fr;
   }
 
+  .scenic-hero__ledger {
+    gap: 10px;
+  }
+
+  .scenic-hero__fact {
+    padding-top: 12px;
+  }
+
+  .scenic-hero__fact strong {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
   .scenic-gallery__item img,
   .scenic-route__node-image {
-    min-height: 220px;
+    min-height: 210px;
+  }
+
+  .scenic-route__node {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 549px) {
+  .scenic-hero,
+  .scenic-hero__overlay {
+    min-height: 58svh;
+    border-radius: 28px;
+  }
+
+  .scenic-hero__overlay,
+  .scenic-dossier__note,
+  .scenic-route__handoff {
+    padding: 16px;
+  }
+
+  .scenic-hero__meta,
+  .scenic-hero__fact span,
+  .scenic-route__node-copy span {
+    letter-spacing: 0.06em;
+  }
+
+  .scenic-hero__copy {
+    gap: 10px;
+  }
+
+  .scenic-hero__copy :deep(.page-title) {
+    font-size: clamp(2.35rem, 11vw, 3.25rem);
+  }
+
+  .scenic-hero__copy :deep(.page-subtitle),
+  .scenic-hero__copy :deep(.display-quote) {
+    font-size: 0.95rem;
+    line-height: 1.62;
+  }
+
+  .scenic-gallery,
+  .scenic-route {
+    gap: 18px;
+  }
+
+  .scenic-gallery__item img,
+  .scenic-route__node-image {
+    min-height: 188px;
+  }
+
+  .scenic-route__node {
+    gap: 12px;
+    padding: 12px;
+    border-radius: 22px;
+  }
+
+  .scenic-route__node-copy strong {
+    font-size: 1.38rem;
   }
 }
 </style>

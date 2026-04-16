@@ -1,18 +1,14 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElAlert, ElButton, ElEmpty, ElIcon, ElInput, ElMessage, ElPagination, ElSkeleton } from 'element-plus';
 import { Search, View } from '@element-plus/icons-vue';
-import SiteLayout from './SiteLayout.vue';
 import { getArticleListApi } from '../api/front';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import {
-  getArticleMeta,
-  getNarrativeImage,
-  getNarrativeQuote,
-  getThemeMeta,
-  pickNarrativeText
-} from '../utils/immersive-content';
+import { getThemeMeta } from '../content/site-manifest';
+import { getArticleMeta } from '../content/narrative-meta';
+import { getNarrativeImage, getNarrativeQuote } from '../utils/narrative-meta';
+import { pickNarrativeText } from '../utils/narrative-text';
 
 const props = defineProps({
   pageTitle: { type: String, required: true },
@@ -92,8 +88,7 @@ onMounted(loadList);
 </script>
 
 <template>
-  <SiteLayout>
-    <div class="page-shell chapter-page">
+  <div class="page-shell chapter-page">
       <section class="chapter-poster">
         <div class="chapter-poster__media">
           <img :src="themeMeta.heroImage" :alt="pageTitle" />
@@ -242,8 +237,7 @@ onMounted(loadList);
           </section>
         </template>
       </template>
-    </div>
-  </SiteLayout>
+  </div>
 </template>
 
 <style scoped>

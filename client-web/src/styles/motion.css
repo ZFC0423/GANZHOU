@@ -58,6 +58,24 @@
   }
 }
 
+.route-stage-enter-active,
+.route-stage-leave-active {
+  transition:
+    opacity 0.28s ease,
+    transform 0.32s ease;
+  will-change: opacity, transform;
+}
+
+.route-stage-enter-from {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+}
+
+.route-stage-leave-to {
+  opacity: 0;
+  transform: translate3d(0, -10px, 0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -68,4 +86,3 @@
     scroll-behavior: auto !important;
   }
 }
-

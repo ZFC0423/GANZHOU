@@ -1,16 +1,12 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import SiteLayout from './SiteLayout.vue';
+import { ElAlert, ElButton, ElEmpty, ElMessage, ElSkeleton } from 'element-plus';
 import { getArticleDetailApi } from '../api/front';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import {
-  getNarrativeImage,
-  getNarrativeQuote,
-  getThemeMeta,
-  pickNarrativeText
-} from '../utils/immersive-content';
+import { getThemeMeta } from '../content/site-manifest';
+import { getNarrativeImage, getNarrativeQuote } from '../utils/narrative-meta';
+import { pickNarrativeText } from '../utils/narrative-text';
 
 const props = defineProps({
   pageTitle: { type: String, required: true },
@@ -67,8 +63,7 @@ watch(
 </script>
 
 <template>
-  <SiteLayout>
-    <div class="page-shell chapter-detail-page">
+  <div class="page-shell chapter-detail-page">
       <div class="chapter-detail-page__nav">
         <router-link :to="backPath" class="chapter-detail-page__back">返回章节目录</router-link>
         <span>{{ pageTitle }}</span>
@@ -202,9 +197,8 @@ watch(
         </section>
       </template>
 
-      <el-empty v-else description="当前未获取到相关专题内容。" />
-    </div>
-  </SiteLayout>
+    <el-empty v-else description="当前未获取到相关专题内容。" />
+  </div>
 </template>
 
 <style scoped>

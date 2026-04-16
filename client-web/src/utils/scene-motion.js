@@ -28,14 +28,40 @@ export function createSceneMotion(rootElement, buildTimeline) {
     return () => {};
   }
 
-  const context = motionGsap.context(() => {
+  const matchMedia = motionGsap.matchMedia();
+
+  const context = motionGsap.context((self) => {
+    const scopedSelect = (selectorOrNodes) => {
+      if (!selectorOrNodes) {
+        return [];
+      }
+
+      if (typeof selectorOrNodes === 'string') {
+        if (typeof self.selector === 'function') {
+          return Array.from(self.selector(selectorOrNodes));
+        }
+
+        return Array.from(rootElement.querySelectorAll(selectorOrNodes));
+      }
+
+      if (selectorOrNodes instanceof Element) {
+        return [selectorOrNodes];
+      }
+
+      return Array.from(selectorOrNodes).filter(Boolean);
+    };
+
     buildTimeline({
       gsap: motionGsap,
-      ScrollTrigger: motionScrollTrigger
+      ScrollTrigger: motionScrollTrigger,
+      matchMedia,
+      root: rootElement,
+      select: scopedSelect
     });
   }, rootElement);
 
   return () => {
+    matchMedia.revert();
     context.revert();
   };
 }
@@ -43,14 +69,26 @@ export function createSceneMotion(rootElement, buildTimeline) {
 export function createSceneReveals({
   gsap: motionGsap,
   ScrollTrigger: motionScrollTrigger,
+  root,
+  select,
+  scenes,
   sceneSelector,
   itemSelector = '[data-reveal]',
   start = 'top 78%',
   y = 28,
   duration = 0.8,
-  stagger = 0.08
+  stagger = 0.08,
+  initialThreshold = 0.82
 }) {
-  const scenes = motionGsap.utils.toArray(sceneSelector);
+  const resolvedScenes = scenes
+    ? Array.from(scenes).filter(Boolean)
+    : typeof sceneSelector === 'string'
+      ? select
+        ? select(sceneSelector)
+        : Array.from((root || document).querySelectorAll(sceneSelector))
+      : motionGsap.utils.toArray(sceneSelector);
+
+  let triggerCount = 0;
 
   const animateScene = (scene) => {
     if (!scene || scene.dataset.sceneRevealed === 'true') {
@@ -82,14 +120,14 @@ export function createSceneReveals({
     );
   };
 
-  scenes.forEach((scene) => {
+  resolvedScenes.forEach((scene) => {
     const targets = scene.querySelectorAll(itemSelector);
 
     if (!targets.length) {
       return;
     }
 
-    if (scene.getBoundingClientRect().top <= window.innerHeight * 0.82) {
+    if (scene.getBoundingClientRect().top <= window.innerHeight * initialThreshold) {
       animateScene(scene);
     }
 
@@ -99,7 +137,11 @@ export function createSceneReveals({
       once: true,
       onEnter: () => animateScene(scene)
     });
+
+    triggerCount += 1;
   });
 
-  requestAnimationFrame(() => motionScrollTrigger.refresh());
+  if (triggerCount) {
+    requestAnimationFrame(() => motionScrollTrigger.refresh());
+  }
 }

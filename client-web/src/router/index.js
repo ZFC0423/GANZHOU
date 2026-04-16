@@ -1,5 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
+function settleScroll(position) {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      window.setTimeout(() => resolve(position), 180);
+    });
+  });
+}
+
 const routes = [
   {
     path: '/',
@@ -31,7 +39,7 @@ const routes = [
       shell: 'dossier',
       shellTone: 'paper',
       shellLabel: 'Scenic Dossier',
-      chapterTitle: '地方 dossier'
+      chapterTitle: '地方档案'
     }
   },
   {
@@ -138,8 +146,27 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior() {
-    return { top: 0 };
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return settleScroll(savedPosition);
+    }
+
+    if (to.hash) {
+      return settleScroll({
+        el: to.hash,
+        top: 96,
+        behavior: 'smooth'
+      });
+    }
+
+    if (to.path === from.path) {
+      return false;
+    }
+
+    return settleScroll({
+      left: 0,
+      top: 0
+    });
   }
 });
 

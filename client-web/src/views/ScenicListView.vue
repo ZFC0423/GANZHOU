@@ -1,17 +1,12 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElAlert, ElButton, ElEmpty, ElIcon, ElInput, ElMessage, ElPagination, ElSkeleton } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
-import SiteLayout from '../components/SiteLayout.vue';
 import { getScenicListApi } from '../api/front';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import {
-  getNarrativeImage,
-  getNarrativeQuote,
-  getScenicGroup,
-  pickNarrativeText
-} from '../utils/immersive-content';
+import { getNarrativeImage, getNarrativeQuote, getScenicGroup } from '../utils/narrative-meta';
+import { pickNarrativeText } from '../utils/narrative-text';
 
 const router = useRouter();
 const loading = ref(false);
@@ -106,8 +101,7 @@ onMounted(loadList);
 </script>
 
 <template>
-  <SiteLayout>
-    <div class="page-shell scenic-atlas-page">
+  <div class="page-shell scenic-atlas-page">
       <section class="scenic-atlas-hero">
         <div class="scenic-atlas-hero__media">
           <img src="/immersive/hero/P0-01_Yugutai_official_01.jpg" alt="赣州景点图谱" />
@@ -251,8 +245,7 @@ onMounted(loadList);
           </div>
         </template>
       </template>
-    </div>
-  </SiteLayout>
+  </div>
 </template>
 
 <style scoped>

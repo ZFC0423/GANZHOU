@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { getThemeMeta, siteManifesto } from '../utils/immersive-content';
+import { getThemeMeta, siteManifesto } from '../content/site-manifest';
 
 const route = useRoute();
 const menuOpen = ref(false);
@@ -18,7 +18,7 @@ const navigationEntries = [
 
 const secondaryEntries = [
   { label: '路线工作室', path: '/ai-trip', desc: '把兴趣、天数与节奏编排成路线长卷' },
-  { label: '策展附记', path: '/about', desc: '解释这部数字长卷为什么必须这样编排' }
+  { label: '策展附记', path: '/about', desc: '解释这部长卷为什么这样编排' }
 ];
 
 const footerChapters = [

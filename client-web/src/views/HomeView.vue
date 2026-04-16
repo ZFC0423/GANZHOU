@@ -1,19 +1,16 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
-import SiteLayout from '../components/SiteLayout.vue';
+import { ElAlert, ElButton, ElMessage, ElSkeleton } from 'element-plus';
 import { getHomeApi } from '../api/front';
 import { applyImageFallback, resolveAssetUrl } from '../utils/assets';
-import {
-  getNarrativeImage,
-  getNarrativeQuote,
-  getThemeEntries,
-  pickNarrativeText,
-  siteManifesto
-} from '../utils/immersive-content';
+import { siteManifesto } from '../content/site-manifest';
+import { getNarrativeImage, getNarrativeQuote } from '../utils/narrative-meta';
+import { pickNarrativeText } from '../utils/narrative-text';
+import { buildHomeViewModel, resolveHomeArticleLink } from '../view-models/home-view-model';
 import { createSceneMotion, createSceneReveals } from '../utils/scene-motion';
 
 const rootRef = ref(null);
+const apertureLeadRef = ref(null);
 const loading = ref(false);
 const errorMessage = ref('');
 const homeData = ref({
@@ -27,93 +24,19 @@ const homeData = ref({
 
 let cleanupMotion = () => {};
 
-const heroData = computed(() => {
-  const hero = homeData.value.hero || {};
-
-  return {
-    title: pickNarrativeText(hero.title, siteManifesto.title),
-    subtitle: pickNarrativeText(hero.subtitle, siteManifesto.subtitle),
-    image: hero.image || '/immersive/hero/P0-01_AncientWall_official_03.jpg',
-    note: pickNarrativeText(
-      hero.note,
-      '先感到赣州的气质，再进入章节、地方与 AI 导览。'
-    ),
-    primaryAction: hero.primaryAction || {
-      label: '进入景点图谱',
-      path: '/scenic'
-    },
-    secondaryAction: hero.secondaryAction || {
-      label: '向 AI 导览员提问',
-      path: '/ai-chat'
-    }
-  };
-});
-
-const chapterEntries = computed(() => getThemeEntries(homeData.value));
-const apertureLead = computed(() => chapterEntries.value[0] || null);
-const apertureTrail = computed(() => chapterEntries.value.slice(1, 3));
-
-const featuredScenic = computed(() => {
-  const items = Array.isArray(homeData.value.featuredScenic) && homeData.value.featuredScenic.length
-    ? homeData.value.featuredScenic
-    : homeData.value.recommends?.scenic || [];
-
-  return items.slice(0, 5);
-});
-
-const leadScenic = computed(() => featuredScenic.value[0] || null);
-const scenicTrail = computed(() => featuredScenic.value.slice(1, 4));
-
-const curatedArticles = computed(() => {
-  if (Array.isArray(homeData.value.curatedArticles) && homeData.value.curatedArticles.length) {
-    return homeData.value.curatedArticles.map((item) => ({
-      ...item,
-      basePath: item.path?.replace(/\/\d+$/, '') || item.basePath || '/food'
-    }));
-  }
-
-  const sources = [
-    { basePath: '/food', items: homeData.value.recommends?.food || [] },
-    { basePath: '/heritage', items: homeData.value.recommends?.heritage || [] },
-    { basePath: '/red-culture', items: homeData.value.recommends?.redCulture || [] }
-  ];
-
-  return sources
-    .flatMap((source) => source.items.slice(0, 2).map((item) => ({ ...item, basePath: source.basePath })))
-    .slice(0, 4);
-});
-
-const readingLead = computed(() => curatedArticles.value[0] || null);
-const readingTrail = computed(() => curatedArticles.value.slice(1, 4));
-
-const guideEntry = computed(() => {
-  const entry = homeData.value.aiEntry || {};
-
-  return {
-    title: pickNarrativeText(
-      entry.title,
-      'AI 不在站外，它就在这部长卷里面继续带路。'
-    ),
-    description: pickNarrativeText(
-      entry.description,
-      '问答像导览员，路线像工作室，把你已经看到的内容继续整理成清晰的路径。'
-    ),
-    chatPath: entry.chatPath || '/ai-chat',
-    tripPath: entry.tripPath || '/ai-trip'
-  };
-});
-
-const epilogue = computed(() => {
-  const value = homeData.value.epilogue || {};
-
-  return {
-    title: pickNarrativeText(
-      value.title,
-      '这不是把内容更整齐地摆出来，而是把进入赣州的方式重新编排。'
-    ),
-    description: pickNarrativeText(value.description, siteManifesto.subtitle)
-  };
-});
+const pageModel = computed(() => buildHomeViewModel(homeData.value));
+const heroData = computed(() => pageModel.value.heroData);
+const chapterEntries = computed(() => pageModel.value.chapterEntries);
+const apertureLead = computed(() => pageModel.value.apertureLead);
+const apertureTrail = computed(() => pageModel.value.apertureTrail);
+const featuredScenic = computed(() => pageModel.value.featuredScenic);
+const leadScenic = computed(() => pageModel.value.leadScenic);
+const scenicTrail = computed(() => pageModel.value.scenicTrail);
+const curatedArticles = computed(() => pageModel.value.curatedArticles);
+const readingLead = computed(() => pageModel.value.readingLead);
+const readingTrail = computed(() => pageModel.value.readingTrail);
+const guideEntry = computed(() => pageModel.value.guideEntry);
+const epilogue = computed(() => pageModel.value.epilogue);
 
 async function loadHomeData() {
   loading.value = true;
@@ -141,11 +64,7 @@ function resolveArticleImage(item) {
 }
 
 function resolveArticleLink(item) {
-  if (item?.path) {
-    return item.path;
-  }
-
-  return `${item.basePath || '/food'}/${item.id}`;
+  return resolveHomeArticleLink(item);
 }
 
 function resolveChapterImage(item) {
@@ -162,41 +81,78 @@ function setupMotion() {
     return;
   }
 
-  cleanupMotion = createSceneMotion(rootRef.value, ({ gsap, ScrollTrigger }) => {
+  cleanupMotion = createSceneMotion(rootRef.value, ({ gsap, ScrollTrigger, matchMedia, root, select }) => {
+    const heroMedia = select('.home-hero__media img');
+    const heroCopyItems = select('.home-hero__copy > *');
+    const heroThresholdItems = select('.home-hero__threshold > *');
+
     gsap
       .timeline({
         defaults: {
           ease: 'power3.out'
         }
       })
-      .from('.home-hero__media img', { scale: 1.08, duration: 1.6 }, 0)
-      .from('.home-hero__copy > *', { autoAlpha: 0, y: 28, stagger: 0.08, duration: 0.9 }, 0.16)
-      .from('.home-hero__threshold > *', { autoAlpha: 0, y: 22, stagger: 0.08, duration: 0.8 }, 0.32);
+      .from(heroMedia, { scale: 1.08, duration: 1.6 }, 0)
+      .from(heroCopyItems, { autoAlpha: 0, y: 28, stagger: 0.08, duration: 0.9 }, 0.16)
+      .from(heroThresholdItems, { autoAlpha: 0, y: 22, stagger: 0.08, duration: 0.8 }, 0.32);
 
-    createSceneReveals({
-      gsap,
-      ScrollTrigger,
-      sceneSelector: '.home-scene',
-      y: 30,
-      duration: 0.82
+    matchMedia.add('(max-width: 743px)', () => {
+      createSceneReveals({
+        gsap,
+        ScrollTrigger,
+        root,
+        select,
+        sceneSelector: '.home-scene',
+        start: 'top 90%',
+        y: 20,
+        duration: 0.7,
+        stagger: 0.06,
+        initialThreshold: 0.92
+      });
     });
 
-    const leadPanel = rootRef.value.querySelector('.home-aperture__lead');
-    if (leadPanel) {
+    matchMedia.add('(min-width: 744px)', () => {
+      createSceneReveals({
+        gsap,
+        ScrollTrigger,
+        root,
+        select,
+        sceneSelector: '.home-scene',
+        start: 'top 78%',
+        y: 30,
+        duration: 0.82,
+        stagger: 0.08,
+        initialThreshold: 0.82
+      });
+
+      if (!apertureLeadRef.value) {
+        return undefined;
+      }
+
+      const apertureSection = select('.home-aperture')[0];
+
+      if (!apertureSection) {
+        return undefined;
+      }
+
       ScrollTrigger.create({
-        trigger: '.home-aperture',
+        trigger: apertureSection,
         start: 'top center',
         end: 'bottom top',
         scrub: true,
         onUpdate: ({ progress }) => {
-          gsap.to(leadPanel, {
+          gsap.to(apertureLeadRef.value, {
             y: progress * -38,
             duration: 0.2,
             overwrite: true
           });
         }
       });
-    }
+
+      return () => {
+        gsap.set(apertureLeadRef.value, { clearProps: 'transform' });
+      };
+    });
   });
 }
 
@@ -215,21 +171,23 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <SiteLayout>
-    <div ref="rootRef" class="home-page">
-      <div v-if="errorMessage" class="page-feedback">
-        <el-alert :title="errorMessage" type="error" show-icon :closable="false" />
-      </div>
-      <div v-if="errorMessage" class="page-feedback page-feedback--actions">
-        <el-button @click="loadHomeData">重新加载</el-button>
-      </div>
+  <div ref="rootRef" class="home-page">
+    <div v-if="errorMessage" class="page-feedback">
+      <el-alert :title="errorMessage" type="error" show-icon :closable="false" />
+    </div>
+    <div v-if="errorMessage" class="page-feedback page-feedback--actions">
+      <el-button @click="loadHomeData">重新加载</el-button>
+    </div>
 
-      <el-skeleton v-if="loading" :rows="12" animated class="page-skeleton" />
+    <el-skeleton v-if="loading" :rows="12" animated class="page-skeleton" />
 
-      <template v-else>
+    <template v-else>
         <section class="home-hero">
           <div class="home-hero__media">
-            <img :src="resolveAssetUrl(heroData.image, heroData.title)" :alt="heroData.title" />
+            <img
+              :src="resolveAssetUrl(heroData.image, heroData.title)"
+              :alt="heroData.title"
+            />
           </div>
           <div class="home-hero__veil"></div>
 
@@ -283,6 +241,7 @@ onBeforeUnmount(() => {
           <div class="home-aperture__grid">
             <router-link
               v-if="apertureLead"
+              ref="apertureLeadRef"
               :to="apertureLead.path"
               class="home-aperture__lead media-node"
               data-reveal
@@ -438,9 +397,8 @@ onBeforeUnmount(() => {
             <router-link class="editorial-link" to="/about">阅读策展附记</router-link>
           </div>
         </section>
-      </template>
-    </div>
-  </SiteLayout>
+    </template>
+  </div>
 </template>
 
 <style scoped>
@@ -919,6 +877,20 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
+  .home-page {
+    gap: 60px;
+  }
+
+  .home-hero {
+    min-height: 92svh;
+  }
+
+  .home-hero__inner {
+    min-height: 92svh;
+    padding-top: clamp(116px, 15vh, 144px);
+    padding-bottom: 32px;
+  }
+
   .home-aperture__lead {
     min-height: 560px;
   }
@@ -931,22 +903,47 @@ onBeforeUnmount(() => {
 
 @media (max-width: 743px) {
   .home-page {
-    gap: 48px;
+    gap: 44px;
   }
 
   .home-hero {
     margin-top: -82px;
-    min-height: 90svh;
+    min-height: 80svh;
+    border-radius: 32px;
   }
 
   .home-hero__inner {
-    min-height: 90svh;
-    padding-top: 120px;
-    padding-bottom: 26px;
+    min-height: 80svh;
+    align-content: end;
+    gap: 18px;
+    padding-top: 98px;
+    padding-bottom: 18px;
   }
 
   .home-hero__title {
     font-size: clamp(42px, 13vw, 64px);
+  }
+
+  .home-hero__copy {
+    gap: 14px;
+  }
+
+  .home-hero__subtitle {
+    line-height: 1.8;
+  }
+
+  .home-hero__actions {
+    gap: 10px;
+  }
+
+  .home-hero__button {
+    min-height: 44px;
+    padding: 0 18px;
+  }
+
+  .home-hero__threshold {
+    gap: 12px;
+    padding-top: 14px;
   }
 
   .home-aperture__overlay,
@@ -955,15 +952,93 @@ onBeforeUnmount(() => {
     padding: 22px;
   }
 
+  .home-aperture__overlay {
+    gap: 10px;
+    padding: 20px 20px 24px;
+  }
+
+  .home-aperture__overlay h3 {
+    font-size: clamp(30px, 8vw, 40px);
+  }
+
+  .home-aperture__overlay p {
+    max-width: none;
+  }
+
   .home-aperture__lead,
   .home-locus__media,
   .home-reading__lead {
-    min-height: 360px;
+    min-height: 340px;
   }
 
   .home-aperture__card-media,
   .home-reading__trail-image {
-    min-height: 220px;
+    min-height: 188px;
+  }
+
+  .home-reading__trail-item {
+    padding: 14px;
+  }
+
+  .home-guide__door strong,
+  .home-reading__trail-copy strong,
+  .home-locus__trail-item strong {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 549px) {
+  .home-page {
+    gap: 38px;
+  }
+
+  .home-hero {
+    min-height: 74svh;
+    border-radius: 28px;
+  }
+
+  .home-hero__inner {
+    min-height: 74svh;
+    gap: 16px;
+    padding-top: 92px;
+    padding-bottom: 16px;
+  }
+
+  .home-hero__title {
+    font-size: clamp(36px, 12vw, 48px);
+  }
+
+  .home-hero__threshold p,
+  .home-hero__threshold-link small {
+    line-height: 1.7;
+  }
+
+  .home-guide__panel,
+  .home-epilogue__panel {
+    padding: 18px;
+    border-radius: 26px;
+  }
+
+  .home-aperture__overlay {
+    padding: 18px 18px 20px;
+  }
+
+  .home-aperture__lead,
+  .home-locus__media,
+  .home-reading__lead {
+    min-height: 300px;
+  }
+
+  .home-aperture__card,
+  .home-reading__trail-item {
+    gap: 12px;
+    padding: 12px;
+    border-radius: 22px;
+  }
+
+  .home-aperture__card-media,
+  .home-reading__trail-image {
+    min-height: 168px;
   }
 }
 </style>
