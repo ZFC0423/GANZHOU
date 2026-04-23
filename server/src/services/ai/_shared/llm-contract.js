@@ -3,7 +3,7 @@ function normalizeText(value) {
 }
 
 function defaultCreateError(code, message) {
-  const error = new Error(message);
+  const error = /** @type {Error & { code?: string }} */ (new Error(message));
   error.code = code;
   return error;
 }

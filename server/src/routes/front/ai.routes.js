@@ -1,7 +1,16 @@
 import express from 'express';
 import { body } from 'express-validator';
 
-import { chat, intent, knowledge, recommendQuestions, tripPlan } from '../../controllers/front/ai.controller.js';
+import {
+  chat,
+  intent,
+  knowledge,
+  recommendQuestions,
+  routePlanGenerate,
+  routePlanNarrative,
+  routePlanRevise,
+  tripPlan
+} from '../../controllers/front/ai.controller.js';
 import { validateRequest } from '../../middlewares/validate-request.js';
 
 const router = express.Router();
@@ -11,7 +20,24 @@ function optionalNullableStringArray(field) {
   return body(field)
     .optional({ nullable: true })
     .custom((value) => value === null || (Array.isArray(value) && value.every((item) => typeof item === 'string')))
-    .withMessage(`${field} must be a string array or null`);
+      .withMessage(`${field} must be a string array or null`);
+}
+
+function createRequirePlainObjectField(field) {
+  return function requirePlainObjectField(req, res, next) {
+    const value = req.body?.[field];
+
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      res.status(400).json({
+        code: 400,
+        message: `${field} must be an object`,
+        data: null
+      });
+      return;
+    }
+
+    next();
+  };
 }
 
 router.get('/recommend-questions', recommendQuestions);
@@ -124,6 +150,29 @@ router.post(
     validateRequest
   ],
   tripPlan
+);
+router.post(
+  '/route-plan/generate',
+  [
+    createRequirePlainObjectField('routerResult')
+  ],
+  routePlanGenerate
+);
+router.post(
+  '/route-plan/narrative',
+  [
+    createRequirePlainObjectField('public_plan')
+  ],
+  routePlanNarrative
+);
+router.post(
+  '/route-plan/revise',
+  [
+    createRequirePlainObjectField('previous_public_plan'),
+    createRequirePlainObjectField('previous_plan_context'),
+    createRequirePlainObjectField('action')
+  ],
+  routePlanRevise
 );
 
 export default router;

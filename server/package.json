@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test --test-isolation=none",
+    "typecheck:route-planner-agent": "tsc -p tsconfig.route-planner-agent.json"
   },
   "dependencies": {
     "axios": "^1.8.4",
@@ -21,6 +23,7 @@
     "sequelize": "^6.37.6"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "typescript": "^6.0.3"
   }
 }
