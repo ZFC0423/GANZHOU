@@ -7,6 +7,8 @@ import { routeIntent } from '../../services/ai/intent-router/index.js';
 import { runKnowledgeGuideAgent } from '../../services/ai/knowledge-agent/index.js';
 import { generateRoutePlan, generateRoutePlanNarrative, reviseRoutePlan } from '../../services/ai/route-planner-agent/index.js';
 import { runDecisionDiscoveryAgent } from '../../services/ai/decision-discovery-agent/index.js';
+import { createInvalidOutput } from '../../services/ai/decision-discovery-agent/fallback.js';
+import { buildDiscoveryPayloadFromRouterResult } from '../../services/ai/decision-discovery-agent/router-adapter.js';
 
 function shouldExposeIntentMeta(req) {
   if (process.env.NODE_ENV === 'production') {
@@ -219,6 +221,42 @@ export async function discovery(req, res, next) {
     const result = await runDecisionDiscoveryAgent(req.body || {}, {
       requestMeta: buildRequestMeta(req)
     });
+    sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function discoveryQuery(req, res, next) {
+  try {
+    const body = req.body || {};
+    const routerResult = await routeIntent({
+      input: body.user_query,
+      priorState: null
+    });
+
+    if (routerResult.clarification_needed) {
+      sendSuccess(res, stripIntentMeta(routerResult));
+      return;
+    }
+
+    if (routerResult.next_agent !== 'decision_discovery') {
+      sendSuccess(res, createInvalidOutput({
+        taskType: 'discover_options',
+        reasonCode: 'unsupported_next_agent'
+      }));
+      return;
+    }
+
+    const discoveryPayload = buildDiscoveryPayloadFromRouterResult(routerResult, {
+      previous_public_result: body.previous_public_result,
+      decision_context: body.decision_context,
+      action: body.action
+    });
+    const result = await runDecisionDiscoveryAgent(discoveryPayload, {
+      requestMeta: buildRequestMeta(req)
+    });
+
     sendSuccess(res, result);
   } catch (error) {
     next(error);

@@ -1,5 +1,6 @@
 import {
   INTENT_CONTRACT,
+  createEmptyDiscoveryConstraints,
   createEmptyGuideConstraints,
   createEmptyNullTaskConstraints,
   createEmptyRouteConstraints
@@ -108,6 +109,10 @@ function getEmptyConstraints(taskType, userQuery) {
     return createEmptyRouteConstraints(userQuery);
   }
 
+  if (INTENT_CONTRACT.DISCOVERY_TASK_TYPES.includes(taskType)) {
+    return createEmptyDiscoveryConstraints(userQuery);
+  }
+
   return createEmptyNullTaskConstraints(userQuery);
 }
 
@@ -200,7 +205,7 @@ export function validateTaskType(taskType) {
     throw createSchemaViolation(`unsupported task_type: ${normalized}`);
   }
 
-  if (!INTENT_CONTRACT.PR1_RUNTIME_TASK_TYPES.includes(normalized)) {
+  if (!INTENT_CONTRACT.RUNTIME_TASK_TYPES.includes(normalized)) {
     return null;
   }
 
@@ -237,6 +242,8 @@ export function normalizeMissingValues(taskType, constraints, userQuery) {
 }
 
 export function deriveMissingRequiredFields(taskType, constraints) {
+  void constraints;
+
   if (taskType !== 'plan_route') {
     return [];
   }
@@ -312,6 +319,15 @@ export function validateClarificationConsistency(output) {
     return next;
   }
 
+  if (INTENT_CONTRACT.DISCOVERY_TASK_TYPES.includes(next.task_type)) {
+    next.clarification_needed = false;
+    next.clarification_reason = null;
+    next.missing_required_fields = [];
+    next.clarification_questions = [];
+    next.next_agent = 'decision_discovery';
+    return next;
+  }
+
   next.task_type = null;
   next.clarification_needed = true;
   next.clarification_reason = next.clarification_reason === 'constraint_conflict'
@@ -353,7 +369,7 @@ export function validateAndNormalizeIntentResult(rawResult, options = {}) {
     }
   };
 
-  if (rawTaskType && INTENT_CONTRACT.TASK_TYPES.includes(rawTaskType) && !INTENT_CONTRACT.PR1_RUNTIME_TASK_TYPES.includes(rawTaskType)) {
+  if (rawTaskType && INTENT_CONTRACT.TASK_TYPES.includes(rawTaskType) && !INTENT_CONTRACT.RUNTIME_TASK_TYPES.includes(rawTaskType)) {
     normalized._meta.rule_hits = [...normalized._meta.rule_hits, `reserved_task_type:${rawTaskType}`];
     normalized.clarification_reason = 'intent_ambiguous';
   }

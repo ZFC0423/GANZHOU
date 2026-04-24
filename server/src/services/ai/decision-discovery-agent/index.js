@@ -54,30 +54,6 @@ function createOutputAndAssert(input) {
   return output;
 }
 
-function invalidAfterContractFailure(taskType, error) {
-  const output = createInvalidOutput({
-    taskType,
-    reasonCode: 'invalid_action_payload',
-    warnings: [
-      createWarning({
-        code: 'invalid_action_payload',
-        scope: 'global',
-        field: 'contract',
-        severity: 'warning'
-      })
-    ]
-  });
-
-  try {
-    assertDiscoveryContract(output);
-  } catch (fallbackError) {
-    void fallbackError;
-  }
-
-  void error;
-  return output;
-}
-
 function getCompareTargetSources(merged) {
   if (merged.actionOptionKeys.length) {
     return {
@@ -145,6 +121,15 @@ function getSeedOptionKeysForTask(taskType, merged) {
   return [];
 }
 
+function getExplicitTargetOptionKeysForTask(taskType, merged) {
+  if (merged.actionOptionKeys.length) {
+    return merged.actionOptionKeys;
+  }
+
+  void taskType;
+  return [];
+}
+
 function getOptionKeyResolutionWarnings(retrievalResult) {
   return (retrievalResult.option_key_resolutions || [])
     .filter((resolution) => resolution.resolution_status !== 'resolved')
@@ -165,6 +150,7 @@ async function buildDiscoveryResult({
   warnings
 }) {
   const seedOptionKeys = getSeedOptionKeysForTask(taskType, merged);
+  const explicitTargetOptionKeys = getExplicitTargetOptionKeysForTask(taskType, merged);
   const primary = await retrieve({
     continuation: merged.continuation,
     seedTexts: merged.seedTexts,
@@ -174,7 +160,8 @@ async function buildDiscoveryResult({
   });
   let retrieval = primary;
   let scored = score(uniqueCandidates(retrieval.candidates), merged.continuation, {
-    seedOptionKeys: [...seedOptionKeys, ...merged.previousPublicOptionKeys]
+    seedOptionKeys: [...seedOptionKeys, ...merged.previousPublicOptionKeys],
+    explicitTargetOptionKeys
   });
   let allWarnings = [
     ...warnings,
@@ -191,7 +178,8 @@ async function buildDiscoveryResult({
       mode: 'expanded'
     });
     const expandedScored = score(uniqueCandidates(expanded.candidates), merged.continuation, {
-      seedOptionKeys: [...seedOptionKeys, ...merged.previousPublicOptionKeys]
+      seedOptionKeys: [...seedOptionKeys, ...merged.previousPublicOptionKeys],
+      explicitTargetOptionKeys
     });
 
     if (expandedScored.scored_options.length > scored.scored_options.length) {
@@ -298,7 +286,8 @@ async function buildCompareResult({
 
   const targetCandidates = uniqueCandidates(resolved.target_resolutions.map((target) => target.candidate));
   const scored = score(targetCandidates, merged.continuation, {
-    seedOptionKeys: resolved.target_resolutions.map((target) => target.option_key)
+    seedOptionKeys: resolved.target_resolutions.map((target) => target.option_key),
+    explicitTargetOptionKeys: resolved.target_resolutions.map((target) => target.option_key)
   });
   const rankedOptions = project(scored.scored_options, Math.min(MAX_OPTION_LIMIT, scored.scored_options.length));
   const comparison = compare({
@@ -329,6 +318,30 @@ async function buildCompareResult({
     warnings: uniqWarnings([...warnings, ...scored.warnings]),
     continuation
   });
+}
+
+function isExpectedInfrastructureError(error) {
+  const values = [
+    error?.name,
+    error?.code,
+    error?.parent?.code,
+    error?.original?.code
+  ].map((value) => normalizeText(value));
+
+  return values.some((value) => [
+    'SequelizeConnectionError',
+    'SequelizeConnectionRefusedError',
+    'SequelizeHostNotFoundError',
+    'SequelizeHostNotReachableError',
+    'SequelizeAccessDeniedError',
+    'SequelizeConnectionTimedOutError',
+    'SequelizeTimeoutError',
+    'SequelizeDatabaseError',
+    'ETIMEDOUT',
+    'ECONNREFUSED',
+    'ECONNRESET',
+    'ENOTFOUND'
+  ].includes(value));
 }
 
 export function createDecisionDiscoveryAgent({
@@ -379,23 +392,23 @@ export function createDecisionDiscoveryAgent({
         warnings
       });
     } catch (error) {
-      try {
-        const fallback = createDiscoveryOutput({
-          taskType,
-          resultStatus: 'limited',
-          warnings: [
-            createWarning({
-              code: 'database_retrieval_failed',
-              scope: 'global',
-              severity: 'warning'
-            })
-          ]
-        });
-        assertDiscoveryContract(fallback);
-        return fallback;
-      } catch (contractError) {
-        return invalidAfterContractFailure(taskType, contractError || error);
+      if (!isExpectedInfrastructureError(error)) {
+        throw error;
       }
+
+      const fallback = createDiscoveryOutput({
+        taskType,
+        resultStatus: 'limited',
+        warnings: [
+          createWarning({
+            code: 'database_retrieval_failed',
+            scope: 'global',
+            severity: 'warning'
+          })
+        ]
+      });
+      assertDiscoveryContract(fallback);
+      return fallback;
     }
   };
 }

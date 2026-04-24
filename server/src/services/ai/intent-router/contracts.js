@@ -1,7 +1,25 @@
 export const INTENT_CONTRACT = {
-  TASK_TYPES: ['guide_understand', 'plan_route', 'adjust_route', 'qa_support'],
+  DISCOVERY_TASK_TYPES: ['discover_options', 'compare_options', 'narrow_options', 'suggest_alternatives'],
+  TASK_TYPES: [
+    'guide_understand',
+    'plan_route',
+    'discover_options',
+    'compare_options',
+    'narrow_options',
+    'suggest_alternatives',
+    'adjust_route',
+    'qa_support'
+  ],
   PR1_RUNTIME_TASK_TYPES: ['guide_understand', 'plan_route'],
-  NEXT_AGENTS: ['ai_chat', 'ai_trip', 'safe_clarify'],
+  RUNTIME_TASK_TYPES: [
+    'guide_understand',
+    'plan_route',
+    'discover_options',
+    'compare_options',
+    'narrow_options',
+    'suggest_alternatives'
+  ],
+  NEXT_AGENTS: ['ai_chat', 'ai_trip', 'decision_discovery', 'safe_clarify'],
   CLARIFICATION_REASONS: ['missing_slots', 'intent_ambiguous', 'constraint_conflict'],
   TOP_LEVEL_FIELDS: [
     'task_type',
@@ -63,6 +81,78 @@ export const INTENT_CONTRACT = {
       'status_flags',
       'route_origin',
       'destination_scope'
+    ],
+    discover_options: [
+      'user_query',
+      'subject_entities',
+      'scenic_hints',
+      'mentioned_entities',
+      'exclude_entities',
+      'theme_preferences',
+      'region_hints',
+      'travel_mode',
+      'companions',
+      'hard_avoidances',
+      'physical_constraints',
+      'time_budget',
+      'pace_preference',
+      'route_origin',
+      'destination_scope',
+      'option_limit'
+    ],
+    compare_options: [
+      'user_query',
+      'subject_entities',
+      'scenic_hints',
+      'mentioned_entities',
+      'exclude_entities',
+      'theme_preferences',
+      'region_hints',
+      'travel_mode',
+      'companions',
+      'hard_avoidances',
+      'physical_constraints',
+      'time_budget',
+      'pace_preference',
+      'route_origin',
+      'destination_scope',
+      'option_limit'
+    ],
+    narrow_options: [
+      'user_query',
+      'subject_entities',
+      'scenic_hints',
+      'mentioned_entities',
+      'exclude_entities',
+      'theme_preferences',
+      'region_hints',
+      'travel_mode',
+      'companions',
+      'hard_avoidances',
+      'physical_constraints',
+      'time_budget',
+      'pace_preference',
+      'route_origin',
+      'destination_scope',
+      'option_limit'
+    ],
+    suggest_alternatives: [
+      'user_query',
+      'subject_entities',
+      'scenic_hints',
+      'mentioned_entities',
+      'exclude_entities',
+      'theme_preferences',
+      'region_hints',
+      'travel_mode',
+      'companions',
+      'hard_avoidances',
+      'physical_constraints',
+      'time_budget',
+      'pace_preference',
+      'route_origin',
+      'destination_scope',
+      'option_limit'
     ]
   },
   NULL_TASKTYPE_CONSTRAINT_ALLOWLIST: [
@@ -80,7 +170,10 @@ export const INTENT_CONTRACT = {
     'destination_scope',
     'subject_entities',
     'region_hints',
-    'scenic_hints'
+    'scenic_hints',
+    'mentioned_entities',
+    'exclude_entities',
+    'option_limit'
   ],
   CONSTRAINT_FIELD_RULES: {
     guide_understand: {
@@ -178,7 +271,10 @@ export const INTENT_CONTRACT = {
     destination_scope: { type: 'string', nullable: true },
     subject_entities: { type: 'string_array', nullable: true },
     region_hints: { type: 'string_array', nullable: true },
-    scenic_hints: { type: 'string_array', nullable: true }
+    scenic_hints: { type: 'string_array', nullable: true },
+    mentioned_entities: { type: 'string_array', nullable: true },
+    exclude_entities: { type: 'string_array', nullable: true },
+    option_limit: { type: 'integer', nullable: true }
   },
   REQUIRED_FIELDS_BY_TASK_TYPE: {
     guide_understand: [],
@@ -250,6 +346,27 @@ export function createEmptyRouteConstraints(userQuery = '') {
   };
 }
 
+export function createEmptyDiscoveryConstraints(userQuery = '') {
+  return {
+    user_query: String(userQuery || ''),
+    subject_entities: null,
+    scenic_hints: null,
+    mentioned_entities: null,
+    exclude_entities: null,
+    theme_preferences: null,
+    region_hints: null,
+    travel_mode: null,
+    companions: null,
+    hard_avoidances: null,
+    physical_constraints: null,
+    time_budget: null,
+    pace_preference: null,
+    route_origin: null,
+    destination_scope: null,
+    option_limit: null
+  };
+}
+
 export function createEmptyNullTaskConstraints(userQuery = '') {
   return {
     user_query: String(userQuery || ''),
@@ -266,6 +383,45 @@ export function createEmptyNullTaskConstraints(userQuery = '') {
     destination_scope: null,
     subject_entities: null,
     region_hints: null,
-    scenic_hints: null
+    scenic_hints: null,
+    mentioned_entities: null,
+    exclude_entities: null,
+    option_limit: null
   };
 }
+
+INTENT_CONTRACT.DISCOVERY_TASK_TYPES.forEach((taskType) => {
+  INTENT_CONTRACT.CONSTRAINT_FIELD_RULES[taskType] = {
+    user_query: { type: 'string', nullable: false },
+    subject_entities: { type: 'string_array', nullable: true },
+    scenic_hints: { type: 'string_array', nullable: true },
+    mentioned_entities: { type: 'string_array', nullable: true },
+    exclude_entities: { type: 'string_array', nullable: true },
+    theme_preferences: { type: 'string_array', nullable: true },
+    region_hints: { type: 'string_array', nullable: true },
+    travel_mode: {
+      type: 'enum',
+      nullable: true,
+      values: ['public_transport', 'self_drive', 'mixed']
+    },
+    companions: { type: 'string_array', nullable: true },
+    hard_avoidances: { type: 'string_array', nullable: true },
+    physical_constraints: { type: 'string_array', nullable: true },
+    time_budget: {
+      type: 'object',
+      nullable: true,
+      shape: {
+        days: { type: 'integer', nullable: true },
+        date_text: { type: 'string', nullable: true }
+      }
+    },
+    pace_preference: {
+      type: 'enum',
+      nullable: true,
+      values: ['relaxed', 'normal', 'compact']
+    },
+    route_origin: { type: 'string', nullable: true },
+    destination_scope: { type: 'string_array', nullable: true },
+    option_limit: { type: 'integer', nullable: true }
+  };
+});

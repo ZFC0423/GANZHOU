@@ -1,4 +1,5 @@
 import { AXIS_CODES } from './contracts.js';
+import { clampScore } from './score.js';
 
 function getAxisInput(option, axisCode) {
   return option.axes?.[axisCode] || {
@@ -106,7 +107,9 @@ export function buildComparison({ targetResolutions = [], rankedOptions = [], sc
   }));
   const axes = AXIS_CODES.map((axisCode) => buildAxis(scoredOptions, axisCode));
   const decisiveWinners = Array.from(new Set(axes.map(getDecisiveWinner).filter(Boolean)));
-  const margin = rankedOptions.length >= 2 ? rankedOptions[0].fit_score - rankedOptions[1].fit_score : 0;
+  const margin = rankedOptions.length >= 2
+    ? clampScore(rankedOptions[0].fit_score) - clampScore(rankedOptions[1].fit_score)
+    : 0;
   const topOptionKey = rankedOptions[0]?.option_key || null;
   const hasClearWinner = rankedOptions.length >= 2
     && margin >= 8

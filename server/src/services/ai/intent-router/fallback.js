@@ -1,4 +1,5 @@
 import {
+  createEmptyDiscoveryConstraints,
   createEmptyGuideConstraints,
   createEmptyNullTaskConstraints,
   createEmptyRouteConstraints
@@ -29,6 +30,10 @@ const GUIDE_KEYWORDS = [
   /有哪些景点|有什么看点|怎么理解/i
 ];
 
+const GUIDE_PRIORITY_KEYWORDS = [
+  /介绍|讲讲|了解|是什么|为什么|历史|文化|背景/i
+];
+
 const ROUTE_KEYWORDS = [
   /路线|行程|安排|规划|怎么走|怎么玩|几天|周末|一日游|两日游|自驾|公共交通/i,
   /帮我排|帮我顺|帮我做个安排|路线工作室/i
@@ -36,6 +41,18 @@ const ROUTE_KEYWORDS = [
 
 const STRONG_ROUTE_KEYWORDS = [
   /安排.*路线|规划.*路线|帮我.*行程|帮我.*路线|怎么安排|几天怎么玩/i
+];
+
+const ROUTE_PRIORITY_KEYWORDS = [
+  /路线|行程|几日游|一日游|二日游|上午|下午|从.+到|itinerary|route/i,
+  /推荐.*一条.*路线|一日游.*路线|路线.*推荐|行程.*安排|规划.*行程|帮我.*安排/i
+];
+
+const DISCOVERY_INTENT_PATTERNS = [
+  ['compare_options', /比较|比一比|哪个更适合|哪一个更适合|哪个更好|怎么选|选哪个|二选一|三选一/i],
+  ['narrow_options', /这几个.*挑|里面.*挑|筛掉|筛选|缩小范围|挑两个|挑一个|刚才推荐/i],
+  ['suggest_alternatives', /换一个|替代|不想去|不去了|类似但|这个不合适|另一个|有没有替代/i],
+  ['discover_options', /推荐几个.*景点|推荐几个.*地方|有哪些.*景点|有哪些.*地方|有什么.*景点|有什么.*地方|适合.*去的景点|适合.*去的地方|可以选/i]
 ];
 
 const KNOWN_ENTITY_PATTERNS = [
@@ -278,6 +295,13 @@ function parseKnownEntities(text) {
 }
 
 function detectRouteIntent(text, ruleHits) {
+  const priorityMatch = ROUTE_PRIORITY_KEYWORDS.some((pattern) => pattern.test(text));
+
+  if (priorityMatch) {
+    ruleHits.push('intent:route:priority');
+    return { score: 4, resolved: true };
+  }
+
   const strongMatch = STRONG_ROUTE_KEYWORDS.some((pattern) => pattern.test(text));
   const routeMatchCount = ROUTE_KEYWORDS.filter((pattern) => pattern.test(text)).length;
 
@@ -300,6 +324,13 @@ function detectRouteIntent(text, ruleHits) {
 }
 
 function detectGuideIntent(text, ruleHits) {
+  const priorityMatch = GUIDE_PRIORITY_KEYWORDS.some((pattern) => pattern.test(text));
+
+  if (priorityMatch) {
+    ruleHits.push('intent:guide:priority');
+    return { score: 2, resolved: true };
+  }
+
   const guideMatchCount = GUIDE_KEYWORDS.filter((pattern) => pattern.test(text)).length;
 
   if (guideMatchCount >= 2) {
@@ -313,6 +344,21 @@ function detectGuideIntent(text, ruleHits) {
   }
 
   return { score: 0, resolved: false };
+}
+
+function detectDiscoveryIntent(text, ruleHits) {
+  const matched = DISCOVERY_INTENT_PATTERNS.find(([, pattern]) => pattern.test(text));
+
+  if (!matched) {
+    return { score: 0, resolved: false, task_type: null };
+  }
+
+  ruleHits.push(`intent:discovery:${matched[0]}`);
+  return {
+    score: matched[0] === 'discover_options' ? 2 : 3,
+    resolved: true,
+    task_type: matched[0]
+  };
 }
 
 function buildGuideConstraints(text) {
@@ -352,6 +398,31 @@ function buildRouteConstraints(text, conflictCodes, ruleHits) {
   };
 }
 
+function buildDiscoveryConstraints(text) {
+  const constraints = createEmptyDiscoveryConstraints(text);
+  const entities = parseKnownEntities(text);
+
+  return {
+    ...constraints,
+    subject_entities: entities,
+    scenic_hints: entities,
+    mentioned_entities: entities,
+    theme_preferences: parseThemePreferences(text),
+    region_hints: /绔犺础|璧ｅ幙|鐟為噾|瀹夎繙|瀹侀兘|澶т綑/i.test(text)
+      ? uniqStrings(text.match(/绔犺础|璧ｅ幙|鐟為噾|瀹夎繙|瀹侀兘|澶т綑/gi) || [])
+      : null,
+    travel_mode: null,
+    companions: parseCompanions(text),
+    hard_avoidances: parseHardAvoidances(text),
+    physical_constraints: parsePhysicalConstraints(text),
+    time_budget: parseTimeBudget(text),
+    pace_preference: parsePacePreference(text, [], []),
+    route_origin: parseRouteOrigin(text),
+    destination_scope: parseDestinationScope(text) ? [parseDestinationScope(text)] : null,
+    option_limit: null
+  };
+}
+
 function buildNullConstraints(text) {
   const constraints = createEmptyNullTaskConstraints(text);
   const entities = parseKnownEntities(text);
@@ -377,8 +448,49 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
   const ruleHits = [...extraRuleHits];
   const conflictCodes = [];
   const routeIntent = detectRouteIntent(text, ruleHits);
+  const discoveryIntent = detectDiscoveryIntent(text, ruleHits);
   const guideIntent = detectGuideIntent(text, ruleHits);
   const isMixedIntent = routeIntent.score > 0 && guideIntent.score > 0;
+
+  if (routeIntent.score > 0) {
+    const constraints = buildRouteConstraints(text, conflictCodes, ruleHits);
+    const hasConflict = conflictCodes.length > 0;
+    const resolved = routeIntent.resolved || Boolean(constraints.time_budget) || Boolean(constraints.travel_mode);
+
+    return {
+      task_type: 'plan_route',
+      task_confidence: resolved ? 0.84 : 0.61,
+      constraints,
+      clarification_reason: hasConflict ? 'constraint_conflict' : null,
+      _meta: {
+        decision_source: 'fallback',
+        prior_state_usage: 'none',
+        fallback_reason: fallbackReason,
+        missing_required_fields: [],
+        rule_hits: ruleHits,
+        conflict_codes: conflictCodes,
+        fallback_resolution: resolved ? 'fallback_resolved' : 'fallback_tentative'
+      }
+    };
+  }
+
+  if (discoveryIntent.score > 0) {
+    return {
+      task_type: discoveryIntent.task_type,
+      task_confidence: discoveryIntent.resolved ? 0.82 : 0.62,
+      constraints: buildDiscoveryConstraints(text),
+      clarification_reason: null,
+      _meta: {
+        decision_source: 'fallback',
+        prior_state_usage: 'none',
+        fallback_reason: fallbackReason,
+        missing_required_fields: [],
+        rule_hits: ruleHits,
+        conflict_codes: [],
+        fallback_resolution: discoveryIntent.resolved ? 'fallback_resolved' : 'fallback_tentative'
+      }
+    };
+  }
 
   if (isMixedIntent) {
     if (guideIntent.score > routeIntent.score) {

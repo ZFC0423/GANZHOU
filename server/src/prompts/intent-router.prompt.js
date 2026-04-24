@@ -22,6 +22,15 @@ export function buildIntentRouterMessages({ input, priorState }) {
     '如果你判断为 adjust_route 或 qa_support，本轮也不要真的产出它们，请改为 task_type = null，clarification_reason = intent_ambiguous。',
     '约束抽取要求：尽量抽取 time_budget、money_budget、travel_mode、companions、pace_preference、theme_preferences、hard_avoidances、physical_constraints、status_flags.already_has_plan。',
     '缺失信息不要臆造；未知时请填 null，不要补全用户没说过的预算、天数、交通方式或同行信息。'
+    ,
+    '',
+    'PR2 discovery routing addendum:',
+    'Stable task_type values now include: guide_understand, plan_route, discover_options, compare_options, narrow_options, suggest_alternatives, or null.',
+    'For discover_options, compare_options, narrow_options, and suggest_alternatives, set next_agent to decision_discovery.',
+    'Priority: route/itinerary/day-by-day/schedule/from-to requests => plan_route; compare/choose/filter/alternative requests => discovery; explain/history/background requests => guide_understand; unclear => null/safe_clarify.',
+    'Do not route "recommend a route" as discover_options. Only "recommend several scenic spots/places/options" is discover_options.',
+    'Mention is not selection. Do not output current_selection, current_selection_key, candidate_entities, candidate_entity_keys, winner, score, rank, or comparison.',
+    'Router only extracts low-risk constraints and never sorts, scores, chooses a winner, or writes recommendation prose.'
   ].join('\n');
 
   const userPrompt = [

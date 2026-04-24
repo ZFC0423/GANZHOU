@@ -4,6 +4,7 @@ import { body } from 'express-validator';
 import {
   chat,
   discovery,
+  discoveryQuery,
   intent,
   knowledge,
   recommendQuestions,
@@ -42,6 +43,33 @@ function createRequirePlainObjectField(field) {
 }
 
 router.get('/recommend-questions', recommendQuestions);
+router.post(
+  '/discovery/query',
+  [
+    body('user_query')
+      .isString()
+      .withMessage('user_query must be a string')
+      .trim()
+      .notEmpty()
+      .withMessage('user_query is required')
+      .isLength({ max: 500 })
+      .withMessage('user_query is too long'),
+    body('previous_public_result')
+      .optional({ nullable: true })
+      .custom((value) => value === null || (typeof value === 'object' && !Array.isArray(value)))
+      .withMessage('previous_public_result must be an object or null'),
+    body('decision_context')
+      .optional({ nullable: true })
+      .custom((value) => value === null || (typeof value === 'object' && !Array.isArray(value)))
+      .withMessage('decision_context must be an object or null'),
+    body('action')
+      .optional({ nullable: true })
+      .custom((value) => value === null || (typeof value === 'object' && !Array.isArray(value)))
+      .withMessage('action must be an object or null'),
+    validateRequest
+  ],
+  discoveryQuery
+);
 router.post(
   '/discovery',
   [

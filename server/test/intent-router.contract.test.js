@@ -101,7 +101,10 @@ test('top-level normalization snapshot: null task keeps all protocol fields and 
       destination_scope: null,
       subject_entities: null,
       region_hints: null,
-      scenic_hints: null
+      scenic_hints: null,
+      mentioned_entities: null,
+      exclude_entities: null,
+      option_limit: null
     },
     clarification_needed: true,
     clarification_reason: 'intent_ambiguous',

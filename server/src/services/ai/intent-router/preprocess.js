@@ -1,5 +1,6 @@
 import {
   INTENT_CONTRACT,
+  createEmptyDiscoveryConstraints,
   createEmptyGuideConstraints,
   createEmptyNullTaskConstraints,
   createEmptyRouteConstraints
@@ -107,9 +108,15 @@ function normalizeConstraintValue(key, value) {
     case 'hard_avoidances':
     case 'physical_constraints':
     case 'subject_entities':
+    case 'mentioned_entities':
+    case 'exclude_entities':
     case 'region_hints':
     case 'scenic_hints':
       return uniqStrings(value) || null;
+    case 'option_limit': {
+      const numeric = Number(value);
+      return Number.isInteger(numeric) ? numeric : null;
+    }
     case 'route_origin':
     case 'destination_scope':
       return normalizeOptionalString(value);
@@ -129,6 +136,10 @@ function getConstraintTemplate(taskType, userQuery) {
 
   if (taskType === 'plan_route') {
     return createEmptyRouteConstraints(userQuery);
+  }
+
+  if (INTENT_CONTRACT.DISCOVERY_TASK_TYPES.includes(taskType)) {
+    return createEmptyDiscoveryConstraints(userQuery);
   }
 
   return createEmptyNullTaskConstraints(userQuery);
@@ -155,7 +166,7 @@ export function normalizePriorState(value) {
   }
 
   const rawTaskType = value.task_type === null ? null : normalizeOptionalString(value.task_type);
-  const taskType = INTENT_CONTRACT.PR1_RUNTIME_TASK_TYPES.includes(rawTaskType) ? rawTaskType : null;
+  const taskType = INTENT_CONTRACT.RUNTIME_TASK_TYPES.includes(rawTaskType) ? rawTaskType : null;
   const taskConfidence = clampConfidence(value.task_confidence);
   const constraints = fillTemplate(taskType, isPlainObject(value.constraints) ? value.constraints : {}, '');
 

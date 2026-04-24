@@ -125,6 +125,7 @@ export const WARNING_CODES = [
   'expanded_pool_used',
   'invalid_action_payload',
   'unsupported_task_type',
+  'unsupported_next_agent',
   'invalid_compare_target_count',
   'database_retrieval_failed',
   'option_key_not_found',

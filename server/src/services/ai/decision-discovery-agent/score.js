@@ -29,16 +29,28 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+export function clampScore(score) {
+  const numeric = Number(score);
+
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
 export function normalizeHotScore(hotScore) {
   return (clamp(Number(hotScore) || 0, 0, 100) / 100) * 6;
 }
 
 export function getFitLevel(score) {
-  if (score >= FIT_LEVEL_THRESHOLDS.high) {
+  const clamped = clampScore(score);
+
+  if (clamped >= FIT_LEVEL_THRESHOLDS.high) {
     return 'high';
   }
 
-  if (score >= FIT_LEVEL_THRESHOLDS.medium) {
+  if (clamped >= FIT_LEVEL_THRESHOLDS.medium) {
     return 'medium';
   }
 
@@ -244,6 +256,12 @@ function scoreWalking(candidate, continuation) {
   };
 }
 
+function hasPhysicalConflict(continuation, walkingScore) {
+  const mobilityConstraint = (continuation.physical_constraints || []).some((item) => /mobility|elder/i.test(item));
+
+  return mobilityConstraint && walkingScore.hardConflict;
+}
+
 const TRANSPORT_TERMS = {
   public_transport: ['public_transport', 'public transport', 'bus', 'transit', 'walk', 'walking', 'citywalk', 'on foot'],
   self_drive: ['self_drive', 'self-drive', 'self drive', 'drive', 'driving', 'car', 'parking']
@@ -350,7 +368,7 @@ function shouldHardFilter(candidate, continuation, walkingScore) {
   return walkingScore.hardConflict && (strictAvoidance || mobilityConstraint);
 }
 
-export function scoreCandidate(candidate, continuation = {}, { seedOptionKeys = [] } = {}) {
+export function scoreCandidate(candidate, continuation = {}, { seedOptionKeys = [], explicitTargetOptionKeys = [] } = {}) {
   const theme = scoreTheme(candidate, continuation);
   const region = scoreRegion(candidate, continuation);
   const family = scoreFamily(candidate, continuation);
@@ -358,26 +376,27 @@ export function scoreCandidate(candidate, continuation = {}, { seedOptionKeys = 
   const transport = scoreTransport(candidate, continuation);
   const editorial = scoreEditorial(candidate);
   const explicitSeed = seedOptionKeys.includes(candidate.option_key) ? 10 : 0;
+  const isExplicitTarget = explicitTargetOptionKeys.includes(candidate.option_key);
   const destination = scoreDestination(candidate, continuation);
+  const hardConflict = shouldHardFilter(candidate, continuation, walking);
+  const physicalConflict = hasPhysicalConflict(continuation, walking);
 
-  if (shouldHardFilter(candidate, continuation, walking)) {
+  if (hardConflict && !isExplicitTarget) {
     return null;
   }
 
-  const score = clamp(
-    Math.round(
-      50
-      + theme.score
-      + region.score
-      + family.score
-      + walking.score
-      + transport.score
-      + destination
-      + explicitSeed
-      + editorial.score
-    ),
-    0,
-    100
+  const score = clampScore(
+    50
+    + theme.score
+    + region.score
+    + family.score
+    + walking.score
+    + transport.score
+    + destination
+    + explicitSeed
+    + editorial.score
+    + (hardConflict && isExplicitTarget ? -45 : 0)
+    + (physicalConflict && isExplicitTarget ? -10 : 0)
   );
   const fitReasons = filterAllowedCodes([
     ...theme.signal_codes,
@@ -392,7 +411,8 @@ export function scoreCandidate(candidate, continuation = {}, { seedOptionKeys = 
   const cautionReasons = filterAllowedCodes([
     family.caution,
     walking.caution,
-    transport.caution
+    transport.caution,
+    physicalConflict ? 'physical_constraint_conflict' : null
   ], CAUTION_REASON_CODES);
   const warnings = [];
 
@@ -432,7 +452,10 @@ export function scoreCandidate(candidate, continuation = {}, { seedOptionKeys = 
 }
 
 export function compareScoredOptions(left, right) {
-  if (right.fit_score !== left.fit_score) return right.fit_score - left.fit_score;
+  const rightScore = clampScore(right.fit_score);
+  const leftScore = clampScore(left.fit_score);
+
+  if (rightScore !== leftScore) return rightScore - leftScore;
   if (FIT_LEVEL_PRIORITY[right.fit_level] !== FIT_LEVEL_PRIORITY[left.fit_level]) {
     return FIT_LEVEL_PRIORITY[right.fit_level] - FIT_LEVEL_PRIORITY[left.fit_level];
   }
@@ -464,24 +487,29 @@ export function scoreCandidates(candidates = [], continuation = {}, options = {}
 }
 
 export function projectRankedOptions(scoredOptions = [], optionLimit = 3) {
-  return scoredOptions.slice(0, optionLimit).map((option, index) => ({
-    option_key: option.option_key,
-    entity_type: 'scenic',
-    entity_id: option.entity_id,
-    rank: index + 1,
-    display_name: option.display_name,
-    region: option.region,
-    category_id: option.category_id,
-    fit_score: option.fit_score,
-    fit_level: option.fit_level,
-    fit_reasons: option.fit_reasons,
-    caution_reasons: option.caution_reasons,
-    evidence_refs: []
-  }));
+  return scoredOptions.slice(0, optionLimit).map((option, index) => {
+    const fitScore = clampScore(option.fit_score);
+
+    return {
+      option_key: option.option_key,
+      entity_type: 'scenic',
+      entity_id: option.entity_id,
+      rank: index + 1,
+      display_name: option.display_name,
+      region: option.region,
+      category_id: option.category_id,
+      fit_score: fitScore,
+      fit_level: getFitLevel(fitScore),
+      fit_reasons: option.fit_reasons,
+      caution_reasons: option.caution_reasons,
+      evidence_refs: []
+    };
+  });
 }
 
 export const DISCOVERY_SCORE_PRIVATE = {
   classifyWalkingIntensity,
+  clampScore,
   compareScoredOptions,
   getCandidateJoinedText,
   scoreTransport,

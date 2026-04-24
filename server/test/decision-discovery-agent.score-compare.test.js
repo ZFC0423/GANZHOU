@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildComparison } from '../src/services/ai/decision-discovery-agent/compare.js';
-import { normalizeHotScore, projectRankedOptions, scoreCandidates } from '../src/services/ai/decision-discovery-agent/score.js';
+import { clampScore, normalizeHotScore, projectRankedOptions, scoreCandidates } from '../src/services/ai/decision-discovery-agent/score.js';
 
 function scenicCandidate(id, overrides = {}) {
   return {
@@ -38,6 +38,14 @@ test('hot_score signal is clamped to 0..6', () => {
   assert.equal(normalizeHotScore(0), 0);
   assert.equal(normalizeHotScore(50), 3);
   assert.equal(normalizeHotScore(500), 6);
+});
+
+test('clampScore normalizes NaN, Infinity, negative and oversized values', () => {
+  assert.equal(clampScore(Number.NaN), 0);
+  assert.equal(clampScore(Number.POSITIVE_INFINITY), 0);
+  assert.equal(clampScore(-20), 0);
+  assert.equal(clampScore(1000), 100);
+  assert.equal(clampScore(51.6), 52);
 });
 
 test('transport signal requires explicit text and cannot be inferred from region', () => {
@@ -182,4 +190,143 @@ test('comparison can clear winner when non-editorial decisive axis and margin al
 
   assert.equal(comparison.outcome, 'clear_winner');
   assert.equal(rankedOptions[0].option_key, 'scenic:1');
+});
+
+test('hard conflict explicit target clamps below-zero theoretical score to 0', () => {
+  const { scored_options: scored } = scoreCandidates(
+    [
+      scenicCandidate(1, {
+        recommend_flag: 0,
+        hot_score: -50,
+        text: {
+          intro: '',
+          culture_desc: '',
+          route_label: '',
+          quote: '',
+          visit_mode: '',
+          walking_intensity: 'high steep climb',
+          traffic_guide: '',
+          tags: ''
+        }
+      })
+    ],
+    {
+      theme_preferences: [],
+      region_hints: [],
+      destination_scope: [],
+      travel_mode: null,
+      companions: [],
+      hard_avoidances: ['avoid_steep'],
+      physical_constraints: ['mobility_sensitive'],
+      pace_preference: 'relaxed'
+    },
+    {
+      seedOptionKeys: ['scenic:1'],
+      explicitTargetOptionKeys: ['scenic:1']
+    }
+  );
+
+  assert.equal(scored.length, 1);
+  assert.equal(scored[0].fit_score, 0);
+  assert.ok(scored[0].caution_reasons.includes('walking_intensity_conflict'));
+  assert.ok(scored[0].caution_reasons.includes('physical_constraint_conflict'));
+});
+
+test('high positive score is clamped to 100 before projection', () => {
+  const { scored_options: scored } = scoreCandidates(
+    [
+      scenicCandidate(1, {
+        recommend_flag: 1,
+        hot_score: 100,
+        text: {
+          intro: 'history heritage public transport citywalk Zhanggong',
+          culture_desc: 'heritage old-city',
+          route_label: 'citywalk public transport',
+          quote: 'heritage',
+          visit_mode: 'public transport',
+          walking_intensity: 'low',
+          traffic_guide: '',
+          tags: 'history old-city'
+        }
+      })
+    ],
+    {
+      theme_preferences: ['heritage'],
+      region_hints: ['Zhanggong'],
+      destination_scope: ['Zhanggong'],
+      travel_mode: 'public_transport',
+      companions: ['family_with_kids'],
+      hard_avoidances: ['avoid_overtiring'],
+      physical_constraints: [],
+      pace_preference: 'relaxed'
+    },
+    {
+      seedOptionKeys: ['scenic:1']
+    }
+  );
+  const ranked = projectRankedOptions(scored, 1);
+
+  assert.equal(scored[0].fit_score, 100);
+  assert.equal(ranked[0].fit_score, 100);
+});
+
+test('projection reclamps invalid fit_score before public output and sorting input', () => {
+  const ranked = projectRankedOptions([
+    {
+      ...scenicCandidate(1),
+      fit_score: Number.NaN,
+      fit_level: 'high',
+      fit_reasons: [],
+      caution_reasons: []
+    },
+    {
+      ...scenicCandidate(2),
+      fit_score: 1000,
+      fit_level: 'high',
+      fit_reasons: [],
+      caution_reasons: []
+    }
+  ], 2);
+
+  assert.equal(ranked[0].fit_score, 0);
+  assert.equal(ranked[1].fit_score, 100);
+});
+
+test('comparison margin uses clamped public scores', () => {
+  const comparison = buildComparison({
+    targetResolutions: [
+      { requested_text: 'scenic:1', resolution_status: 'resolved', resolution_reason: 'option_key', option_key: 'scenic:1' },
+      { requested_text: 'scenic:2', resolution_status: 'resolved', resolution_reason: 'option_key', option_key: 'scenic:2' }
+    ],
+    rankedOptions: [
+      { option_key: 'scenic:1', fit_score: Number.NaN },
+      { option_key: 'scenic:2', fit_score: -100 }
+    ],
+    scoredOptions: [
+      {
+        ...scenicCandidate(1),
+        axes: {
+          theme_fit: { axis_score: 3, value_code: 'strong_fit', signal_codes: ['theme_match'], available: true },
+          region_fit: { axis_score: 0, value_code: 'unknown', signal_codes: [], available: false },
+          transport_fit: { axis_score: 0, value_code: 'unknown', signal_codes: [], available: false },
+          walking_fit: { axis_score: 0, value_code: 'unknown', signal_codes: [], available: false },
+          family_fit: { axis_score: 0, value_code: 'unknown', signal_codes: [], available: false },
+          editorial_priority: { axis_score: 0, value_code: 'editorial_low', signal_codes: [], available: true }
+        }
+      },
+      {
+        ...scenicCandidate(2),
+        axes: {
+          theme_fit: { axis_score: 0, value_code: 'weak', signal_codes: [], available: true },
+          region_fit: { axis_score: 0, value_code: 'unknown', signal_codes: [], available: false },
+          transport_fit: { axis_score: 0, value_code: 'unknown', signal_codes: [], available: false },
+          walking_fit: { axis_score: 0, value_code: 'unknown', signal_codes: [], available: false },
+          family_fit: { axis_score: 0, value_code: 'unknown', signal_codes: [], available: false },
+          editorial_priority: { axis_score: 0, value_code: 'editorial_low', signal_codes: [], available: true }
+        }
+      }
+    ]
+  });
+
+  assert.equal(comparison.outcome, 'tie');
 });
