@@ -62,6 +62,9 @@ import {
   REVISION_PUBLIC_PLAN_FIELDS,
   ROUTE_PLANNER_TASK_TYPE,
   ROUTE_POSITIONING_FIELDS,
+  ROUTE_WARNING_CODES,
+  ROUTE_WARNING_FIELDS,
+  ROUTE_WARNING_SEVERITIES,
   SUMMARY_FIELDS,
   TRAVEL_MODES,
   createEmptyConstraintsSnapshot
@@ -177,6 +180,45 @@ function normalizeStringArray(value, options = {}) {
 
   if (sortValues) {
     unique.sort((left, right) => left.localeCompare(right, 'zh-CN'));
+  }
+
+  return ok(unique);
+}
+
+function normalizeLockedTargets(value, options = {}) {
+  const {
+    field,
+    defaultToEmpty = true,
+    code = ERROR_CODES.INVALID_ROUTER_RESULT
+  } = options;
+
+  if (value === undefined || value === null) {
+    return ok(defaultToEmpty ? [] : value);
+  }
+
+  if (!Array.isArray(value)) {
+    return fail(code, `${field} must be an array`, [
+      createDetail(field, 'invalid_type', 'array', value)
+    ]);
+  }
+
+  const unique = [];
+  const seen = new Set();
+
+  for (let index = 0; index < value.length; index += 1) {
+    const normalized = normalizeText(value[index]);
+    const itemField = `${field}[${index}]`;
+
+    if (!/^scenic:\d+$/.test(normalized)) {
+      return fail(code, `${itemField} must match scenic:<id>`, [
+        createDetail(itemField, 'invalid_format', '^scenic:\\d+$', value[index])
+      ]);
+    }
+
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      unique.push(normalized);
+    }
   }
 
   return ok(unique);
@@ -325,6 +367,13 @@ export function normalizeConstraintsSnapshot(value, options = {}) {
   });
   if (!physicalResult.ok) return physicalResult;
 
+  const lockedTargetsResult = normalizeLockedTargets(value.locked_targets, {
+    field: `${field}.locked_targets`,
+    defaultToEmpty: true,
+    code
+  });
+  if (!lockedTargetsResult.ok) return lockedTargetsResult;
+
   const familyResult = normalizeBoolean(value.family_friendly_only, `${field}.family_friendly_only`, false, code);
   if (!familyResult.ok) return familyResult;
 
@@ -358,6 +407,7 @@ export function normalizeConstraintsSnapshot(value, options = {}) {
     physical_constraints: physicalResult.value,
     route_origin: routeOrigin,
     destination_scope: destinationScope,
+    locked_targets: lockedTargetsResult.value,
     family_friendly_only: familyResult.value,
     same_region_only: sameRegionResult.value,
     focused_region_key: sameRegionResult.value ? focusedRegionKey : null,
@@ -740,6 +790,78 @@ function normalizeBasis(value, options = {}) {
   });
 }
 
+function normalizeRouteWarnings(value, options = {}) {
+  const {
+    field = 'warnings',
+    code = ERROR_CODES.INVALID_PREVIOUS_PUBLIC_PLAN,
+    strictExtraKeys = false
+  } = options;
+
+  if (value === undefined) {
+    return ok([]);
+  }
+
+  if (!Array.isArray(value)) {
+    return fail(code, `${field} must be an array`, [
+      createDetail(field, 'invalid_type', 'array', value)
+    ]);
+  }
+
+  const allowedCodes = /** @type {readonly string[]} */ (Object.values(ROUTE_WARNING_CODES));
+  const warnings = [];
+
+  for (let index = 0; index < value.length; index += 1) {
+    const warning = value[index];
+    const warningField = `${field}[${index}]`;
+
+    if (!isPlainObject(warning)) {
+      return fail(code, `${warningField} must be an object`, [
+        createDetail(warningField, 'invalid_type', 'object', warning)
+      ]);
+    }
+
+    const details = [];
+    if (strictExtraKeys) {
+      pushIfExtraKeys(warning, ROUTE_WARNING_FIELDS, warningField, details);
+    }
+
+    const warningCode = normalizeText(warning.code);
+    if (!allowedCodes.includes(warningCode)) {
+      return fail(code, `${warningField}.code is invalid`, [
+        createDetail(`${warningField}.code`, 'invalid_enum', allowedCodes.join(', '), warning.code)
+      ]);
+    }
+
+    const severity = normalizeText(warning.severity || 'warning');
+    if (!(/** @type {readonly string[]} */ (ROUTE_WARNING_SEVERITIES)).includes(severity)) {
+      return fail(code, `${warningField}.severity is invalid`, [
+        createDetail(`${warningField}.severity`, 'invalid_enum', ROUTE_WARNING_SEVERITIES.join(', '), warning.severity)
+      ]);
+    }
+
+    const conflictingKeys = normalizeStringArray(warning.conflicting_keys, {
+      field: `${warningField}.conflicting_keys`,
+      defaultToEmpty: true,
+      sortValues: false,
+      code
+    });
+    if (!conflictingKeys.ok) return conflictingKeys;
+
+    if (details.length) {
+      return fail(code, `${warningField} contains unsupported fields`, details);
+    }
+
+    warnings.push({
+      code: warningCode,
+      severity,
+      field: normalizeNullableString(warning.field),
+      conflicting_keys: conflictingKeys.value
+    });
+  }
+
+  return ok(warnings);
+}
+
 export function normalizeActionPayload(actionType, payload, field = 'action.payload', code = ERROR_CODES.INVALID_ACTION_PAYLOAD) {
   const rule = ACTION_PAYLOAD_RULES[actionType];
 
@@ -1031,9 +1153,9 @@ export function normalizePublicRoutePlan(value, options = {}) {
   }
 
   const planningStatus = normalizeText(value.planning_status);
-  if (!(/** @type {readonly string[]} */ ([PLANNING_STATUS.GENERATED, PLANNING_STATUS.REVISED])).includes(planningStatus)) {
+  if (!(/** @type {readonly string[]} */ (Object.values(PLANNING_STATUS))).includes(planningStatus)) {
     return fail(code, `${field}.planning_status is invalid`, [
-      createDetail(`${field}.planning_status`, 'invalid_enum', `${PLANNING_STATUS.GENERATED}, ${PLANNING_STATUS.REVISED}`, value.planning_status)
+      createDetail(`${field}.planning_status`, 'invalid_enum', Object.values(PLANNING_STATUS).join(', '), value.planning_status)
     ]);
   }
 
@@ -1077,6 +1199,13 @@ export function normalizePublicRoutePlan(value, options = {}) {
   });
   if (!adjustmentOptionsResult.ok) return adjustmentOptionsResult;
 
+  const warningsResult = normalizeRouteWarnings(value.warnings, {
+    field: `${field}.warnings`,
+    code,
+    strictExtraKeys
+  });
+  if (!warningsResult.ok) return warningsResult;
+
   const basisResult = normalizeBasis(value.basis, {
     field: `${field}.basis`,
     code,
@@ -1118,6 +1247,7 @@ export function normalizePublicRoutePlan(value, options = {}) {
     days: daysResult.value,
     route_highlights: highlightsResult.value,
     adjustment_options: adjustmentOptionsResult.value,
+    warnings: warningsResult.value,
     basis: basisResult.value
   });
 }
@@ -1216,6 +1346,13 @@ function normalizeGenerateRouterResult(routerResult) {
   });
   if (!physicalResult.ok) return physicalResult;
 
+  const lockedTargetsResult = normalizeLockedTargets(routerResult.constraints.locked_targets, {
+    field: 'routerResult.constraints.locked_targets',
+    defaultToEmpty: true,
+    code: ERROR_CODES.INVALID_ROUTER_RESULT
+  });
+  if (!lockedTargetsResult.ok) return lockedTargetsResult;
+
   const userQuery = normalizeText(routerResult.constraints.user_query);
   if (!userQuery) {
     return fail(ERROR_CODES.INVALID_ROUTER_RESULT, 'routerResult.constraints.user_query is required', [
@@ -1240,7 +1377,8 @@ function normalizeGenerateRouterResult(routerResult) {
       hard_avoidances: avoidancesResult.value,
       physical_constraints: physicalResult.value,
       route_origin: normalizeNullableString(routerResult.constraints.route_origin),
-      destination_scope: normalizeNullableString(routerResult.constraints.destination_scope)
+      destination_scope: normalizeNullableString(routerResult.constraints.destination_scope),
+      locked_targets: lockedTargetsResult.value
     }
   });
 }
@@ -1270,7 +1408,8 @@ export function validateGeneratePayload(payload = {}) {
       hard_avoidances: routerResult.value.constraints.hard_avoidances,
       physical_constraints: routerResult.value.constraints.physical_constraints,
       route_origin: routerResult.value.constraints.route_origin,
-      destination_scope: routerResult.value.constraints.destination_scope
+      destination_scope: routerResult.value.constraints.destination_scope,
+      locked_targets: routerResult.value.constraints.locked_targets
     },
     {
       field: 'constraints_snapshot',
@@ -1303,6 +1442,12 @@ export function validateRevisePayload(payload = {}) {
   });
   if (!previousPublicPlan.ok) {
     return previousPublicPlan;
+  }
+
+  if (previousPublicPlan.value.planning_status === PLANNING_STATUS.FAILED) {
+    return fail(ERROR_CODES.CANNOT_REVISE_FAILED_PLAN, 'cannot revise a failed route plan', [
+      createDetail('previous_public_plan.planning_status', 'invalid_value', 'generated or revised', previousPublicPlan.value.planning_status)
+    ]);
   }
 
   const previousPlanContext = normalizePlanContext(payload.previous_plan_context, {
@@ -1546,6 +1691,10 @@ export function assertPublicRoutePlanContract(value) {
 
   value.basis.items.forEach((item, index) => {
     ensureStrictKeys(item, PUBLIC_BASIS_ITEM_FIELDS, `basis.items[${index}]`, ERROR_CODES.CONTRACT_VIOLATION);
+  });
+
+  value.warnings.forEach((warning, index) => {
+    ensureStrictKeys(warning, ROUTE_WARNING_FIELDS, `warnings[${index}]`, ERROR_CODES.CONTRACT_VIOLATION);
   });
 
   if (value.plan_context.last_action_result !== null) {

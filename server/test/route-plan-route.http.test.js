@@ -176,6 +176,23 @@ test('route-plan generate route enforces thin object guard before deep validatio
   });
 });
 
+test('route-plan generate route rejects invalid locked option key format as HTTP 400', async () => {
+  await withServer(async (port) => {
+    const body = createGenerateBody();
+    body.routerResult.constraints.locked_targets = ['article:1'];
+
+    const response = await makeRequest({
+      port,
+      path: '/api/front/ai/route-plan/generate',
+      body
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.json.code, 400);
+    assert.equal(response.json.message, 'routerResult.constraints.locked_targets[0] must match scenic:<id>');
+  });
+});
+
 test('route-plan revise route enforces thin object guards for required top-level objects', async () => {
   await withServer(async (port) => {
     const response = await makeRequest({

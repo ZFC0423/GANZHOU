@@ -249,6 +249,7 @@ function buildPublicRoutePlan(snapshot, planningStatus) {
     days,
     route_highlights: buildRouteHighlights(snapshot, days),
     adjustment_options: createAdjustmentOptions(),
+    warnings: [],
     basis: {
       source: ROUTE_PLANNER_SOURCE,
       items: []
@@ -318,7 +319,8 @@ function applyActionToConstraintsSnapshot(previousSnapshot, previousPublicPlan, 
     theme_preferences: [...previousSnapshot.theme_preferences],
     companions: [...previousSnapshot.companions],
     hard_avoidances: [...previousSnapshot.hard_avoidances],
-    physical_constraints: [...previousSnapshot.physical_constraints]
+    physical_constraints: [...previousSnapshot.physical_constraints],
+    locked_targets: [...(previousSnapshot.locked_targets || [])]
   });
 
   switch (action.type) {

@@ -15,7 +15,9 @@ import {
   LAST_ACTION_REJECTION_REASONS,
   PLANNING_STATUS,
   REGION_ALIASES,
+  ROUTE_WARNING_CODES,
   ROUTE_PLANNER_TASK_TYPE,
+  createRouteWarning,
   createAdjustmentOptions
 } from './contracts.js';
 import { buildPublicBasis, classifyCandidateStatus } from './basis.js';
@@ -55,7 +57,8 @@ function cloneSnapshot(snapshot) {
     theme_preferences: [...snapshot.theme_preferences],
     companions: [...snapshot.companions],
     hard_avoidances: [...snapshot.hard_avoidances],
-    physical_constraints: [...snapshot.physical_constraints]
+    physical_constraints: [...snapshot.physical_constraints],
+    locked_targets: [...(snapshot.locked_targets || [])]
   };
 }
 
@@ -68,6 +71,7 @@ export function getCapacityTarget(snapshot) {
 }
 
 function compareCandidates(left, right) {
+  if (left.is_locked !== right.is_locked) return left.is_locked ? -1 : 1;
   if (right.score !== left.score) return right.score - left.score;
   if (right.recommend_flag !== left.recommend_flag) return right.recommend_flag - left.recommend_flag;
   if (right.hot_score !== left.hot_score) return right.hot_score - left.hot_score;
@@ -130,6 +134,7 @@ function createDayShells(snapshot, routeCandidates) {
 
 function candidateAllowedForDay(candidate, day, snapshot) {
   if (!candidate.is_route_item || !candidate.region_key) return false;
+  if (candidate.is_locked) return true;
   if (snapshot.family_friendly_only && !candidate.family_friendly) return false;
 
   const focusedRegion = normalizeRegionKey(snapshot.focused_region_key);
@@ -158,6 +163,133 @@ function toRouteItem(candidate) {
 
 function totalItems(days) {
   return days.reduce((count, day) => count + day.items.length, 0);
+}
+
+function getLockedKeys(snapshot) {
+  return Array.isArray(snapshot.locked_targets) ? snapshot.locked_targets : [];
+}
+
+function getLockedCandidates(routeCandidates, snapshot) {
+  const byKey = new Map(routeCandidates.map((candidate) => [candidate.item_key, candidate]));
+
+  return getLockedKeys(snapshot)
+    .map((itemKey) => byKey.get(itemKey))
+    .filter(Boolean);
+}
+
+function hasLowWalkingConstraint(snapshot) {
+  const physicalConstraints = Array.isArray(snapshot.physical_constraints) ? snapshot.physical_constraints : [];
+  const hardAvoidances = Array.isArray(snapshot.hard_avoidances) ? snapshot.hard_avoidances : [];
+
+  return physicalConstraints.includes('low_walking') || hardAvoidances.includes('too_tiring');
+}
+
+function isHighWalkingCandidate(candidate) {
+  const value = String(candidate.walking_intensity || '').toLowerCase();
+  return value.includes('high') || value.includes('高');
+}
+
+function buildLockedConflictWarning(code, lockedCandidates, fallbackKeys = []) {
+  const keys = lockedCandidates.length
+    ? lockedCandidates.map((candidate) => candidate.item_key)
+    : fallbackKeys;
+
+  return createRouteWarning({
+    code,
+    conflictingKeys: keys
+  });
+}
+
+function detectLockedScheduleConflict(snapshot, lockedCandidates) {
+  const lockedKeys = getLockedKeys(snapshot);
+  if (!lockedKeys.length) {
+    return null;
+  }
+
+  if (lockedCandidates.length !== lockedKeys.length) {
+    return buildLockedConflictWarning(ROUTE_WARNING_CODES.LOCKED_TARGET_NOT_FOUND, lockedCandidates, lockedKeys);
+  }
+
+  const capacityTarget = getCapacityTarget(snapshot);
+  if (lockedCandidates.length > capacityTarget) {
+    return buildLockedConflictWarning(
+      snapshot.time_budget.days <= 1
+        ? ROUTE_WARNING_CODES.LOCKED_TARGETS_EXCEED_DAY_CAPACITY
+        : ROUTE_WARNING_CODES.LOCKED_TARGETS_CONFLICT_WITH_PACE,
+      lockedCandidates
+    );
+  }
+
+  if (hasLowWalkingConstraint(snapshot) && lockedCandidates.some(isHighWalkingCandidate)) {
+    return buildLockedConflictWarning(ROUTE_WARNING_CODES.LOCKED_TARGETS_CONFLICT_WITH_PHYSICAL_CONSTRAINTS, lockedCandidates);
+  }
+
+  const lockedRegions = Array.from(new Set(lockedCandidates.map((candidate) => normalizeRegionKey(candidate.region_key)).filter(Boolean)));
+  const focusedRegion = normalizeRegionKey(snapshot.focused_region_key);
+
+  if (snapshot.same_region_only && focusedRegion && lockedRegions.some((regionKey) => regionKey !== focusedRegion)) {
+    return buildLockedConflictWarning(ROUTE_WARNING_CODES.LOCKED_TARGETS_REGION_SPAN_CONFLICT, lockedCandidates);
+  }
+
+  if (snapshot.avoid_far_spots && lockedRegions.length > 1) {
+    return buildLockedConflictWarning(ROUTE_WARNING_CODES.LOCKED_TARGETS_REGION_SPAN_CONFLICT, lockedCandidates);
+  }
+
+  if (snapshot.time_budget.days === 1 && snapshot.travel_mode === 'public_transport' && snapshot.same_region_only && lockedRegions.length > 1) {
+    return buildLockedConflictWarning(ROUTE_WARNING_CODES.LOCKED_TARGETS_CROSS_REGION_UNSUPPORTED, lockedCandidates);
+  }
+
+  return null;
+}
+
+function placeLockedCandidates(days, lockedCandidates, snapshot, usedKeys) {
+  const capacityPerDay = getCapacityPerDay(snapshot.pace_preference);
+
+  lockedCandidates.forEach((candidate) => {
+    const routeItem = toRouteItem(candidate);
+    const preferredDays = [
+      ...days.filter((day) => day.region_key === routeItem.region_key),
+      ...days
+    ];
+    const seenDays = new Set();
+
+    for (const day of preferredDays) {
+      if (seenDays.has(day.day_index)) continue;
+      seenDays.add(day.day_index);
+
+      if (day.items.length >= capacityPerDay) continue;
+      day.items.push(routeItem);
+      usedKeys.add(candidate.item_key);
+      return;
+    }
+  });
+}
+
+function getLockedInvariantWarning(snapshot, days) {
+  const lockedKeys = getLockedKeys(snapshot);
+  if (!lockedKeys.length) {
+    return null;
+  }
+
+  const counts = new Map();
+  days.forEach((day) => {
+    day.items.forEach((item) => {
+      if (lockedKeys.includes(item.item_key)) {
+        counts.set(item.item_key, (counts.get(item.item_key) || 0) + 1);
+      }
+    });
+  });
+
+  const violated = lockedKeys.filter((itemKey) => counts.get(itemKey) !== 1);
+
+  if (!violated.length) {
+    return null;
+  }
+
+  return createRouteWarning({
+    code: ROUTE_WARNING_CODES.LOCKED_TARGETS_CONFLICT_WITH_PACE,
+    conflictingKeys: violated
+  });
 }
 
 function fillDaysWithCandidates(days, routeCandidates, snapshot, usedKeys = new Set()) {
@@ -427,8 +559,42 @@ function scheduleGenerate(constraintsSnapshot, internalBasis) {
   const routeCandidates = internalBasis.route_candidates;
   const days = createDayShells(constraintsSnapshot, routeCandidates);
   const capacityTarget = getCapacityTarget(constraintsSnapshot);
+  const lockedCandidates = getLockedCandidates(routeCandidates, constraintsSnapshot);
+  const lockedConflict = detectLockedScheduleConflict(constraintsSnapshot, lockedCandidates);
 
-  fillDaysWithCandidates(days, routeCandidates, constraintsSnapshot);
+  if (lockedConflict) {
+    return {
+      feasible: false,
+      reason_code: lockedConflict.code,
+      days,
+      candidate_status: CANDIDATE_STATUS.READY,
+      capacity_target: capacityTarget,
+      capacity_achieved: 0,
+      diagnostics: internalBasis.diagnostics,
+      warnings: [lockedConflict],
+      degraded: internalBasis.degraded
+    };
+  }
+
+  const usedKeys = new Set();
+  placeLockedCandidates(days, lockedCandidates, constraintsSnapshot, usedKeys);
+
+  fillDaysWithCandidates(days, routeCandidates, constraintsSnapshot, usedKeys);
+  const invariantWarning = getLockedInvariantWarning(constraintsSnapshot, days);
+
+  if (invariantWarning) {
+    return {
+      feasible: false,
+      reason_code: invariantWarning.code,
+      days,
+      candidate_status: CANDIDATE_STATUS.READY,
+      capacity_target: capacityTarget,
+      capacity_achieved: totalItems(days),
+      diagnostics: internalBasis.diagnostics,
+      warnings: [invariantWarning],
+      degraded: internalBasis.degraded
+    };
+  }
 
   const capacityAchieved = totalItems(days);
   const candidateStatus = classifyCandidateStatus({
@@ -446,6 +612,7 @@ function scheduleGenerate(constraintsSnapshot, internalBasis) {
     capacity_target: capacityTarget,
     capacity_achieved: capacityAchieved,
     diagnostics: internalBasis.diagnostics,
+    warnings: [],
     degraded: internalBasis.degraded
   };
 }
@@ -453,13 +620,33 @@ function scheduleGenerate(constraintsSnapshot, internalBasis) {
 function scheduleRevise({ constraintsSnapshot, internalBasis, previousPublicPlan, action }) {
   const routeCandidates = internalBasis.route_candidates;
   const days = createDayShells(constraintsSnapshot, routeCandidates);
+  const capacityTarget = getCapacityTarget(constraintsSnapshot);
+  const lockedCandidates = getLockedCandidates(routeCandidates, constraintsSnapshot);
+  const lockedConflict = detectLockedScheduleConflict(constraintsSnapshot, lockedCandidates);
+
+  if (lockedConflict) {
+    return {
+      feasible: false,
+      reason_code: lockedConflict.code,
+      days,
+      candidate_status: CANDIDATE_STATUS.READY,
+      capacity_target: capacityTarget,
+      capacity_achieved: 0,
+      diagnostics: internalBasis.diagnostics,
+      warnings: [lockedConflict],
+      degraded: internalBasis.degraded
+    };
+  }
+
   const selectedAnchors = selectAnchorsForRevise({
     previousPublicPlan,
     internalBasis,
     snapshot: constraintsSnapshot,
     action
-  });
+  }).filter((anchor) => !getLockedKeys(constraintsSnapshot).includes(anchor.item_key));
   const usedKeys = new Set();
+
+  placeLockedCandidates(days, lockedCandidates, constraintsSnapshot, usedKeys);
 
   selectedAnchors.forEach((anchor) => {
     const routeItem = {
@@ -476,7 +663,21 @@ function scheduleRevise({ constraintsSnapshot, internalBasis, previousPublicPlan
 
   fillDaysWithCandidates(days, routeCandidates, constraintsSnapshot, usedKeys);
 
-  const capacityTarget = getCapacityTarget(constraintsSnapshot);
+  const invariantWarning = getLockedInvariantWarning(constraintsSnapshot, days);
+  if (invariantWarning) {
+    return {
+      feasible: false,
+      reason_code: invariantWarning.code,
+      days,
+      candidate_status: CANDIDATE_STATUS.READY,
+      capacity_target: capacityTarget,
+      capacity_achieved: totalItems(days),
+      diagnostics: internalBasis.diagnostics,
+      warnings: [invariantWarning],
+      degraded: internalBasis.degraded
+    };
+  }
+
   const capacityAchieved = totalItems(days);
   const candidateStatus = classifyCandidateStatus({
     hardFeasible: capacityAchieved > 0,
@@ -493,6 +694,7 @@ function scheduleRevise({ constraintsSnapshot, internalBasis, previousPublicPlan
     capacity_target: capacityTarget,
     capacity_achieved: capacityAchieved,
     diagnostics: internalBasis.diagnostics,
+    warnings: [],
     degraded: internalBasis.degraded
   };
 }
@@ -574,6 +776,7 @@ export function assemblePublicRoutePlan({ constraintsSnapshot, scheduleResult, p
     days,
     route_highlights: buildRouteHighlights(constraintsSnapshot, days, scheduleResult.candidate_status),
     adjustment_options: createAdjustmentOptions(),
+    warnings: [...(scheduleResult.warnings || internalBasis.warnings || [])],
     basis: buildPublicBasis(internalBasis)
   };
 }

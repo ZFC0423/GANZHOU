@@ -456,8 +456,8 @@ When the router can identify the main intent but required route slots are still 
 
 ### 9.4 Runtime enums
 
-- `task_type`: `guide_understand` | `plan_route` | `null`
-- `next_agent`: `ai_chat` | `ai_trip` | `safe_clarify`
+- `task_type`: `guide_understand` | `plan_route` | `discover_options` | `compare_options` | `narrow_options` | `suggest_alternatives` | `null`
+- `next_agent`: `ai_chat` | `ai_trip` | `decision_discovery` | `safe_clarify`
 - `clarification_reason`: `missing_slots` | `intent_ambiguous` | `constraint_conflict` | `null`
 
 ### 9.5 Missing value encoding
@@ -670,3 +670,54 @@ When retrieval is empty, the endpoint does not fabricate citations:
   - database stores stable content
   - service layer assembles presentation
   - AI layer returns structured temporary output
+
+## 12. Discovery next_action to Route Planner payload
+
+Discovery only emits a continuation action. It must not proxy Route Planner execution.
+
+```json
+{
+  "action_type": "route_plan.generate",
+  "payload": {
+    "option_keys": ["scenic:1", "scenic:2"]
+  }
+}
+```
+
+The frontend, gateway, or future orchestrator constructs the Route Planner request:
+
+```json
+{
+  "routerResult": {
+    "task_type": "plan_route",
+    "next_agent": "ai_trip",
+    "clarification_needed": false,
+    "clarification_reason": null,
+    "missing_required_fields": [],
+    "clarification_questions": [],
+    "constraints": {
+      "user_query": "基于我刚才选的景点生成路线",
+      "time_budget": { "days": 1 },
+      "travel_mode": "public_transport",
+      "companions": ["elders"],
+      "hard_avoidances": ["too_tiring"],
+      "physical_constraints": ["low_walking"],
+      "pace_preference": "relaxed",
+      "route_origin": null,
+      "destination_scope": null,
+      "theme_preferences": [],
+      "locked_targets": ["scenic:1", "scenic:2"]
+    }
+  }
+}
+```
+
+Merge rules:
+
+- Base on the original Router constraints.
+- Only allow Discovery `decision_context.continuation` to override: `time_budget`, `travel_mode`, `companions`, `hard_avoidances`, `physical_constraints`, `pace_preference`, `route_origin`, `destination_scope`, `theme_preferences`.
+- Write `next_actions.payload.option_keys` to `constraints.locked_targets`.
+- Force `task_type = "plan_route"` and `next_agent = "ai_trip"`.
+- Do not pass `ranked_options`, `comparison`, `fit_score`, `fit_reasons`, or internal score breakdown.
+- Do not write `locked_targets` into `scenic_hints`.
+- Map Discovery `destination_scope: []` to Route Planner `null` or a single string before calling Route Planner.

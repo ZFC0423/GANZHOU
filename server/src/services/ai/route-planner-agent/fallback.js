@@ -31,7 +31,8 @@ function cloneSnapshot(snapshot) {
     theme_preferences: [...snapshot.theme_preferences],
     companions: [...snapshot.companions],
     hard_avoidances: [...snapshot.hard_avoidances],
-    physical_constraints: [...snapshot.physical_constraints]
+    physical_constraints: [...snapshot.physical_constraints],
+    locked_targets: [...(snapshot.locked_targets || [])]
   };
 }
 
@@ -112,6 +113,57 @@ export function buildGenerateFallback({ constraintsSnapshot, internalBasis = nul
     days,
     route_highlights: ['empty', resolveFallbackRegion(constraintsSnapshot)],
     adjustment_options: createAdjustmentOptions(),
+    warnings: [],
+    basis: internalBasis ? buildPublicBasis(internalBasis) : {
+      source: ROUTE_PLANNER_SOURCE,
+      items: []
+    }
+  };
+  const planContext = createPlanContext({
+    version: 1,
+    parentFingerprint: null,
+    constraintsSnapshot,
+    lastAction: null,
+    lastActionResult: null
+  });
+
+  return attachFingerprint(publicPlan, planContext);
+}
+
+/**
+ * @param {{
+ *   constraintsSnapshot: ConstraintsSnapshot,
+ *   candidateStatus?: import('./types.js').CandidateStatus,
+ *   warnings?: import('./types.js').RouteWarning[],
+ *   internalBasis?: InternalBasis | null
+ * }} input
+ * @returns {PublicRoutePlan}
+ */
+export function buildGenerateFailedPlan({
+  constraintsSnapshot,
+  candidateStatus = CANDIDATE_STATUS.READY,
+  warnings = [],
+  internalBasis = null
+}) {
+  const days = buildEmptyDays(constraintsSnapshot);
+  const publicPlan = {
+    task_type: ROUTE_PLANNER_TASK_TYPE,
+    candidate_status: candidateStatus,
+    planning_status: PLANNING_STATUS.FAILED,
+    route_positioning: {
+      duration_days: days.length,
+      travel_mode: constraintsSnapshot.travel_mode,
+      pace_preference: constraintsSnapshot.pace_preference,
+      theme_preferences: [...constraintsSnapshot.theme_preferences]
+    },
+    summary: {
+      total_days: days.length,
+      total_items: 0
+    },
+    days,
+    route_highlights: ['failed', resolveFallbackRegion(constraintsSnapshot)],
+    adjustment_options: createAdjustmentOptions(),
+    warnings,
     basis: internalBasis ? buildPublicBasis(internalBasis) : {
       source: ROUTE_PLANNER_SOURCE,
       items: []

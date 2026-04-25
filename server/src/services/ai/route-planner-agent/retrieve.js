@@ -7,7 +7,7 @@
 import { Op } from 'sequelize';
 
 import { Article, Category, ScenicSpot } from '../../../models/index.js';
-import { REGION_ALIASES } from './contracts.js';
+import { REGION_ALIASES, ROUTE_WARNING_CODES, createRouteWarning } from './contracts.js';
 
 const THEME_TERMS = {
   natural: ['natural', 'nature', 'forest', 'mountain', 'eco-tour', 'vacation', '山', '森林', '自然', '康养'],
@@ -344,8 +344,22 @@ function toScenicCandidate(record, snapshot, mode) {
     matched_by: score.matchedBy,
     score: score.score,
     direct_hit: score.directHit,
+    is_locked: false,
     is_route_item: true,
     record
+  };
+}
+
+function toLockedScenicCandidate(record, snapshot, orderIndex) {
+  const candidate = toScenicCandidate(record, snapshot, 'expanded');
+
+  return {
+    ...candidate,
+    matched_by: ['locked_targets'],
+    score: 100000 - orderIndex,
+    direct_hit: true,
+    is_locked: true,
+    is_route_item: true
   };
 }
 
@@ -374,6 +388,7 @@ function toArticleCandidate(record, snapshot, mode) {
     matched_by: score.matchedBy,
     score: score.score,
     direct_hit: score.directHit,
+    is_locked: false,
     is_route_item: false,
     record
   };
@@ -396,6 +411,7 @@ function applyHardFilters(candidate, snapshot) {
 }
 
 function compareCandidates(left, right) {
+  if (left.is_locked !== right.is_locked) return left.is_locked ? -1 : 1;
   if (right.score !== left.score) return right.score - left.score;
   if (right.recommend_flag !== left.recommend_flag) return right.recommend_flag - left.recommend_flag;
   if (right.hot_score !== left.hot_score) return right.hot_score - left.hot_score;
@@ -488,7 +504,101 @@ export function collectRouteCandidates({ scenicRecords = [], articleRecords = []
     candidates,
     scenic_candidates: candidates.filter((candidate) => candidate.source_type === 'scenic'),
     article_candidates: candidates.filter((candidate) => candidate.source_type === 'article'),
+    warnings: [],
     diagnostics: []
+  };
+}
+
+function parseLockedTargetId(optionKey) {
+  return Number(String(optionKey).slice('scenic:'.length));
+}
+
+function isRecordDisplayable(record) {
+  return Number(record?.status ?? 1) === 1;
+}
+
+function mergeLockedAndOrdinaryCandidates(lockedCandidates, ordinaryResult) {
+  const byKey = new Map();
+
+  lockedCandidates.forEach((candidate) => {
+    byKey.set(candidate.item_key, candidate);
+  });
+
+  ordinaryResult.candidates.forEach((candidate) => {
+    if (!byKey.has(candidate.item_key)) {
+      byKey.set(candidate.item_key, candidate);
+    }
+  });
+
+  const candidates = [...byKey.values()].sort(compareCandidates);
+
+  return {
+    ...ordinaryResult,
+    candidates,
+    scenic_candidates: candidates.filter((candidate) => candidate.source_type === 'scenic'),
+    article_candidates: candidates.filter((candidate) => candidate.source_type === 'article')
+  };
+}
+
+async function resolveLockedTargets(snapshot, scenicModel) {
+  const lockedTargets = Array.isArray(snapshot.locked_targets) ? snapshot.locked_targets : [];
+
+  if (!lockedTargets.length) {
+    return {
+      candidates: [],
+      warnings: []
+    };
+  }
+
+  const ids = lockedTargets.map(parseLockedTargetId);
+  const records = await scenicModel.findAll({
+    where: {
+      id: {
+        [Op.in]: ids
+      }
+    },
+    include: [
+      {
+        model: Category,
+        as: 'category',
+        required: false,
+        attributes: ['id', 'name', 'code']
+      }
+    ],
+    order: [['id', 'ASC']]
+  });
+  const recordById = new Map(records.map((record) => [Number(record.id), record]));
+  const missingKeys = lockedTargets.filter((optionKey) => !recordById.has(parseLockedTargetId(optionKey)));
+
+  if (missingKeys.length) {
+    return {
+      candidates: [],
+      warnings: [
+        createRouteWarning({
+          code: ROUTE_WARNING_CODES.LOCKED_TARGET_NOT_FOUND,
+          conflictingKeys: missingKeys
+        })
+      ]
+    };
+  }
+
+  const unavailableKeys = lockedTargets.filter((optionKey) => !isRecordDisplayable(recordById.get(parseLockedTargetId(optionKey))));
+
+  if (unavailableKeys.length) {
+    return {
+      candidates: [],
+      warnings: [
+        createRouteWarning({
+          code: ROUTE_WARNING_CODES.LOCKED_TARGET_UNAVAILABLE,
+          conflictingKeys: unavailableKeys
+        })
+      ]
+    };
+  }
+
+  return {
+    candidates: lockedTargets.map((optionKey, index) => toLockedScenicCandidate(recordById.get(parseLockedTargetId(optionKey)), snapshot, index)),
+    warnings: []
   };
 }
 
@@ -513,18 +623,33 @@ export async function retrieveRouteCandidates(input = {}) {
     throw new Error('constraintsSnapshot is required');
   }
   const snapshot = constraintsSnapshot;
+  const lockedResolution = await resolveLockedTargets(snapshot, scenicModel);
+
+  if (lockedResolution.warnings.length) {
+    return {
+      mode,
+      candidates: lockedResolution.candidates,
+      scenic_candidates: lockedResolution.candidates,
+      article_candidates: [],
+      warnings: lockedResolution.warnings,
+      diagnostics: []
+    };
+  }
+
   try {
     const [scenicRecords, articleRecords] = await Promise.all([
       queryScenicRecords(snapshot, mode, scenicModel),
       queryArticleRecords(snapshot, mode, articleModel)
     ]);
 
-    return collectRouteCandidates({
+    const ordinaryResult = collectRouteCandidates({
       scenicRecords,
       articleRecords,
       constraintsSnapshot: snapshot,
       mode
     });
+
+    return mergeLockedAndOrdinaryCandidates(lockedResolution.candidates, ordinaryResult);
   } catch (error) {
     const fallback = collectRouteCandidates({
       scenicRecords: FALLBACK_SCENIC_RECORDS,
@@ -534,7 +659,7 @@ export async function retrieveRouteCandidates(input = {}) {
     });
 
     return {
-      ...fallback,
+      ...mergeLockedAndOrdinaryCandidates(lockedResolution.candidates, fallback),
       diagnostics: ['database_unavailable_used_local_seed_fallback']
     };
   }
@@ -544,6 +669,7 @@ export const ROUTE_RETRIEVAL_PRIVATE = {
   FALLBACK_SCENIC_RECORDS,
   FALLBACK_ARTICLE_RECORDS,
   normalizeRegionKey,
+  resolveLockedTargets,
   compareCandidates,
   scoreRecord
 };

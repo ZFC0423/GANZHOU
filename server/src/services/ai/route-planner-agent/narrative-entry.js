@@ -12,9 +12,12 @@
 
 import {
   ERROR_CODES,
+  NARRATIVE_FALLBACK_REASONS,
   NARRATIVE_PROVIDER,
-  NARRATIVE_PROVIDER_REASONS
+  NARRATIVE_PROVIDER_REASONS,
+  PLANNING_STATUS
 } from './contracts.js';
+import { buildFallbackNarrative } from './fallback-generate.js';
 import { generateRouteNarrative } from './generate.js';
 import { createRouteFingerprint, verifyRouteFingerprint } from './mock.js';
 import { assertPublicRoutePlanContract, validateNarrativePayload } from './validate.js';
@@ -94,6 +97,26 @@ function createAbortedMeta(requestMeta = {}) {
   };
 }
 
+function createFailedPlanNarrative(publicPlan, requestMeta = {}) {
+  return /** @type {NarrativeEntryResult} */ ({
+    ok: true,
+    value: {
+      narrative: buildFallbackNarrative({
+        publicPlan,
+        reason: NARRATIVE_FALLBACK_REASONS.SHORT_CIRCUIT_FAILED_PLAN
+      }),
+      generation_meta: {
+        provider: NARRATIVE_PROVIDER.FALLBACK,
+        model: null,
+        fallback_used: true,
+        reason: NARRATIVE_FALLBACK_REASONS.SHORT_CIRCUIT_FAILED_PLAN,
+        trace_id: requestMeta.trace_id || '',
+        latency_ms: 0
+      }
+    }
+  });
+}
+
 /**
  * @param {{
  *   validatePayload?: typeof validateNarrativePayload,
@@ -162,6 +185,10 @@ export function createNarrativeRoutePlanEntry({
           ...createClientAbortedResult(),
           generation_meta: createAbortedMeta(requestMeta)
         };
+      }
+
+      if (validated.value.public_plan.planning_status === PLANNING_STATUS.FAILED) {
+        return createFailedPlanNarrative(validated.value.public_plan, requestMeta);
       }
 
       const generated = await generateNarrative({

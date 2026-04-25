@@ -18,7 +18,8 @@ export const CANDIDATE_STATUS = /** @type {const} */ ({
 
 export const PLANNING_STATUS = /** @type {const} */ ({
   GENERATED: 'generated',
-  REVISED: 'revised'
+  REVISED: 'revised',
+  FAILED: 'failed'
 });
 
 export const LAST_ACTION_RESULT_STATUS = /** @type {const} */ ({
@@ -41,6 +42,7 @@ export const NARRATIVE_PROVIDER = /** @type {const} */ ({
 export const NARRATIVE_FALLBACK_REASONS = /** @type {const} */ ({
   SHORT_CIRCUIT_EMPTY: 'short_circuit_empty',
   SHORT_CIRCUIT_REJECTED: 'short_circuit_rejected',
+  SHORT_CIRCUIT_FAILED_PLAN: 'short_circuit_failed_plan',
   INPUT_BUDGET_EXCEEDED: 'input_budget_exceeded',
   MISSING_AI_ENV: 'missing_ai_env',
   TIMEOUT: 'timeout',
@@ -104,6 +106,7 @@ export const PUBLIC_PLAN_TOP_LEVEL_FIELDS = [
   'days',
   'route_highlights',
   'adjustment_options',
+  'warnings',
   'basis',
   'plan_context'
 ];
@@ -117,6 +120,21 @@ export const ITEM_FIELDS = ['item_key', 'title', 'region_key', 'family_friendly'
 export const ADJUSTMENT_OPTION_FIELDS = ['type', 'label'];
 export const BASIS_FIELDS = ['source', 'items'];
 export const PUBLIC_BASIS_ITEM_FIELDS = ['item_key', 'source_type', 'title', 'region_key', 'matched_by', 'score_rank'];
+export const ROUTE_WARNING_FIELDS = ['code', 'severity', 'field', 'conflicting_keys'];
+export const ROUTE_WARNING_SEVERITIES = /** @type {const} */ (['info', 'warning', 'error']);
+export const ROUTE_WARNING_CODES = /** @type {const} */ ({
+  LOCKED_TARGET_NOT_FOUND: 'locked_target_not_found',
+  LOCKED_TARGET_UNAVAILABLE: 'locked_target_unavailable',
+  LOCKED_TARGETS_EXCEED_TIME_BUDGET: 'locked_targets_exceed_time_budget',
+  LOCKED_TARGETS_EXCEED_DAY_CAPACITY: 'locked_targets_exceed_day_capacity',
+  LOCKED_TARGETS_CONFLICT_WITH_PHYSICAL_CONSTRAINTS: 'locked_targets_conflict_with_physical_constraints',
+  LOCKED_TARGETS_CONFLICT_WITH_PACE: 'locked_targets_conflict_with_pace',
+  LOCKED_TARGETS_REGION_SPAN_CONFLICT: 'locked_targets_region_span_conflict',
+  LOCKED_TARGETS_CROSS_REGION_UNSUPPORTED: 'locked_targets_cross_region_unsupported',
+  MAP_PROVIDER_DISABLED: 'map_provider_disabled',
+  MAP_DISTANCE_UNAVAILABLE: 'map_distance_unavailable',
+  ROUTE_SPAN_UNRESOLVED: 'route_span_unresolved'
+});
 export const PLAN_CONTEXT_FIELDS = [
   'version',
   'fingerprint',
@@ -141,6 +159,7 @@ export const CONSTRAINT_SNAPSHOT_FIELDS = [
   'physical_constraints',
   'route_origin',
   'destination_scope',
+  'locked_targets',
   'family_friendly_only',
   'same_region_only',
   'focused_region_key',
@@ -156,6 +175,7 @@ export const FINGERPRINT_PUBLIC_PLAN_FIELDS = [
   'days',
   'route_highlights',
   'adjustment_options',
+  'warnings',
   'basis'
 ];
 
@@ -179,6 +199,7 @@ export const ERROR_CODES = {
   INVALID_NARRATIVE_PAYLOAD: 'route_planner_invalid_narrative_payload',
   INVALID_NARRATIVE_OUTPUT: 'route_planner_invalid_narrative_output',
   NARRATIVE_CLIENT_ABORTED: 'route_planner_narrative_client_aborted',
+  CANNOT_REVISE_FAILED_PLAN: 'cannot_revise_failed_plan',
   INVALID_ACTION_TYPE: 'route_planner_invalid_action_type',
   INVALID_ACTION_PAYLOAD: 'route_planner_invalid_action_payload',
   CONTRACT_VIOLATION: 'route_planner_contract_violation'
@@ -227,9 +248,33 @@ export function createEmptyConstraintsSnapshot() {
     physical_constraints: [],
     route_origin: null,
     destination_scope: null,
+    locked_targets: [],
     family_friendly_only: false,
     same_region_only: false,
     focused_region_key: null,
     avoid_far_spots: false
+  };
+}
+
+/**
+ * @param {{
+ *   code: typeof ROUTE_WARNING_CODES[keyof typeof ROUTE_WARNING_CODES],
+ *   severity?: typeof ROUTE_WARNING_SEVERITIES[number],
+ *   field?: string | null,
+ *   conflictingKeys?: string[]
+ * }} input
+ * @returns {import('./types.js').RouteWarning}
+ */
+export function createRouteWarning({
+  code,
+  severity = 'warning',
+  field = 'routerResult.constraints.locked_targets',
+  conflictingKeys = []
+}) {
+  return {
+    code,
+    severity,
+    field,
+    conflicting_keys: Array.from(new Set(conflictingKeys.map((key) => String(key ?? '').trim()).filter(Boolean)))
   };
 }

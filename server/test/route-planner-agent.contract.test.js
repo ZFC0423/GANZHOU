@@ -52,7 +52,8 @@ test('generate returns fixed PR-B public shape with lightweight plan_context', a
     'route_highlights',
     'route_positioning',
     'summary',
-    'task_type'
+    'task_type',
+    'warnings'
   ]);
   assert.deepEqual(Object.keys(result.value.plan_context).sort(), [
     'constraints_snapshot',
@@ -72,6 +73,7 @@ test('generate returns fixed PR-B public shape with lightweight plan_context', a
   assert.equal(result.value.plan_context.parent_fingerprint, null);
   assert.equal(result.value.plan_context.last_action, null);
   assert.equal(result.value.plan_context.last_action_result, null);
+  assert.deepEqual(result.value.warnings, []);
 });
 
 test('revise compress_to_one_day updates public output and current effective constraints snapshot', async () => {

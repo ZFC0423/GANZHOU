@@ -6,8 +6,12 @@
 import {
   CANDIDATE_STATUS,
   LAST_ACTION_RESULT_STATUS,
-  NARRATIVE_FALLBACK_REASONS
+  NARRATIVE_FALLBACK_REASONS,
+  PLANNING_STATUS
 } from './contracts.js';
+
+const FAILED_PLAN_NARRATIVE_TEXT = '由于当前锁定景点与时间、节奏或体力约束存在冲突，路线暂未成功生成，因此暂无详细行程说明。请减少锁定景点或调整出行天数、节奏偏好后重新生成。';
+const FAILED_PLAN_DAY_TEXT = '当前路线未成功生成，本日暂无已确认行程说明。';
 
 function normalizeText(value) {
   return String(value ?? '').trim();
@@ -39,6 +43,10 @@ function getDayIntro(day) {
 }
 
 function buildOverview(publicPlan, reason) {
+  if (reason === NARRATIVE_FALLBACK_REASONS.SHORT_CIRCUIT_FAILED_PLAN || publicPlan.planning_status === PLANNING_STATUS.FAILED) {
+    return FAILED_PLAN_NARRATIVE_TEXT;
+  }
+
   if (reason === NARRATIVE_FALLBACK_REASONS.SHORT_CIRCUIT_EMPTY || publicPlan.candidate_status === CANDIDATE_STATUS.EMPTY) {
     return '当前路线骨架暂未形成可用固定点位，说明层采用本地兜底文案，避免为候选不足的行程编造内容。';
   }
@@ -59,6 +67,10 @@ function buildOverview(publicPlan, reason) {
 }
 
 function buildAdjustmentHint(publicPlan) {
+  if (publicPlan.planning_status === PLANNING_STATUS.FAILED) {
+    return FAILED_PLAN_NARRATIVE_TEXT;
+  }
+
   if (publicPlan.plan_context.last_action_result?.status === LAST_ACTION_RESULT_STATUS.REJECTED) {
     return '本次调整未应用；如需继续修改，可换一个更明确的调整方向，例如放慢节奏、聚焦同一区域或替换跨区点位。';
   }
@@ -71,6 +83,10 @@ function buildAdjustmentHint(publicPlan) {
 }
 
 function buildConstraintNote(publicPlan, reason) {
+  if (reason === NARRATIVE_FALLBACK_REASONS.SHORT_CIRCUIT_FAILED_PLAN || publicPlan.planning_status === PLANNING_STATUS.FAILED) {
+    return FAILED_PLAN_NARRATIVE_TEXT;
+  }
+
   if (publicPlan.plan_context.last_action_result?.status === LAST_ACTION_RESULT_STATUS.REJECTED) {
     return '本次调整未应用，原方案已保留；系统没有为了满足调整而强行加入低相关点位。';
   }
@@ -110,11 +126,13 @@ function buildConstraintNote(publicPlan, reason) {
  * @returns {RouteNarrative}
  */
 export function buildFallbackNarrative({ publicPlan, reason = null }) {
+  const isFailedPlan = reason === NARRATIVE_FALLBACK_REASONS.SHORT_CIRCUIT_FAILED_PLAN || publicPlan.planning_status === PLANNING_STATUS.FAILED;
+
   return {
     overview: buildOverview(publicPlan, reason),
     day_summaries: publicPlan.days.map((day) => ({
       day_index: day.day_index,
-      text: getDayIntro(day)
+      text: isFailedPlan ? FAILED_PLAN_DAY_TEXT : getDayIntro(day)
     })),
     adjustment_hint: buildAdjustmentHint(publicPlan),
     constraint_note: buildConstraintNote(publicPlan, reason)

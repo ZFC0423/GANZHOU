@@ -12,6 +12,7 @@ function normalizeText(value) {
 }
 
 function compareCandidates(left, right) {
+  if (left.is_locked !== right.is_locked) return left.is_locked ? -1 : 1;
   if (right.score !== left.score) return right.score - left.score;
   if (right.recommend_flag !== left.recommend_flag) return right.recommend_flag - left.recommend_flag;
   if (right.hot_score !== left.hot_score) return right.hot_score - left.hot_score;
@@ -81,6 +82,7 @@ export function buildInternalBasis({
     route_candidates: routeCandidates,
     public_items: projectPublicBasisItems(candidates),
     diagnostics: [...retrievalResult.diagnostics, ...diagnostics],
+    warnings: [...(retrievalResult.warnings || [])],
     degraded,
     capacity_target: capacityTarget,
     capacity_achieved: capacityAchieved

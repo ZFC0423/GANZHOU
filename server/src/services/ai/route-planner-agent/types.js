@@ -45,6 +45,7 @@ export {};
  *   physical_constraints: string[],
  *   route_origin: string | null,
  *   destination_scope: string | null,
+ *   locked_targets: string[],
  *   family_friendly_only: boolean,
  *   same_region_only: boolean,
  *   focused_region_key: string | null,
@@ -102,6 +103,15 @@ export {};
 
 /**
  * @typedef {{
+ *   code: string,
+ *   severity: 'info' | 'warning' | 'error',
+ *   field: string | null,
+ *   conflicting_keys: string[]
+ * }} RouteWarning
+ */
+
+/**
+ * @typedef {{
  *   item_key: string,
  *   source_type: 'scenic' | 'article',
  *   title: string,
@@ -149,6 +159,7 @@ export {};
  *   days: RouteDay[],
  *   route_highlights: string[],
  *   adjustment_options: AdjustmentOption[],
+ *   warnings: RouteWarning[],
  *   basis: RouteBasis,
  *   plan_context: PlanContext
  * }} PublicRoutePlan
@@ -173,6 +184,7 @@ export {};
  *   matched_by: string[],
  *   score: number,
  *   direct_hit: boolean,
+ *   is_locked: boolean,
  *   is_route_item: boolean,
  *   record: unknown
  * }} CandidateRecord
@@ -184,6 +196,7 @@ export {};
  *   candidates: CandidateRecord[],
  *   scenic_candidates: CandidateRecord[],
  *   article_candidates: CandidateRecord[],
+ *   warnings: RouteWarning[],
  *   diagnostics: string[]
  * }} RetrievalResult
  */
@@ -196,6 +209,7 @@ export {};
  *   route_candidates: CandidateRecord[],
  *   public_items: PublicBasisItem[],
  *   diagnostics: string[],
+ *   warnings: RouteWarning[],
  *   degraded: boolean,
  *   capacity_target: number,
  *   capacity_achieved: number
@@ -227,6 +241,7 @@ export {};
  *   capacity_target: number,
  *   capacity_achieved: number,
  *   diagnostics: string[],
+ *   warnings: RouteWarning[],
  *   degraded: boolean
  * }} ScheduleResult
  */
@@ -250,7 +265,8 @@ export {};
  *     hard_avoidances?: string[] | null,
  *     physical_constraints?: string[] | null,
  *     route_origin?: string | null,
- *     destination_scope?: string | null
+ *     destination_scope?: string | null,
+ *     locked_targets?: string[] | null
  *   } | null
  * }} RouterResultInput
  */

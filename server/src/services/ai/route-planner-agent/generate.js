@@ -10,7 +10,8 @@ import {
   LAST_ACTION_RESULT_STATUS,
   NARRATIVE_FALLBACK_REASONS,
   NARRATIVE_PROVIDER,
-  NARRATIVE_PROVIDER_REASONS
+  NARRATIVE_PROVIDER_REASONS,
+  PLANNING_STATUS
 } from './contracts.js';
 import { buildFallbackNarrative } from './fallback-generate.js';
 import { buildNarrativePromptBundle } from './prompt.js';
@@ -133,6 +134,15 @@ export async function generateRouteNarrative({
         latencyMs: elapsed()
       })
     };
+  }
+
+  if (publicPlan.planning_status === PLANNING_STATUS.FAILED) {
+    return createFallbackResult({
+      publicPlan,
+      reason: NARRATIVE_FALLBACK_REASONS.SHORT_CIRCUIT_FAILED_PLAN,
+      traceId,
+      latencyMs: elapsed()
+    });
   }
 
   if (publicPlan.candidate_status === CANDIDATE_STATUS.EMPTY) {

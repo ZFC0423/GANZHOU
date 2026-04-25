@@ -10,13 +10,27 @@
  */
 /** @typedef {EntryResult<{ constraints_snapshot: ConstraintsSnapshot }>} GenerateValidationResult */
 
-import { CANDIDATE_STATUS, PLANNING_STATUS } from './contracts.js';
+import { CANDIDATE_STATUS, PLANNING_STATUS, ROUTE_WARNING_CODES } from './contracts.js';
 import { assertPublicRoutePlanContract, validateGeneratePayload } from './validate.js';
 import { buildInternalBasis } from './basis.js';
-import { buildGenerateFallback, createPlanContext, attachFingerprint } from './fallback.js';
+import { buildGenerateFailedPlan, buildGenerateFallback, createPlanContext, attachFingerprint } from './fallback.js';
 import { retrieveRouteCandidates } from './retrieve.js';
 import { runRepairPolicy } from './repair-policy.js';
 import { assemblePublicRoutePlan, getCapacityTarget, scheduleRoute } from './schedule.js';
+
+const LOCKED_RETRIEVAL_FAILURE_STATUS = {
+  [ROUTE_WARNING_CODES.LOCKED_TARGET_NOT_FOUND]: CANDIDATE_STATUS.EMPTY,
+  [ROUTE_WARNING_CODES.LOCKED_TARGET_UNAVAILABLE]: CANDIDATE_STATUS.LIMITED
+};
+
+function getLockedBusinessWarnings(result) {
+  return (result?.warnings || []).filter((warning) => String(warning.code || '').startsWith('locked_'));
+}
+
+function getLockedRetrievalFailureStatus(warnings) {
+  const firstCode = warnings[0]?.code;
+  return LOCKED_RETRIEVAL_FAILURE_STATUS[firstCode] || CANDIDATE_STATUS.READY;
+}
 
 async function buildGeneratedPlan({
   constraintsSnapshot,
@@ -32,6 +46,16 @@ async function buildGeneratedPlan({
     capacityTarget: getCapacityTarget(constraintsSnapshot),
     degraded: false
   });
+  const retrievalWarnings = getLockedBusinessWarnings(primaryRetrieval);
+  if (retrievalWarnings.length) {
+    return buildGenerateFailedPlan({
+      constraintsSnapshot,
+      candidateStatus: getLockedRetrievalFailureStatus(retrievalWarnings),
+      warnings: retrievalWarnings,
+      internalBasis: primaryBasis
+    });
+  }
+
   const primarySchedule = scheduleRoute({
     constraintsSnapshot,
     internalBasis: primaryBasis,
@@ -44,12 +68,41 @@ async function buildGeneratedPlan({
   let selectedBasis = primaryBasis;
   let selectedSchedule = primarySchedule;
 
+  if (getLockedBusinessWarnings(primarySchedule).length) {
+    return buildGenerateFailedPlan({
+      constraintsSnapshot,
+      candidateStatus: CANDIDATE_STATUS.READY,
+      warnings: getLockedBusinessWarnings(primarySchedule),
+      internalBasis: primaryBasis
+    });
+  }
+
   if (!primarySchedule.feasible || primarySchedule.candidate_status !== CANDIDATE_STATUS.READY) {
     const repaired = await repairPolicy({
       constraintsSnapshot,
       mode: 'generate',
       retrieve
     });
+    const repairedRetrievalWarnings = getLockedBusinessWarnings(repaired.retrievalResult);
+    const repairedScheduleWarnings = getLockedBusinessWarnings(repaired.scheduleResult);
+
+    if (repairedRetrievalWarnings.length) {
+      return buildGenerateFailedPlan({
+        constraintsSnapshot,
+        candidateStatus: getLockedRetrievalFailureStatus(repairedRetrievalWarnings),
+        warnings: repairedRetrievalWarnings,
+        internalBasis: repaired.internalBasis
+      });
+    }
+
+    if (repairedScheduleWarnings.length) {
+      return buildGenerateFailedPlan({
+        constraintsSnapshot,
+        candidateStatus: CANDIDATE_STATUS.READY,
+        warnings: repairedScheduleWarnings,
+        internalBasis: repaired.internalBasis
+      });
+    }
 
     if (repaired.scheduleResult.feasible && repaired.scheduleResult.capacity_achieved >= primarySchedule.capacity_achieved) {
       selectedBasis = repaired.internalBasis;
@@ -60,6 +113,16 @@ async function buildGeneratedPlan({
   if (!selectedSchedule.feasible) {
     return buildGenerateFallback({
       constraintsSnapshot,
+      internalBasis: selectedBasis
+    });
+  }
+
+  const selectedWarnings = getLockedBusinessWarnings(selectedSchedule);
+  if (selectedWarnings.length) {
+    return buildGenerateFailedPlan({
+      constraintsSnapshot,
+      candidateStatus: CANDIDATE_STATUS.READY,
+      warnings: selectedWarnings,
       internalBasis: selectedBasis
     });
   }
