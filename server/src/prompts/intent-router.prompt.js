@@ -30,7 +30,20 @@ export function buildIntentRouterMessages({ input, priorState }) {
     'Priority: route/itinerary/day-by-day/schedule/from-to requests => plan_route; compare/choose/filter/alternative requests => discovery; explain/history/background requests => guide_understand; unclear => null/safe_clarify.',
     'Do not route "recommend a route" as discover_options. Only "recommend several scenic spots/places/options" is discover_options.',
     'Mention is not selection. Do not output current_selection, current_selection_key, candidate_entities, candidate_entity_keys, winner, score, rank, or comparison.',
-    'Router only extracts low-risk constraints and never sorts, scores, chooses a winner, or writes recommendation prose.'
+    'Router only extracts low-risk constraints and never sorts, scores, chooses a winner, or writes recommendation prose.',
+    '',
+    'PR-I clear_fields contract:',
+    'Always include clear_fields as an array. Use it only when the user explicitly cancels, relaxes, removes, or says no limit for a known planning constraint.',
+    'Allowed clear_fields values: time_budget, time_budget.days, time_budget.date_text, travel_mode, companions, hard_avoidances, physical_constraints, pace_preference, route_origin, destination_scope, theme_preferences.',
+    'Do not invent clear field names. Do not output nested paths other than time_budget.days and time_budget.date_text.',
+    'If the user did not mention a field in this turn, do not put it in clear_fields.',
+    'If a field has a new substantive value in constraints, do not also clear the same field.',
+    'For cancel/no limit phrases, do not only set the constraint to null; put the field in clear_fields.',
+    'Example: input "什么节奏都行，随便。" => clear_fields: ["pace_preference"].',
+    'Example: input "不带老人了。" => clear_fields: ["companions"].',
+    'Example: input "不考虑美食了。" => clear_fields: ["theme_preferences"].',
+    'Example: input "交通方式随便，不自驾也行。" => clear_fields: ["travel_mode"].',
+    'Example: input "不用限制区域了。" => clear_fields: ["destination_scope"].'
   ].join('\n');
 
   const userPrompt = [

@@ -55,6 +55,68 @@ function normalizeEnum(value, enumValues) {
   return enumValues.includes(normalized) ? normalized : null;
 }
 
+function hasValue(value) {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasValue(item));
+  }
+
+  if (isPlainObject(value)) {
+    return Object.values(value).some((item) => hasValue(item));
+  }
+
+  return normalizeText(value) !== '';
+}
+
+function normalizeClearFields(value) {
+  const source = Array.isArray(value) ? value : [];
+  const allowed = new Set(INTENT_CONTRACT.ALLOWED_CLEAR_FIELDS);
+  const rootFields = new Set(INTENT_CONTRACT.ROOT_CLEAR_FIELDS);
+  const normalized = [];
+  const seen = new Set();
+
+  source.forEach((item) => {
+    const field = normalizeText(item);
+
+    if (!allowed.has(field)) {
+      return;
+    }
+
+    if (field.includes('.') && rootFields.has(field.split('.')[0]) && seen.has(field.split('.')[0])) {
+      return;
+    }
+
+    if (!seen.has(field)) {
+      seen.add(field);
+      normalized.push(field);
+    }
+  });
+
+  return normalized.filter((field) => {
+    if (!field.includes('.')) {
+      return true;
+    }
+
+    return !seen.has(field.split('.')[0]);
+  });
+}
+
+function hasSubstantiveFieldValue(field, constraints) {
+  if (!field.includes('.')) {
+    return hasValue(constraints?.[field]);
+  }
+
+  const [root, child] = field.split('.');
+  return hasValue(constraints?.[root]?.[child]);
+}
+
+function resolveClearFieldExclusions(clearFields, constraints) {
+  return clearFields.filter((field) => !hasSubstantiveFieldValue(field, constraints));
+}
+
 function normalizeFieldByRule(rule, value) {
   if (value === undefined || value === null) {
     return null;
@@ -87,9 +149,20 @@ function normalizeFieldByRule(rule, value) {
       return null;
     }
 
+    const allowedKeys = Object.keys(rule.shape || {});
+    const extraKeys = Object.keys(value).filter((key) => !allowedKeys.includes(key));
+
+    if (extraKeys.length) {
+      throw createSchemaViolation(`unsupported object fields: ${extraKeys.join(', ')}`);
+    }
+
     const normalized = {};
 
-    Object.keys(rule.shape || {}).forEach((key) => {
+    allowedKeys.forEach((key) => {
+      if (isPlainObject(value[key]) || Array.isArray(value[key])) {
+        throw createSchemaViolation(`nested object is not allowed: ${key}`);
+      }
+
       normalized[key] = normalizeFieldByRule(rule.shape[key], value[key]);
     });
 
@@ -346,11 +419,13 @@ export function validateAndNormalizeIntentResult(rawResult, options = {}) {
   const taskConfidence = clampConfidence(rawResult.task_confidence);
   const userQuery = normalizeText(options.userQuery || rawResult?.constraints?.user_query || '');
   const constraints = normalizeMissingValues(taskType, rawResult.constraints, userQuery);
+  const clearFields = resolveClearFieldExclusions(normalizeClearFields(rawResult.clear_fields), constraints);
   const missingRequiredFields = deriveMissingRequiredFields(taskType, constraints);
   const normalized = {
     task_type: taskType,
     task_confidence: taskConfidence,
     constraints,
+    clear_fields: clearFields,
     clarification_needed: Boolean(rawResult.clarification_needed),
     clarification_reason: normalizeEnum(rawResult.clarification_reason, INTENT_CONTRACT.CLARIFICATION_REASONS),
     missing_required_fields: missingRequiredFields,

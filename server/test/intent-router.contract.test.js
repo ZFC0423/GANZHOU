@@ -47,6 +47,7 @@ test('top-level normalization snapshot: plan_route missing-value encoding is sta
       route_origin: null,
       destination_scope: null
     },
+    clear_fields: [],
     clarification_needed: false,
     clarification_reason: null,
     missing_required_fields: [],
@@ -106,6 +107,7 @@ test('top-level normalization snapshot: null task keeps all protocol fields and 
       exclude_entities: null,
       option_limit: null
     },
+    clear_fields: [],
     clarification_needed: true,
     clarification_reason: 'intent_ambiguous',
     missing_required_fields: [],
@@ -293,4 +295,141 @@ test('fallback reason is invalid_json when llm extract throws invalid_json', asy
 
   assert.equal(result._meta.decision_source, 'fallback');
   assert.equal(result._meta.fallback_reason, 'invalid_json');
+});
+
+test('clear_fields defaults and filters unsupported fields', async () => {
+  const routeIntent = createIntentRouter({
+    llmExtract: async () => ({
+      task_type: 'plan_route',
+      task_confidence: 0.91,
+      constraints: {
+        user_query: 'plan',
+        time_budget: { days: 2, date_text: null },
+        travel_mode: 'public_transport',
+        pace_preference: 'normal'
+      },
+      clear_fields: ['pace_preference', 'internal_user_id', 'time_budget.specific_dates.start'],
+      clarification_reason: null
+    })
+  });
+
+  const result = await routeIntent({ input: 'plan' });
+
+  assert.deepStrictEqual(result.clear_fields, []);
+  assert.equal(result.constraints.pace_preference, 'normal');
+});
+
+test('clear_fields allows explicit clear when constraint is null', async () => {
+  const routeIntent = createIntentRouter({
+    llmExtract: async () => ({
+      task_type: 'discover_options',
+      task_confidence: 0.91,
+      constraints: {
+        user_query: 'anything',
+        pace_preference: null
+      },
+      clear_fields: ['pace_preference'],
+      clarification_reason: null
+    })
+  });
+
+  const result = await routeIntent({ input: 'anything' });
+
+  assert.deepStrictEqual(result.clear_fields, ['pace_preference']);
+});
+
+test('clear_fields mutual exclusion keeps substantive scalar and array constraints', async () => {
+  const routeIntent = createIntentRouter({
+    llmExtract: async () => ({
+      task_type: 'discover_options',
+      task_confidence: 0.91,
+      constraints: {
+        user_query: 'new scope',
+        destination_scope: ['nankang'],
+        pace_preference: 'compact',
+        companions: ['friends']
+      },
+      clear_fields: ['destination_scope', 'pace_preference', 'companions'],
+      clarification_reason: null
+    })
+  });
+
+  const result = await routeIntent({ input: 'new scope' });
+
+  assert.deepStrictEqual(result.clear_fields, []);
+  assert.deepStrictEqual(result.constraints.destination_scope, ['nankang']);
+  assert.equal(result.constraints.pace_preference, 'compact');
+  assert.deepStrictEqual(result.constraints.companions, ['friends']);
+});
+
+test('clear_fields keeps array clear when constraint is explicit empty array', async () => {
+  const routeIntent = createIntentRouter({
+    llmExtract: async () => ({
+      task_type: 'discover_options',
+      task_confidence: 0.91,
+      constraints: {
+        user_query: 'clear companions',
+        companions: []
+      },
+      clear_fields: ['companions'],
+      clarification_reason: null
+    })
+  });
+
+  const result = await routeIntent({ input: 'clear companions' });
+
+  assert.deepStrictEqual(result.clear_fields, ['companions']);
+  assert.deepStrictEqual(result.constraints.companions, []);
+});
+
+test('time_budget rejects nested and unsupported fields through fallback', async () => {
+  const routeIntent = createIntentRouter({
+    llmExtract: async () => ({
+      task_type: 'plan_route',
+      task_confidence: 0.94,
+      constraints: {
+        user_query: 'two day route',
+        time_budget: {
+          days: 2,
+          specific_dates: { start: '2026-05-01', end: '2026-05-02' }
+        },
+        travel_mode: 'public_transport',
+        pace_preference: 'normal'
+      },
+      clarification_reason: null
+    })
+  });
+
+  const result = await routeIntent({ input: 'two day route' });
+
+  assert.equal(result._meta.decision_source, 'fallback');
+  assert.ok(!result.constraints.time_budget || !Object.hasOwn(result.constraints.time_budget, 'specific_dates'));
+});
+
+test('cross-intent prior discard is surfaced as clear_fields', async () => {
+  const routeIntent = createIntentRouter({
+    llmExtract: async () => ({
+      task_type: 'guide_understand',
+      task_confidence: 0.95,
+      constraints: {
+        user_query: 'explain history'
+      },
+      clarification_reason: null
+    })
+  });
+
+  const result = await routeIntent({
+    input: 'explain history',
+    priorState: {
+      task_type: 'plan_route',
+      task_confidence: 0.92,
+      constraints: {
+        companions: ['elders'],
+        pace_preference: 'compact'
+      }
+    }
+  });
+
+  assert.ok(result.clear_fields.includes('companions'));
+  assert.ok(result.clear_fields.includes('pace_preference'));
 });

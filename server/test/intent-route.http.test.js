@@ -77,6 +77,7 @@ test('debug gate behavior: default response does not expose _meta', async () => 
 
       assert.equal(response.statusCode, 200);
       assert.ok(!('_meta' in response.json.data), 'default response should not expose _meta');
+      assert.ok(Array.isArray(response.json.data.clear_fields), 'default response should expose stable clear_fields');
     });
   } finally {
     process.env.NODE_ENV = previousEnv;

@@ -461,6 +461,7 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
       task_type: 'plan_route',
       task_confidence: resolved ? 0.84 : 0.61,
       constraints,
+      clear_fields: [],
       clarification_reason: hasConflict ? 'constraint_conflict' : null,
       _meta: {
         decision_source: 'fallback',
@@ -479,6 +480,7 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
       task_type: discoveryIntent.task_type,
       task_confidence: discoveryIntent.resolved ? 0.82 : 0.62,
       constraints: buildDiscoveryConstraints(text),
+      clear_fields: [],
       clarification_reason: null,
       _meta: {
         decision_source: 'fallback',
@@ -500,6 +502,7 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
         task_type: 'guide_understand',
         task_confidence: guideIntent.resolved ? 0.8 : 0.64,
         constraints: buildGuideConstraints(text),
+        clear_fields: [],
         clarification_reason: null,
         _meta: {
           decision_source: 'fallback',
@@ -523,6 +526,7 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
         task_type: 'plan_route',
         task_confidence: resolved ? 0.84 : 0.61,
         constraints,
+        clear_fields: [],
         clarification_reason: hasConflict ? 'constraint_conflict' : null,
         _meta: {
           decision_source: 'fallback',
@@ -542,6 +546,7 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
       task_type: null,
       task_confidence: 0.32,
       constraints: buildNullConstraints(text),
+      clear_fields: [],
       clarification_reason: 'intent_ambiguous',
       _meta: {
         decision_source: 'fallback',
@@ -564,6 +569,7 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
       task_type: 'plan_route',
       task_confidence: resolved ? 0.84 : 0.61,
       constraints,
+      clear_fields: [],
       clarification_reason: hasConflict ? 'constraint_conflict' : null,
       _meta: {
         decision_source: 'fallback',
@@ -582,6 +588,7 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
       task_type: 'guide_understand',
       task_confidence: guideIntent.resolved ? 0.8 : 0.64,
       constraints: buildGuideConstraints(text),
+      clear_fields: [],
       clarification_reason: null,
       _meta: {
         decision_source: 'fallback',
@@ -601,6 +608,7 @@ export function buildFallbackIntentResult({ normalizedInput, fallbackReason = nu
     task_type: null,
     task_confidence: 0.32,
     constraints: buildNullConstraints(text),
+    clear_fields: [],
     clarification_reason: 'intent_ambiguous',
     _meta: {
       decision_source: 'fallback',

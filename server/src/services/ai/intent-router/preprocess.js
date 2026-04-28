@@ -89,6 +89,60 @@ function normalizeStatusFlags(value) {
   return alreadyHasPlan === null ? null : { already_has_plan: alreadyHasPlan };
 }
 
+function normalizeClearFields(value) {
+  const allowed = new Set(INTENT_CONTRACT.ALLOWED_CLEAR_FIELDS);
+  const source = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const normalized = [];
+
+  source.forEach((item) => {
+    const field = normalizeText(item);
+
+    if (!allowed.has(field) || seen.has(field)) {
+      return;
+    }
+
+    seen.add(field);
+    normalized.push(field);
+  });
+
+  return normalized.filter((field) => !field.includes('.') || !seen.has(field.split('.')[0]));
+}
+
+function hasStructuredValue(value) {
+  if (value === null || value === undefined || value === '') {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  if (isPlainObject(value)) {
+    return Object.values(value).some((item) => hasStructuredValue(item));
+  }
+
+  return true;
+}
+
+function getDroppedPriorClearFields(priorConstraints) {
+  const source = isPlainObject(priorConstraints) ? priorConstraints : {};
+
+  return INTENT_CONTRACT.ROOT_CLEAR_FIELDS.filter((field) => hasStructuredValue(source[field]));
+}
+
+function appendClearFields(result, fields) {
+  const clearFields = normalizeClearFields([
+    ...(Array.isArray(result?.clear_fields) ? result.clear_fields : []),
+    ...fields
+  ]);
+
+  return {
+    ...result,
+    clear_fields: clearFields
+  };
+}
+
 function normalizeConstraintValue(key, value) {
   switch (key) {
     case 'time_budget':
@@ -228,17 +282,19 @@ function copyMissingValues(currentValue, priorValue) {
 }
 
 export function mergeWithPriorState(result, priorState) {
+  const normalizedResult = appendClearFields(result, []);
+
   if (!priorState) {
-    return result;
+    return normalizedResult;
   }
 
-  const currentTaskType = result.task_type;
+  const currentTaskType = normalizedResult.task_type;
   const priorTaskType = priorState.task_type;
-  const canUsePrior = canUsePriorConstraints(result, priorState);
+  const canUsePrior = canUsePriorConstraints(normalizedResult, priorState);
   const nextMeta = {
-    ...result._meta,
+    ...normalizedResult._meta,
     prior_state_usage: 'hint_only',
-    rule_hits: Array.isArray(result._meta?.rule_hits) ? [...result._meta.rule_hits] : []
+    rule_hits: Array.isArray(normalizedResult._meta?.rule_hits) ? [...normalizedResult._meta.rule_hits] : []
   };
 
   if (!currentTaskType || !canUsePrior) {
@@ -246,8 +302,12 @@ export function mergeWithPriorState(result, priorState) {
       nextMeta.rule_hits.push('prior_state_hint_only');
     }
 
+    const droppedFields = currentTaskType && priorTaskType && currentTaskType !== priorTaskType
+      ? getDroppedPriorClearFields(priorState.constraints)
+      : [];
+
     return {
-      ...result,
+      ...appendClearFields(normalizedResult, droppedFields),
       _meta: nextMeta
     };
   }
@@ -256,14 +316,14 @@ export function mergeWithPriorState(result, priorState) {
     nextMeta.rule_hits.push('prior_state_dropped_cross_intent');
 
     return {
-      ...result,
+      ...appendClearFields(normalizedResult, getDroppedPriorClearFields(priorState.constraints)),
       _meta: nextMeta
     };
   }
 
   if (priorTaskType !== currentTaskType) {
     return {
-      ...result,
+      ...normalizedResult,
       _meta: nextMeta
     };
   }
@@ -272,8 +332,8 @@ export function mergeWithPriorState(result, priorState) {
   nextMeta.prior_state_usage = 'merged';
 
   return {
-    ...result,
-    constraints: copyMissingValues(result.constraints, priorState.constraints),
+    ...normalizedResult,
+    constraints: copyMissingValues(normalizedResult.constraints, priorState.constraints),
     _meta: nextMeta
   };
 }
