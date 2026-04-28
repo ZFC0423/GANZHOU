@@ -27,6 +27,7 @@ const routeError = ref('');
 const discoveryResult = ref(null);
 const clarifyResult = ref(null);
 const priorState = ref(null);
+const sessionContext = ref(null);
 const routePlan = ref(null);
 const lockedOptionKeys = ref([]);
 
@@ -108,6 +109,7 @@ async function submitDiscovery(customQuestion) {
     const response = await postDiscoveryQueryApi({
       user_query: nextQuestion,
       priorState: priorState.value,
+      previous_session_context: sessionContext.value,
       previous_public_result: null,
       decision_context: null,
       action: null
@@ -130,6 +132,9 @@ async function submitDiscovery(customQuestion) {
     priorState.value = null;
     clarifyResult.value = null;
     discoveryResult.value = data;
+    if (data?.session_context) {
+      sessionContext.value = data.session_context;
+    }
   } catch (error) {
     if (seq !== discoveryRequestSeq) {
       return;
@@ -179,7 +184,10 @@ async function generateRoute() {
   lockedOptionKeys.value = payloadResult.value.routerResult.constraints.locked_targets;
 
   try {
-    const response = await postRoutePlanGenerateApi(payloadResult.value);
+    const response = await postRoutePlanGenerateApi({
+      ...payloadResult.value,
+      previous_session_context: sessionContext.value
+    });
     const data = unwrapFrontResponse(response);
 
     if (seq !== routeRequestSeq) {
@@ -187,6 +195,9 @@ async function generateRoute() {
     }
 
     routePlan.value = data;
+    if (data?.session_context) {
+      sessionContext.value = data.session_context;
+    }
   } catch (error) {
     if (seq !== routeRequestSeq) {
       return;

@@ -112,6 +112,11 @@ function inflatePlanTitlesForNarrativeBudget(fullPlan) {
   return refreshPlanFingerprint(fullPlan);
 }
 
+function stripSessionContext(fullPlan) {
+  const { session_context, ...publicPlan } = fullPlan;
+  return publicPlan;
+}
+
 test('route-plan generate route returns wrapped PR-B route planner payload', async () => {
   await withServer(async (port) => {
     const response = await makeRequest({
@@ -128,6 +133,8 @@ test('route-plan generate route returns wrapped PR-B route planner payload', asy
     assert.equal(response.json.data.route_positioning.duration_days, 2);
     assert.equal(response.json.data.plan_context.version, 1);
     assert.equal(response.json.data.plan_context.last_action_result, null);
+    assert.ok(response.json.data.session_context);
+    assert.deepEqual(response.json.data.session_context.locked_targets, []);
   });
 });
 
@@ -139,7 +146,7 @@ test('route-plan revise route returns wrapped revised payload', async () => {
       body: createGenerateBody()
     });
 
-    const { plan_context, ...previousPublicPlan } = generateResponse.json.data;
+    const { plan_context, ...previousPublicPlan } = stripSessionContext(generateResponse.json.data);
 
     const reviseResponse = await makeRequest({
       port,
@@ -176,7 +183,7 @@ test('route-plan generate route enforces thin object guard before deep validatio
   });
 });
 
-test('route-plan generate route rejects invalid locked option key format as HTTP 400', async () => {
+test('route-plan generate route normalizes invalid legacy locked option keys before planning', async () => {
   await withServer(async (port) => {
     const body = createGenerateBody();
     body.routerResult.constraints.locked_targets = ['article:1'];
@@ -187,9 +194,31 @@ test('route-plan generate route rejects invalid locked option key format as HTTP
       body
     });
 
-    assert.equal(response.statusCode, 400);
-    assert.equal(response.json.code, 400);
-    assert.equal(response.json.message, 'routerResult.constraints.locked_targets[0] must match scenic:<id>');
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json.code, 200);
+    assert.deepEqual(response.json.data.plan_context.constraints_snapshot.locked_targets, []);
+    assert.deepEqual(response.json.data.session_context.locked_targets, []);
+  });
+});
+
+test('route-plan generate route returns session_context for business failed plans', async () => {
+  await withServer(async (port) => {
+    const body = createGenerateBody();
+    body.structured_events = {
+      locked_targets: ['scenic:999999']
+    };
+
+    const response = await makeRequest({
+      port,
+      path: '/api/front/ai/route-plan/generate',
+      body
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json.code, 200);
+    assert.equal(response.json.data.planning_status, 'failed');
+    assert.equal(response.json.data.session_context.last_result_status, 'failed');
+    assert.deepEqual(response.json.data.session_context.locked_targets, ['scenic:999999']);
   });
 });
 
@@ -251,7 +280,7 @@ test('route-plan narrative route returns wrapped narrative without echoing publi
       path: '/api/front/ai/route-plan/generate',
       body: createGenerateBody()
     });
-    const publicPlan = generateResponse.json.data;
+    const publicPlan = stripSessionContext(generateResponse.json.data);
     publicPlan.candidate_status = 'empty';
     refreshPlanFingerprint(publicPlan);
 
@@ -282,7 +311,7 @@ test('route-plan narrative route returns no debug meta when debug gate is off', 
       path: '/api/front/ai/route-plan/generate',
       body: createGenerateBody()
     });
-    const publicPlan = generateResponse.json.data;
+    const publicPlan = stripSessionContext(generateResponse.json.data);
     publicPlan.candidate_status = 'empty';
     refreshPlanFingerprint(publicPlan);
 
@@ -309,7 +338,7 @@ test('route-plan narrative route maps input budget exceeded to HTTP 200 fallback
       path: '/api/front/ai/route-plan/generate',
       body: createGenerateBody()
     });
-    const publicPlan = inflatePlanTitlesForNarrativeBudget(generateResponse.json.data);
+    const publicPlan = inflatePlanTitlesForNarrativeBudget(stripSessionContext(generateResponse.json.data));
 
     const narrativeResponse = await makeRequest({
       port,
@@ -354,7 +383,7 @@ test('route-plan narrative route rejects fingerprint mismatch as 400', async () 
       path: '/api/front/ai/route-plan/generate',
       body: createGenerateBody()
     });
-    const publicPlan = generateResponse.json.data;
+    const publicPlan = stripSessionContext(generateResponse.json.data);
     publicPlan.route_highlights.push('tampered');
 
     const narrativeResponse = await makeRequest({

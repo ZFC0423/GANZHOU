@@ -9,6 +9,136 @@ import { generateRoutePlan, generateRoutePlanNarrative, reviseRoutePlan } from '
 import { runDecisionDiscoveryAgent } from '../../services/ai/decision-discovery-agent/index.js';
 import { createInvalidOutput } from '../../services/ai/decision-discovery-agent/fallback.js';
 import { buildDiscoveryPayloadFromRouterResult } from '../../services/ai/decision-discovery-agent/router-adapter.js';
+import { mergeTripContext } from '../../services/ai/trip-context-manager/index.js';
+
+const OPTION_KEY_PATTERN = /^scenic:\d+$/;
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeText(value) {
+  return String(value ?? '').trim();
+}
+
+function hasOwn(target, key) {
+  return Object.prototype.hasOwnProperty.call(target || {}, key);
+}
+
+export function normalizeOptionKeys(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+
+  value.forEach((item) => {
+    const key = normalizeText(item);
+
+    if (!OPTION_KEY_PATTERN.test(key) || seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    normalized.push(key);
+  });
+
+  return normalized;
+}
+
+function copyRouteConstraintValue(value) {
+  if (Array.isArray(value)) {
+    return [...value];
+  }
+
+  if (isPlainObject(value)) {
+    return { ...value };
+  }
+
+  return value;
+}
+
+function applySessionTripConstraints(baseConstraints, sessionContext) {
+  const tripConstraints = isPlainObject(sessionContext?.trip_constraints)
+    ? sessionContext.trip_constraints
+    : {};
+  const next = { ...baseConstraints };
+
+  Object.entries(tripConstraints).forEach(([field, value]) => {
+    if (value === undefined) {
+      return;
+    }
+
+    next[field] = copyRouteConstraintValue(value);
+  });
+
+  return next;
+}
+
+function buildRoutePlannerPayload({
+  body,
+  lockedTargets,
+  sessionContext,
+  useSessionTripConstraints = false
+}) {
+  const routerResult = isPlainObject(body.routerResult) ? body.routerResult : {};
+  const constraints = isPlainObject(routerResult.constraints) ? routerResult.constraints : {};
+  const effectiveConstraints = useSessionTripConstraints
+    ? applySessionTripConstraints(constraints, sessionContext)
+    : constraints;
+
+  return {
+    routerResult: {
+      ...routerResult,
+      constraints: {
+        ...effectiveConstraints,
+        locked_targets: lockedTargets
+      }
+    }
+  };
+}
+
+function normalizeClearFieldsForRouteGenerate(value) {
+  return Array.isArray(value)
+    ? value.map((field) => normalizeText(field)).filter(Boolean)
+    : [];
+}
+
+function removeClearedRouteDeltaField(target, field) {
+  if (field === 'time_budget') {
+    delete target.time_budget;
+    return;
+  }
+
+  if (field.startsWith('time_budget.')) {
+    const child = field.split('.')[1];
+
+    if (!isPlainObject(target.time_budget)) {
+      return;
+    }
+
+    target.time_budget = { ...target.time_budget };
+    delete target.time_budget[child];
+
+    if (!Object.keys(target.time_budget).length) {
+      delete target.time_budget;
+    }
+    return;
+  }
+
+  delete target[field];
+}
+
+function buildRouteDeltaConstraints({ rawConstraints, clearFields }) {
+  const { locked_targets: _ignoredLockedTargets, ...routeDeltaConstraints } = rawConstraints;
+
+  clearFields.forEach((field) => {
+    removeClearedRouteDeltaField(routeDeltaConstraints, field);
+  });
+
+  return routeDeltaConstraints;
+}
 
 function shouldExposeIntentMeta(req) {
   if (process.env.NODE_ENV === 'production') {
@@ -53,12 +183,44 @@ export function createRoutePlanHandlers({
   generateRoutePlanService = generateRoutePlan,
   generateRoutePlanNarrativeService = generateRoutePlanNarrative,
   reviseRoutePlanService = reviseRoutePlan,
+  mergeTripContextService = mergeTripContext,
   createTraceId = randomUUID
 } = {}) {
   return {
     async routePlanGenerate(req, res, next) {
       try {
-        const result = await generateRoutePlanService(req.body || {}, {
+        const body = req.body || {};
+        const hasStructuredEvents = hasOwn(body, 'structured_events');
+        const finalLockedTargets = hasStructuredEvents
+          ? normalizeOptionKeys(body.structured_events?.locked_targets || [])
+          : normalizeOptionKeys(body.routerResult?.constraints?.locked_targets || []);
+        const rawRouteConstraints = isPlainObject(body.routerResult?.constraints)
+          ? body.routerResult.constraints
+          : {};
+        const routeClearFields = normalizeClearFieldsForRouteGenerate(body.routerResult?.clear_fields);
+        const routeDeltaConstraints = buildRouteDeltaConstraints({
+          rawConstraints: rawRouteConstraints,
+          clearFields: routeClearFields
+        });
+        const initialContext = mergeTripContextService({
+          previous_session_context: body.previous_session_context || {},
+          delta_constraints: routeDeltaConstraints,
+          clear_fields: routeClearFields,
+          structured_events: {
+            locked_targets: finalLockedTargets
+          },
+          meta: {
+            last_task_type: 'plan_route',
+            last_agent: 'route_planner',
+            last_result_status: null
+          }
+        });
+        const result = await generateRoutePlanService(buildRoutePlannerPayload({
+          body,
+          lockedTargets: finalLockedTargets,
+          sessionContext: initialContext.session_context,
+          useSessionTripConstraints: isPlainObject(body.previous_session_context)
+        }), {
           requestMeta: buildRequestMeta(req, { createTraceId })
         });
 
@@ -67,7 +229,22 @@ export function createRoutePlanHandlers({
           return;
         }
 
-        sendSuccess(res, result.value);
+        const finalContext = mergeTripContextService({
+          previous_session_context: initialContext.session_context,
+          delta_constraints: {},
+          clear_fields: [],
+          structured_events: {},
+          meta: {
+            last_task_type: 'plan_route',
+            last_agent: 'route_planner',
+            last_result_status: result.value?.planning_status || null
+          }
+        });
+
+        sendSuccess(res, {
+          ...result.value,
+          session_context: finalContext.session_context
+        });
       } catch (error) {
         next(error);
       }
@@ -229,7 +406,8 @@ export async function discovery(req, res, next) {
 
 export function createDiscoveryQueryHandler({
   routeIntentService = routeIntent,
-  runDecisionDiscoveryAgentService = runDecisionDiscoveryAgent
+  runDecisionDiscoveryAgentService = runDecisionDiscoveryAgent,
+  mergeTripContextService = mergeTripContext
 } = {}) {
   return async function discoveryQueryHandler(req, res, next) {
     try {
@@ -252,7 +430,25 @@ export function createDiscoveryQueryHandler({
         return;
       }
 
-      const discoveryPayload = buildDiscoveryPayloadFromRouterResult(routerResult, {
+      const contextResult = mergeTripContextService({
+        previous_session_context: body.previous_session_context || {},
+        delta_constraints: routerResult.constraints || {},
+        clear_fields: routerResult.clear_fields || [],
+        structured_events: {},
+        meta: {
+          last_task_type: routerResult.task_type || null,
+          last_agent: 'decision_discovery',
+          last_result_status: null
+        }
+      });
+      const routerResultWithSessionContext = {
+        ...routerResult,
+        constraints: {
+          ...(isPlainObject(routerResult.constraints) ? routerResult.constraints : {}),
+          ...contextResult.session_context.trip_constraints
+        }
+      };
+      const discoveryPayload = buildDiscoveryPayloadFromRouterResult(routerResultWithSessionContext, {
         previous_public_result: body.previous_public_result,
         decision_context: body.decision_context,
         action: body.action
@@ -260,8 +456,22 @@ export function createDiscoveryQueryHandler({
       const result = await runDecisionDiscoveryAgentService(discoveryPayload, {
         requestMeta: buildRequestMeta(req)
       });
+      const finalContext = mergeTripContextService({
+        previous_session_context: contextResult.session_context,
+        delta_constraints: {},
+        clear_fields: [],
+        structured_events: {},
+        meta: {
+          last_task_type: routerResult.task_type || null,
+          last_agent: 'decision_discovery',
+          last_result_status: result?.result_status || null
+        }
+      });
 
-      sendSuccess(res, result);
+      sendSuccess(res, {
+        ...result,
+        session_context: finalContext.session_context
+      });
     } catch (error) {
       next(error);
     }

@@ -313,6 +313,9 @@ export function buildRoutePlanPayloadFromDiscoveryAction({
           user_query: buildTraceableUserQuery(userQuery),
           locked_targets: normalizedKeys.value
         }
+      },
+      structured_events: {
+        locked_targets: normalizedKeys.value
       }
     },
     message: ''

@@ -5,6 +5,23 @@ import http from 'node:http';
 import app from '../src/app.js';
 import { createDiscoveryQueryHandler } from '../src/controllers/front/ai.controller.js';
 
+function createDiscoveryOutput(overrides = {}) {
+  return {
+    task_type: 'discover_options',
+    result_status: 'ready',
+    ranked_options: [],
+    comparison: null,
+    next_actions: [],
+    warnings: [],
+    decision_context: {
+      context_version: 1,
+      fingerprint: 'sha256:test',
+      continuation: {}
+    },
+    ...overrides
+  };
+}
+
 function makeRequest({ port, path = '/api/front/ai/discovery/query', body }) {
   return new Promise((resolve, reject) => {
     const request = http.request(
@@ -96,6 +113,8 @@ test('discovery query routes natural language discovery into Discovery contract'
     assert.ok(['ready', 'limited', 'empty', 'invalid'].includes(response.json.data.result_status));
     assert.ok(Array.isArray(response.json.data.ranked_options));
     assert.ok(response.json.data.decision_context);
+    assert.ok(response.json.data.session_context);
+    assert.ok(response.json.data.session_context.trip_constraints);
   });
 });
 
@@ -224,6 +243,9 @@ test('discovery query handler treats safe_clarify next_agent as Router clarify e
     }),
     runDecisionDiscoveryAgentService: async () => {
       assert.fail('Discovery agent should not run for Router safe_clarify output');
+    },
+    mergeTripContextService: () => {
+      assert.fail('Trip Context Manager should not run for Router safe_clarify output');
     }
   });
   let jsonBody = null;
@@ -246,4 +268,239 @@ test('discovery query handler treats safe_clarify next_agent as Router clarify e
   assert.equal(jsonBody.data.next_agent, 'safe_clarify');
   assert.equal(jsonBody.data.clarification_needed, false);
   assert.equal(Object.hasOwn(jsonBody.data, 'ranked_options'), false);
+  assert.equal(Object.hasOwn(jsonBody.data, 'session_context'), false);
+});
+
+test('discovery query ignores structured_events.locked_targets from request body', async () => {
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async () => ({
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        user_query: 'discover places',
+        companions: ['elders']
+      },
+      clear_fields: [],
+      clarification_needed: false,
+      clarification_reason: null,
+      missing_required_fields: [],
+      clarification_questions: [],
+      next_agent: 'decision_discovery'
+    }),
+    runDecisionDiscoveryAgentService: async () => createDiscoveryOutput()
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: 'discover places',
+      structured_events: {
+        locked_targets: ['scenic:1']
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.deepEqual(jsonBody.data.session_context.trip_constraints.companions, ['elders']);
+  assert.deepEqual(jsonBody.data.session_context.locked_targets, []);
+});
+
+test('discovery query carries session_context and clear_fields across turns', async () => {
+  const routerOutputs = [
+    {
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        user_query: 'weekend relaxed with elders',
+        companions: ['elders'],
+        pace_preference: 'relaxed'
+      },
+      clear_fields: [],
+      clarification_needed: false,
+      clarification_reason: null,
+      missing_required_fields: [],
+      clarification_questions: [],
+      next_agent: 'decision_discovery'
+    },
+    {
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        user_query: 'no elders, compact pace',
+        companions: null,
+        pace_preference: 'compact'
+      },
+      clear_fields: ['companions'],
+      clarification_needed: false,
+      clarification_reason: null,
+      missing_required_fields: [],
+      clarification_questions: [],
+      next_agent: 'decision_discovery'
+    }
+  ];
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async () => routerOutputs.shift(),
+    runDecisionDiscoveryAgentService: async () => createDiscoveryOutput()
+  });
+  const responses = [];
+  const createRes = () => ({
+    json(body) {
+      responses.push(body);
+    }
+  });
+
+  await handler({
+    body: {
+      user_query: 'weekend relaxed with elders'
+    },
+    headers: {},
+    socket: {}
+  }, createRes(), assert.fail);
+
+  await handler({
+    body: {
+      user_query: 'no elders, compact pace',
+      previous_session_context: responses[0].data.session_context
+    },
+    headers: {},
+    socket: {}
+  }, createRes(), assert.fail);
+
+  assert.deepEqual(responses[0].data.session_context.trip_constraints.companions, ['elders']);
+  assert.equal(responses[0].data.session_context.trip_constraints.pace_preference, 'relaxed');
+  assert.deepEqual(responses[1].data.session_context.trip_constraints.companions, []);
+  assert.equal(responses[1].data.session_context.trip_constraints.pace_preference, 'compact');
+});
+
+test('discovery query keeps same-field substantive delta when clear_fields also includes the field', async () => {
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async () => ({
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        user_query: 'switch to nankang',
+        destination_scope: 'nankang'
+      },
+      clear_fields: ['destination_scope'],
+      clarification_needed: false,
+      clarification_reason: null,
+      missing_required_fields: [],
+      clarification_questions: [],
+      next_agent: 'decision_discovery'
+    }),
+    runDecisionDiscoveryAgentService: async (payload) => {
+      assert.deepEqual(payload.constraints.destination_scope, ['nankang']);
+      return createDiscoveryOutput();
+    }
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: 'switch to nankang',
+      previous_session_context: {
+        trip_constraints: {
+          destination_scope: 'zhanggong'
+        }
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.equal(jsonBody.data.session_context.trip_constraints.destination_scope, 'nankang');
+});
+
+test('discovery query tolerates invalid previous_session_context without 500', async () => {
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async () => ({
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        user_query: 'relaxed pace',
+        pace_preference: 'relaxed'
+      },
+      clear_fields: [],
+      clarification_needed: false,
+      clarification_reason: null,
+      missing_required_fields: [],
+      clarification_questions: [],
+      next_agent: 'decision_discovery'
+    }),
+    runDecisionDiscoveryAgentService: async () => createDiscoveryOutput()
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: 'relaxed pace',
+      previous_session_context: 'bad-context'
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.equal(jsonBody.code, 200);
+  assert.equal(jsonBody.data.session_context.trip_constraints.pace_preference, 'relaxed');
+});
+
+test('discovery query clear_fields time_budget does not carry old days', async () => {
+  let receivedPayload = null;
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async () => ({
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        user_query: 'clear time budget',
+        time_budget: null
+      },
+      clear_fields: ['time_budget'],
+      clarification_needed: false,
+      clarification_reason: null,
+      missing_required_fields: [],
+      clarification_questions: [],
+      next_agent: 'decision_discovery'
+    }),
+    runDecisionDiscoveryAgentService: async (payload) => {
+      receivedPayload = payload;
+      return createDiscoveryOutput();
+    }
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: 'clear time budget',
+      previous_session_context: {
+        trip_constraints: {
+          time_budget: {
+            days: 2
+          }
+        }
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.equal(jsonBody.code, 200);
+  assert.equal(receivedPayload.constraints.time_budget, null);
+  assert.equal(jsonBody.data.session_context.trip_constraints.time_budget, null);
 });

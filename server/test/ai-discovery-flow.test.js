@@ -60,6 +60,9 @@ test('buildRoutePlanPayloadFromDiscoveryAction preserves dynamic constraints and
   assert.equal(constraints.destination_scope, null);
   assert.deepEqual(constraints.theme_preferences, ['history']);
   assert.deepEqual(constraints.locked_targets, ['scenic:1', 'scenic:2']);
+  assert.deepEqual(result.value.structured_events, {
+    locked_targets: ['scenic:1', 'scenic:2']
+  });
 
   assert.equal(Object.hasOwn(constraints, 'scenic_hints'), false);
   assert.equal(Object.hasOwn(constraints, 'ranked_options'), false);
@@ -92,6 +95,38 @@ test('buildRoutePlanPayloadFromDiscoveryAction rejects invalid option keys befor
   });
 
   assert.equal(result.ok, false);
+});
+
+test('buildRoutePlanPayloadFromDiscoveryAction only uses action payload option keys for locked targets', () => {
+  const result = buildRoutePlanPayloadFromDiscoveryAction({
+    action: {
+      action_type: 'route_plan.generate',
+      payload: {
+        option_keys: ['scenic:8']
+      }
+    },
+    discoveryResult: {
+      ranked_options: [
+        {
+          option_key: 'scenic:1'
+        }
+      ],
+      comparison: {
+        targets: [
+          {
+            option_key: 'scenic:2'
+          }
+        ]
+      },
+      selected_options: ['scenic:3'],
+      rejected_options: ['scenic:4']
+    },
+    userQuery: 'generate route'
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.structured_events.locked_targets, ['scenic:8']);
+  assert.deepEqual(result.value.routerResult.constraints.locked_targets, ['scenic:8']);
 });
 
 test('buildTraceableUserQuery keeps route planner user_query traceable and bounded', () => {
