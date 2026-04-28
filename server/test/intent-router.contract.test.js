@@ -10,6 +10,12 @@ function createTimeoutError() {
   return error;
 }
 
+function createRouterWithRawIntent(rawIntent) {
+  return createIntentRouter({
+    llmExtract: async () => rawIntent
+  });
+}
+
 test('top-level normalization snapshot: plan_route missing-value encoding is stable', async () => {
   const routeIntent = createIntentRouter({
     llmExtract: async () => ({
@@ -432,4 +438,275 @@ test('cross-intent prior discard is surfaced as clear_fields', async () => {
 
   assert.ok(result.clear_fields.includes('companions'));
   assert.ok(result.clear_fields.includes('pace_preference'));
+});
+
+test('chinese discovery fixtures normalize to decision_discovery without route required fields', async () => {
+  const fixtures = [
+    {
+      input: '我周末想带老人轻松玩赣州',
+      constraints: {
+        user_query: '我周末想带老人轻松玩赣州',
+        companions: ['elders'],
+        pace_preference: 'relaxed',
+        destination_scope: '赣州',
+        time_budget: { date_text: '周末' }
+      }
+    },
+    {
+      input: '周末想在赣州轻松玩一天',
+      constraints: {
+        user_query: '周末想在赣州轻松玩一天',
+        pace_preference: 'relaxed',
+        destination_scope: '赣州',
+        time_budget: { days: 1, date_text: '周末' }
+      }
+    },
+    {
+      input: '赣州适合老人玩的地方',
+      constraints: {
+        user_query: '赣州适合老人玩的地方',
+        companions: ['elders'],
+        destination_scope: '赣州'
+      }
+    },
+    {
+      input: '想找几个不要太累的赣州景点',
+      constraints: {
+        user_query: '想找几个不要太累的赣州景点',
+        pace_preference: 'relaxed',
+        destination_scope: '赣州'
+      }
+    },
+    {
+      input: '第一次来赣州，有哪些必去但别太赶的地方',
+      constraints: {
+        user_query: '第一次来赣州，有哪些必去但别太赶的地方',
+        pace_preference: 'relaxed',
+        destination_scope: '赣州'
+      }
+    }
+  ];
+
+  for (const fixture of fixtures) {
+    const routeIntent = createRouterWithRawIntent({
+      task_type: 'discover_options',
+      task_confidence: 0.88,
+      constraints: fixture.constraints,
+      clarification_reason: null
+    });
+
+    const result = await routeIntent({ input: fixture.input });
+
+    assert.equal(result.task_type, 'discover_options', fixture.input);
+    assert.equal(result.next_agent, 'decision_discovery', fixture.input);
+    assert.equal(result.clarification_needed, false, fixture.input);
+    assert.deepStrictEqual(result.missing_required_fields, [], fixture.input);
+  }
+});
+
+test('discover_options raw missing slots do not cascade into safe_clarify', async () => {
+  const routeIntent = createRouterWithRawIntent({
+    task_type: 'discover_options',
+    task_confidence: 0.88,
+    constraints: {
+      user_query: '赣州适合老人玩的地方',
+      companions: ['elders'],
+      destination_scope: '赣州'
+    },
+    clarification_needed: true,
+    clarification_reason: 'missing_slots',
+    missing_required_fields: ['travel_mode', 'route_origin', 'time_budget'],
+    next_agent: 'safe_clarify'
+  });
+
+  const result = await routeIntent({ input: '赣州适合老人玩的地方' });
+
+  assert.equal(result.task_type, 'discover_options');
+  assert.equal(result.next_agent, 'decision_discovery');
+  assert.equal(result.clarification_needed, false);
+  assert.equal(result.clarification_reason, null);
+  assert.deepStrictEqual(result.missing_required_fields, []);
+});
+
+test('red culture places query can be discovery or guide but must not safe_clarify for route-field gaps', async () => {
+  const discoveryIntent = createRouterWithRawIntent({
+    task_type: 'discover_options',
+    task_confidence: 0.87,
+    constraints: {
+      user_query: '赣州有哪些红色文化景点值得看',
+      theme_preferences: ['red_culture'],
+      destination_scope: '赣州'
+    },
+    clarification_reason: null
+  });
+  const guideIntent = createRouterWithRawIntent({
+    task_type: 'guide_understand',
+    task_confidence: 0.84,
+    constraints: {
+      user_query: '赣州有哪些红色文化景点值得看',
+      theme_preferences: ['red_culture'],
+      region_hints: ['赣州']
+    },
+    clarification_reason: null
+  });
+
+  const discoveryResult = await discoveryIntent({ input: '赣州有哪些红色文化景点值得看' });
+  const guideResult = await guideIntent({ input: '赣州有哪些红色文化景点值得看' });
+
+  assert.ok(['discover_options', 'guide_understand'].includes(discoveryResult.task_type));
+  assert.notEqual(discoveryResult.next_agent, 'safe_clarify');
+  assert.equal(discoveryResult.clarification_needed, false);
+
+  assert.ok(['discover_options', 'guide_understand'].includes(guideResult.task_type));
+  assert.notEqual(guideResult.next_agent, 'safe_clarify');
+  assert.equal(guideResult.clarification_needed, false);
+});
+
+test('plan_route still keeps high threshold for missing route-critical fields', async () => {
+  const routeIntent = createRouterWithRawIntent({
+    task_type: 'plan_route',
+    task_confidence: 0.89,
+    constraints: {
+      user_query: '帮我安排一条赣州路线',
+      destination_scope: '赣州'
+    },
+    clarification_reason: null
+  });
+
+  const result = await routeIntent({ input: '帮我安排一条赣州路线' });
+
+  assert.equal(result.task_type, 'plan_route');
+  assert.equal(result.next_agent, 'safe_clarify');
+  assert.equal(result.clarification_needed, true);
+  assert.ok(result.missing_required_fields.includes('time_budget'));
+  assert.ok(result.missing_required_fields.includes('travel_mode'));
+  assert.ok(result.missing_required_fields.includes('pace_preference'));
+});
+
+test('ambiguous chinese prompts remain safe_clarify when mock LLM returns null task', async () => {
+  const fixtures = ['帮我选一个', '推荐一下', '哪个好', '安排一下'];
+
+  for (const input of fixtures) {
+    const routeIntent = createRouterWithRawIntent({
+      task_type: null,
+      task_confidence: 0.25,
+      constraints: { user_query: input },
+      clarification_reason: 'intent_ambiguous'
+    });
+
+    const result = await routeIntent({ input });
+
+    assert.equal(result.task_type, null, input);
+    assert.equal(result.next_agent, 'safe_clarify', input);
+    assert.equal(result.clarification_needed, true, input);
+  }
+});
+
+test('contextual short-turn with priorState keeps discover_options delta stable', async () => {
+  const routeIntent = createRouterWithRawIntent({
+    task_type: 'discover_options',
+    task_confidence: 0.91,
+    constraints: {
+      user_query: 'no elders, compact pace',
+      companions: null,
+      pace_preference: 'compact'
+    },
+    clear_fields: ['companions'],
+    clarification_reason: null
+  });
+
+  const result = await routeIntent({
+    input: 'no elders, compact pace',
+    priorState: {
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        companions: ['elders'],
+        pace_preference: 'relaxed'
+      }
+    }
+  });
+
+  assert.equal(result.task_type, 'discover_options');
+  assert.equal(result.next_agent, 'decision_discovery');
+  assert.equal(result.clarification_needed, false);
+  assert.deepStrictEqual(result.clear_fields, ['companions']);
+  assert.equal(result.constraints.pace_preference, 'compact');
+});
+
+test('short-turn without priorState can remain safe_clarify', async () => {
+  const routeIntent = createRouterWithRawIntent({
+    task_type: null,
+    task_confidence: 0.25,
+    constraints: {
+      user_query: 'make it relaxed'
+    },
+    clarification_reason: 'intent_ambiguous'
+  });
+
+  const result = await routeIntent({ input: 'make it relaxed' });
+
+  assert.equal(result.task_type, null);
+  assert.equal(result.next_agent, 'safe_clarify');
+  assert.equal(result.clarification_needed, true);
+});
+
+test('choice request with discovery priorState can remain safe_clarify when no candidates exist', async () => {
+  const routeIntent = createRouterWithRawIntent({
+    task_type: null,
+    task_confidence: 0.25,
+    constraints: {
+      user_query: '帮我选一个'
+    },
+    clarification_reason: 'intent_ambiguous'
+  });
+
+  const result = await routeIntent({
+    input: '帮我选一个',
+    priorState: {
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        destination_scope: '赣州',
+        pace_preference: 'relaxed'
+      }
+    }
+  });
+
+  assert.equal(result.task_type, null);
+  assert.equal(result.next_agent, 'safe_clarify');
+  assert.equal(result.clarification_needed, true);
+});
+
+test('explicit replan route request remains plan_route with discovery priorState', async () => {
+  const routeIntent = createRouterWithRawIntent({
+    task_type: 'plan_route',
+    task_confidence: 0.92,
+    constraints: {
+      user_query: 'replan a three day route without elders',
+      time_budget: { days: 3 },
+      travel_mode: 'public_transport',
+      pace_preference: 'compact',
+      companions: null
+    },
+    clear_fields: ['companions'],
+    clarification_reason: null
+  });
+
+  const result = await routeIntent({
+    input: 'replan a three day route without elders',
+    priorState: {
+      task_type: 'discover_options',
+      task_confidence: 0.9,
+      constraints: {
+        companions: ['elders'],
+        pace_preference: 'relaxed'
+      }
+    }
+  });
+
+  assert.equal(result.task_type, 'plan_route');
+  assert.equal(result.next_agent, 'ai_trip');
+  assert.equal(result.clarification_needed, false);
+  assert.deepStrictEqual(result.clear_fields, ['companions']);
 });

@@ -224,6 +224,201 @@ test('discovery query handler passes priorState to Intent Router service', async
   assert.equal(jsonBody.code, 200);
 });
 
+test('discovery query handler builds priorState from previous_session_context', async () => {
+  let receivedPayload = null;
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async (payload) => {
+      receivedPayload = payload;
+      return {
+        task_type: null,
+        task_confidence: 0.2,
+        constraints: {
+          user_query: payload.input
+        },
+        clear_fields: [],
+        clarification_needed: true,
+        clarification_reason: 'intent_ambiguous',
+        missing_required_fields: [],
+        clarification_questions: [],
+        next_agent: 'safe_clarify'
+      };
+    },
+    runDecisionDiscoveryAgentService: async () => {
+      assert.fail('Discovery agent should not run for this test');
+    }
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: '不带老人了，节奏紧凑点',
+      previous_session_context: {
+        trip_constraints: {
+          companions: ['elders'],
+          pace_preference: 'relaxed',
+          time_budget: {
+            days: 2,
+            date_text: '周末'
+          }
+        },
+        selected_options: ['scenic:1'],
+        rejected_options: ['scenic:2'],
+        locked_targets: ['scenic:3']
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.equal(jsonBody.code, 200);
+  assert.equal(receivedPayload.priorState.task_type, 'discover_options');
+  assert.equal(receivedPayload.priorState.task_confidence, 0.9);
+  assert.deepEqual(receivedPayload.priorState.constraints.companions, ['elders']);
+  assert.equal(receivedPayload.priorState.constraints.pace_preference, 'relaxed');
+  assert.deepEqual(receivedPayload.priorState.constraints.time_budget, {
+    days: 2,
+    date_text: '周末'
+  });
+  assert.equal(Object.hasOwn(receivedPayload.priorState.constraints, 'selected_options'), false);
+  assert.equal(Object.hasOwn(receivedPayload.priorState.constraints, 'rejected_options'), false);
+  assert.equal(Object.hasOwn(receivedPayload.priorState.constraints, 'locked_targets'), false);
+});
+
+test('discovery query handler lets invalid explicit priorState fall back to previous_session_context', async () => {
+  let receivedPayload = null;
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async (payload) => {
+      receivedPayload = payload;
+      return {
+        task_type: null,
+        task_confidence: 0.2,
+        constraints: {
+          user_query: payload.input
+        },
+        clear_fields: [],
+        clarification_needed: true,
+        clarification_reason: 'intent_ambiguous',
+        missing_required_fields: [],
+        clarification_questions: [],
+        next_agent: 'safe_clarify'
+      };
+    }
+  });
+
+  await handler({
+    body: {
+      user_query: '换成轻松一点',
+      priorState: {},
+      previous_session_context: {
+        trip_constraints: {
+          pace_preference: 'compact'
+        }
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json() {}
+  }, assert.fail);
+
+  assert.equal(receivedPayload.priorState.task_type, 'discover_options');
+  assert.deepEqual(receivedPayload.priorState.constraints, {
+    pace_preference: 'compact'
+  });
+});
+
+test('discovery query handler prefers effective explicit priorState over previous_session_context', async () => {
+  let receivedPayload = null;
+  const explicitPriorState = {
+    task_type: 'plan_route',
+    task_confidence: 0.88,
+    constraints: {
+      travel_mode: 'public_transport'
+    }
+  };
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async (payload) => {
+      receivedPayload = payload;
+      return {
+        task_type: null,
+        task_confidence: 0.2,
+        constraints: {
+          user_query: payload.input
+        },
+        clear_fields: [],
+        clarification_needed: true,
+        clarification_reason: 'intent_ambiguous',
+        missing_required_fields: [],
+        clarification_questions: [],
+        next_agent: 'safe_clarify'
+      };
+    }
+  });
+
+  await handler({
+    body: {
+      user_query: '继续',
+      priorState: explicitPriorState,
+      previous_session_context: {
+        trip_constraints: {
+          pace_preference: 'compact'
+        }
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json() {}
+  }, assert.fail);
+
+  assert.equal(receivedPayload.priorState, explicitPriorState);
+});
+
+test('discovery query handler safely ignores malformed previous_session_context', async () => {
+  let receivedPayload = null;
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async (payload) => {
+      receivedPayload = payload;
+      return {
+        task_type: null,
+        task_confidence: 0.2,
+        constraints: {
+          user_query: payload.input
+        },
+        clear_fields: [],
+        clarification_needed: true,
+        clarification_reason: 'intent_ambiguous',
+        missing_required_fields: [],
+        clarification_questions: [],
+        next_agent: 'safe_clarify'
+      };
+    }
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: '换成轻松一点',
+      previous_session_context: {
+        trip_constraints: {}
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.equal(jsonBody.code, 200);
+  assert.equal(receivedPayload.priorState, null);
+});
+
 test('discovery query handler treats safe_clarify next_agent as Router clarify even when flag is false', async () => {
   const handler = createDiscoveryQueryHandler({
     routeIntentService: async () => ({
@@ -269,6 +464,167 @@ test('discovery query handler treats safe_clarify next_agent as Router clarify e
   assert.equal(jsonBody.data.clarification_needed, false);
   assert.equal(Object.hasOwn(jsonBody.data, 'ranked_options'), false);
   assert.equal(Object.hasOwn(jsonBody.data, 'session_context'), false);
+});
+
+test('discovery query with previous_session_context keeps candidate-less choice request in safe_clarify', async () => {
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async (payload) => {
+      assert.equal(payload.priorState.task_type, 'discover_options');
+      assert.equal(payload.priorState.constraints.destination_scope, '赣州');
+      return {
+        task_type: null,
+        task_confidence: 0.25,
+        constraints: {
+          user_query: '帮我选一个'
+        },
+        clear_fields: [],
+        clarification_needed: true,
+        clarification_reason: 'intent_ambiguous',
+        missing_required_fields: [],
+        clarification_questions: [],
+        next_agent: 'safe_clarify'
+      };
+    },
+    runDecisionDiscoveryAgentService: async () => {
+      assert.fail('Discovery agent should not run for candidate-less choice clarify');
+    },
+    mergeTripContextService: () => {
+      assert.fail('Trip Context Manager should not run for candidate-less choice clarify');
+    }
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: '帮我选一个',
+      previous_session_context: {
+        trip_constraints: {
+          destination_scope: '赣州',
+          pace_preference: 'relaxed'
+        }
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.equal(jsonBody.code, 200);
+  assert.equal(jsonBody.data.next_agent, 'safe_clarify');
+  assert.equal(jsonBody.data.clarification_needed, true);
+  assert.equal(Object.hasOwn(jsonBody.data, 'session_context'), false);
+});
+
+test('discovery query clarifies empty discovery update without candidate context', async () => {
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async () => ({
+      task_type: 'discover_options',
+      task_confidence: 0.8,
+      constraints: {
+        user_query: 'help me choose',
+        pace_preference: null,
+        companions: [],
+        time_budget: {}
+      },
+      clear_fields: [],
+      clarification_needed: false,
+      clarification_reason: null,
+      missing_required_fields: [],
+      clarification_questions: [],
+      next_agent: 'decision_discovery'
+    }),
+    runDecisionDiscoveryAgentService: async () => {
+      assert.fail('Discovery agent should not run for empty discovery update without candidates');
+    },
+    mergeTripContextService: () => {
+      assert.fail('Trip Context Manager should not run for empty discovery update without candidates');
+    }
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: 'help me choose',
+      previous_session_context: {
+        trip_constraints: {
+          destination_scope: '赣州',
+          pace_preference: 'relaxed'
+        }
+      },
+      previous_public_result: null
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.equal(jsonBody.code, 200);
+  assert.equal(jsonBody.data.next_agent, 'safe_clarify');
+  assert.equal(jsonBody.data.clarification_needed, true);
+  assert.equal(jsonBody.data.clarification_reason, 'missing_candidate_context');
+  assert.match(jsonBody.data.clarification_questions[0], /候选项/);
+  assert.equal(Object.hasOwn(jsonBody.data, 'session_context'), false);
+});
+
+test('discovery query allows candidate-backed empty discovery tasks', async () => {
+  let discoveryCalled = false;
+  const handler = createDiscoveryQueryHandler({
+    routeIntentService: async () => ({
+      task_type: 'narrow_options',
+      task_confidence: 0.8,
+      constraints: {
+        user_query: 'help me choose'
+      },
+      clear_fields: [],
+      clarification_needed: false,
+      clarification_reason: null,
+      missing_required_fields: [],
+      clarification_questions: [],
+      next_agent: 'decision_discovery'
+    }),
+    runDecisionDiscoveryAgentService: async () => {
+      discoveryCalled = true;
+      return createDiscoveryOutput({
+        task_type: 'narrow_options',
+        result_status: 'ready'
+      });
+    }
+  });
+  let jsonBody = null;
+
+  await handler({
+    body: {
+      user_query: 'help me choose',
+      previous_session_context: {
+        trip_constraints: {
+          destination_scope: '赣州'
+        }
+      },
+      previous_public_result: {
+        ranked_options: [
+          { option_key: 'scenic:1' },
+          { option_key: 'scenic:2' }
+        ]
+      }
+    },
+    headers: {},
+    socket: {}
+  }, {
+    json(body) {
+      jsonBody = body;
+    }
+  }, assert.fail);
+
+  assert.equal(discoveryCalled, true);
+  assert.equal(jsonBody.code, 200);
+  assert.equal(jsonBody.data.task_type, 'narrow_options');
+  assert.ok(jsonBody.data.session_context);
 });
 
 test('discovery query ignores structured_events.locked_targets from request body', async () => {

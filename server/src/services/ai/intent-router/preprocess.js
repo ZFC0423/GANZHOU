@@ -281,6 +281,30 @@ function copyMissingValues(currentValue, priorValue) {
   return currentValue;
 }
 
+function applyClearFieldsToMergedConstraints(mergedConstraints, currentConstraints, clearFields) {
+  const next = { ...mergedConstraints };
+
+  clearFields.forEach((field) => {
+    if (!field.includes('.')) {
+      next[field] = currentConstraints?.[field] ?? null;
+      return;
+    }
+
+    const [root, child] = field.split('.');
+
+    if (!root || !child) {
+      return;
+    }
+
+    const mergedRoot = isPlainObject(next[root]) ? { ...next[root] } : {};
+    const currentRoot = isPlainObject(currentConstraints?.[root]) ? currentConstraints[root] : {};
+    mergedRoot[child] = currentRoot[child] ?? null;
+    next[root] = mergedRoot;
+  });
+
+  return next;
+}
+
 export function mergeWithPriorState(result, priorState) {
   const normalizedResult = appendClearFields(result, []);
 
@@ -331,9 +355,15 @@ export function mergeWithPriorState(result, priorState) {
   nextMeta.rule_hits.push('prior_state_constraints_merged');
   nextMeta.prior_state_usage = 'merged';
 
+  const mergedConstraints = copyMissingValues(normalizedResult.constraints, priorState.constraints);
+
   return {
     ...normalizedResult,
-    constraints: copyMissingValues(normalizedResult.constraints, priorState.constraints),
+    constraints: applyClearFieldsToMergedConstraints(
+      mergedConstraints,
+      normalizedResult.constraints,
+      normalizedResult.clear_fields
+    ),
     _meta: nextMeta
   };
 }

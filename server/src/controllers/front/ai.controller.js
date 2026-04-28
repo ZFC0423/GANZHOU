@@ -10,8 +10,16 @@ import { runDecisionDiscoveryAgent } from '../../services/ai/decision-discovery-
 import { createInvalidOutput } from '../../services/ai/decision-discovery-agent/fallback.js';
 import { buildDiscoveryPayloadFromRouterResult } from '../../services/ai/decision-discovery-agent/router-adapter.js';
 import { mergeTripContext } from '../../services/ai/trip-context-manager/index.js';
+import { TRIP_CONSTRAINT_FIELDS } from '../../services/ai/trip-context-manager/contracts.js';
+import { resolveDiscoveryQueryPriorState } from '../../services/ai/intent-router/prior-state.js';
 
 const OPTION_KEY_PATTERN = /^scenic:\d+$/;
+const DISCOVERY_TASK_TYPES = new Set([
+  'discover_options',
+  'compare_options',
+  'narrow_options',
+  'suggest_alternatives'
+]);
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -59,6 +67,31 @@ function copyRouteConstraintValue(value) {
   return value;
 }
 
+function normalizeRoutePlannerTimeBudget(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (!isPlainObject(value)) {
+    return value;
+  }
+
+  const days = Number(value.days);
+  return {
+    days: Number.isInteger(days) && days > 0 ? days : null
+  };
+}
+
+function normalizeRoutePlannerConstraints(constraints) {
+  const next = { ...constraints };
+
+  if (hasOwn(next, 'time_budget')) {
+    next.time_budget = normalizeRoutePlannerTimeBudget(next.time_budget);
+  }
+
+  return next;
+}
+
 function applySessionTripConstraints(baseConstraints, sessionContext) {
   const tripConstraints = isPlainObject(sessionContext?.trip_constraints)
     ? sessionContext.trip_constraints
@@ -87,12 +120,13 @@ function buildRoutePlannerPayload({
   const effectiveConstraints = useSessionTripConstraints
     ? applySessionTripConstraints(constraints, sessionContext)
     : constraints;
+  const routePlannerConstraints = normalizeRoutePlannerConstraints(effectiveConstraints);
 
   return {
     routerResult: {
       ...routerResult,
       constraints: {
-        ...effectiveConstraints,
+        ...routePlannerConstraints,
         locked_targets: lockedTargets
       }
     }
@@ -138,6 +172,90 @@ function buildRouteDeltaConstraints({ rawConstraints, clearFields }) {
   });
 
   return routeDeltaConstraints;
+}
+
+function hasSubstantiveValue(value) {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasSubstantiveValue(item));
+  }
+
+  if (isPlainObject(value)) {
+    return Object.values(value).some((item) => hasSubstantiveValue(item));
+  }
+
+  return false;
+}
+
+function hasSubstantiveTripConstraintDelta(constraints) {
+  if (!isPlainObject(constraints)) {
+    return false;
+  }
+
+  return TRIP_CONSTRAINT_FIELDS.some((field) => hasSubstantiveValue(constraints[field]));
+}
+
+function hasCandidateContextValue(value) {
+  return hasSubstantiveValue(value);
+}
+
+function hasCandidateContext(body, routerResult) {
+  return hasCandidateContextValue(body.previous_public_result)
+    || hasCandidateContextValue(body.candidates)
+    || hasCandidateContextValue(body.options)
+    || hasCandidateContextValue(body.action)
+    || hasCandidateContextValue(routerResult?.action)
+    || hasCandidateContextValue(routerResult?.action_payload);
+}
+
+function shouldClarifyEmptyDiscoveryUpdate({ body, routerResult }) {
+  if (!DISCOVERY_TASK_TYPES.has(routerResult?.task_type)) {
+    return false;
+  }
+
+  if (!hasOwn(body, 'previous_session_context')) {
+    return false;
+  }
+
+  if (hasCandidateContext(body, routerResult)) {
+    return false;
+  }
+
+  if (Array.isArray(routerResult.clear_fields) && routerResult.clear_fields.length > 0) {
+    return false;
+  }
+
+  if (hasSubstantiveTripConstraintDelta(routerResult.constraints)) {
+    return false;
+  }
+
+  return true;
+}
+
+function createMissingCandidateClarify(routerResult) {
+  return {
+    ...routerResult,
+    task_type: null,
+    next_agent: 'safe_clarify',
+    clarification_needed: true,
+    clarification_reason: 'missing_candidate_context',
+    missing_required_fields: [],
+    clarification_questions: [
+      '你想从哪些景点或方案里选？可以先告诉我候选项，或让我先推荐几个。'
+    ],
+    clear_fields: Array.isArray(routerResult?.clear_fields) ? routerResult.clear_fields : []
+  };
 }
 
 function shouldExposeIntentMeta(req) {
@@ -412,9 +530,13 @@ export function createDiscoveryQueryHandler({
   return async function discoveryQueryHandler(req, res, next) {
     try {
       const body = req.body || {};
+      const priorState = resolveDiscoveryQueryPriorState({
+        explicitPriorState: body.priorState,
+        previousSessionContext: body.previous_session_context
+      });
       const routerResult = await routeIntentService({
         input: body.user_query,
-        priorState: body.priorState ?? null
+        priorState
       });
 
       if (routerResult.clarification_needed || routerResult.next_agent === 'safe_clarify') {
@@ -427,6 +549,11 @@ export function createDiscoveryQueryHandler({
           taskType: 'discover_options',
           reasonCode: 'unsupported_next_agent'
         }));
+        return;
+      }
+
+      if (shouldClarifyEmptyDiscoveryUpdate({ body, routerResult })) {
+        sendSuccess(res, stripIntentMeta(createMissingCandidateClarify(routerResult)));
         return;
       }
 

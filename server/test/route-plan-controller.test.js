@@ -472,6 +472,50 @@ test('routePlanGenerate clear_fields prevents stale time_budget days from reachi
   assert.equal(res.payload.data.session_context.trip_constraints.time_budget, null);
 });
 
+test('routePlanGenerate strips session time_budget date_text before Route Planner service', async () => {
+  let receivedPayload = null;
+  const handlers = createRoutePlanHandlers({
+    generateRoutePlanService: async (payload) => {
+      receivedPayload = payload;
+      return {
+        ok: true,
+        value: {
+          planning_status: 'generated'
+        }
+      };
+    }
+  });
+  const res = createMockResponse();
+
+  await handlers.routePlanGenerate({
+    body: {
+      previous_session_context: {
+        trip_constraints: {
+          time_budget: {
+            date_text: '周末'
+          }
+        }
+      },
+      routerResult: {
+        task_type: 'plan_route',
+        constraints: {
+          time_budget: {
+            days: 1
+          }
+        }
+      },
+      structured_events: {
+        locked_targets: []
+      }
+    },
+    headers: {},
+    socket: {}
+  }, res, assert.fail);
+
+  assert.deepEqual(receivedPayload.routerResult.constraints.time_budget, { days: 1 });
+  assert.equal(Object.hasOwn(receivedPayload.routerResult.constraints.time_budget, 'date_text'), false);
+});
+
 test('routePlanGenerate structured_events wins over routerResult locked targets when both exist', async () => {
   let receivedPayload = null;
   const handlers = createRoutePlanHandlers({

@@ -75,6 +75,32 @@ test('buildRoutePlanPayloadFromDiscoveryAction preserves dynamic constraints and
   assert.equal(Object.hasOwn(routerResult, 'comparison'), false);
 });
 
+test('buildRoutePlanPayloadFromDiscoveryAction strips time_budget date_text for route payload', () => {
+  const result = buildRoutePlanPayloadFromDiscoveryAction({
+    action: {
+      action_type: 'route_plan.generate',
+      payload: {
+        option_keys: ['scenic:1']
+      }
+    },
+    discoveryResult: {
+      decision_context: {
+        continuation: {
+          time_budget: {
+            days: 2,
+            date_text: '周末'
+          }
+        }
+      }
+    },
+    userQuery: 'generate route'
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.routerResult.constraints.time_budget, { days: 2 });
+  assert.equal(Object.hasOwn(result.value.routerResult.constraints.time_budget, 'date_text'), false);
+});
+
 test('normalizeOptionKeys deduplicates in first-seen order', () => {
   const result = normalizeOptionKeys(['scenic:3', 'scenic:1', 'scenic:3', 'scenic:2']);
 
