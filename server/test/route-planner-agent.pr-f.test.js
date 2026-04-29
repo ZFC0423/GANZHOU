@@ -12,6 +12,7 @@ import {
 import { buildInternalBasis } from '../src/services/ai/route-planner-agent/basis.js';
 import { buildGenerateFailedPlan } from '../src/services/ai/route-planner-agent/fallback.js';
 import { createGenerateRoutePlanEntry } from '../src/services/ai/route-planner-agent/generate-entry.js';
+import { createMapEnrichment } from '../src/services/ai/route-planner-agent/map-enrichment.js';
 import { createNarrativeRoutePlanEntry } from '../src/services/ai/route-planner-agent/narrative-entry.js';
 import { retrieveRouteCandidates } from '../src/services/ai/route-planner-agent/retrieve.js';
 import { createReviseRoutePlanEntry } from '../src/services/ai/route-planner-agent/revise-entry.js';
@@ -467,4 +468,176 @@ test('noop distance provider is unavailable internally but silent for public rou
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.value.warnings, []);
+});
+
+test('map enrichment failure does not fail generate or alter public route output', async () => {
+  const entry = createGenerateRoutePlanEntry({
+    retrieve: async () => createRetrievalResult({
+      candidates: [
+        scenicCandidate(1, { is_locked: true, matched_by: ['locked_targets'], score: 100 }),
+        scenicCandidate(2, { is_locked: true, matched_by: ['locked_targets'], score: 99 })
+      ]
+    }),
+    mapEnrichment: async () => {
+      throw new Error('map provider unavailable');
+    }
+  });
+
+  const result = await entry(createGeneratePayload({ locked_targets: ['scenic:1', 'scenic:2'] }));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value.planning_status, PLANNING_STATUS.GENERATED);
+  assert.equal(Object.hasOwn(result.value, 'map_enrichment'), false);
+  assert.doesNotThrow(() => assertPublicRoutePlanContract(result.value));
+});
+
+test('map enrichment helper returns internal estimated segments with injected coordinates', async () => {
+  const calls = [];
+  const enrich = createMapEnrichment({
+    coordinateResolver: (item) => ({
+      lat: 25.83 + Number(item.item_key.split(':')[1]) / 1000,
+      lng: 114.93 + Number(item.item_key.split(':')[1]) / 1000
+    }),
+    mapProvider: {
+      getLightRoute: async (payload) => {
+        calls.push(payload);
+        return {
+          provider: 'local',
+          status: 'estimated',
+          data: {
+            distance_meters: 1200,
+            duration_seconds: 600,
+            estimated: true
+          },
+          meta: {
+            estimated: true
+          }
+        };
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: [
+            { item_key: 'scenic:1' },
+            { item_key: 'scenic:2' },
+            { item_key: 'scenic:3' }
+          ]
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot({ travel_mode: 'self_drive' })
+  });
+
+  assert.equal(result.status, 'estimated');
+  assert.equal(result.segments.length, 2);
+  assert.equal(result.segments[0].mode, 'driving');
+  assert.equal(result.segments[0].estimated, true);
+  assert.equal(result.fallback_used, true);
+  assert.equal(calls.length, 2);
+});
+
+test('map enrichment helper does not geocode route item names when coordinates are missing', async () => {
+  let routeCalled = false;
+  let geocodeCalled = false;
+  const enrich = createMapEnrichment({
+    mapProvider: {
+      getLightRoute: async () => {
+        routeCalled = true;
+        throw new Error('should not be called without coordinates');
+      },
+      geocodeAddress: async () => {
+        geocodeCalled = true;
+        throw new Error('geocode is not allowed in PR-K route enrichment');
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: [
+            { item_key: 'scenic:1', title: '通天岩' },
+            { item_key: 'scenic:2', title: '郁孤台' }
+          ]
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot()
+  });
+
+  assert.equal(result.status, 'unavailable');
+  assert.deepEqual(result.segments, []);
+  assert.equal(routeCalled, false);
+  assert.equal(geocodeCalled, false);
+});
+
+test('map enrichment skips public transport instead of treating it as walking', async () => {
+  let routeCalled = false;
+  const enrich = createMapEnrichment({
+    coordinateResolver: () => ({ lat: 25.83, lng: 114.93 }),
+    mapProvider: {
+      getLightRoute: async () => {
+        routeCalled = true;
+        throw new Error('public_transport is not supported by PR-K map enrichment');
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: [
+            { item_key: 'scenic:1' },
+            { item_key: 'scenic:2' }
+          ]
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot({ travel_mode: 'public_transport' })
+  });
+
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.fallback_used, false);
+  assert.equal(routeCalled, false);
+});
+
+test('map enrichment rejects blank coordinates without calling route or geocode', async () => {
+  let routeCalled = false;
+  let geocodeCalled = false;
+  const enrich = createMapEnrichment({
+    mapProvider: {
+      getLightRoute: async () => {
+        routeCalled = true;
+        throw new Error('blank coordinates must be skipped');
+      },
+      geocodeAddress: async () => {
+        geocodeCalled = true;
+        throw new Error('geocode is not allowed in PR-K route enrichment');
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: [
+            { item_key: 'scenic:1', location: { lat: '', lng: 114.93 } },
+            { item_key: 'scenic:2', location: { lat: 25.84, lng: 114.94 } }
+          ]
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot({ travel_mode: 'self_drive' })
+  });
+
+  assert.equal(result.status, 'unavailable');
+  assert.equal(routeCalled, false);
+  assert.equal(geocodeCalled, false);
 });

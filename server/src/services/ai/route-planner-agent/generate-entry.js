@@ -17,6 +17,7 @@ import { buildGenerateFailedPlan, buildGenerateFallback, createPlanContext, atta
 import { retrieveRouteCandidates } from './retrieve.js';
 import { runRepairPolicy } from './repair-policy.js';
 import { assemblePublicRoutePlan, getCapacityTarget, scheduleRoute } from './schedule.js';
+import { enrichRoutePlanWithMap } from './map-enrichment.js';
 
 const LOCKED_RETRIEVAL_FAILURE_STATUS = {
   [ROUTE_WARNING_CODES.LOCKED_TARGET_NOT_FOUND]: CANDIDATE_STATUS.EMPTY,
@@ -148,13 +149,15 @@ async function buildGeneratedPlan({
  * @param {{
  *   validatePayload?: (payload?: GeneratePayload) => GenerateValidationResult,
  *   retrieve?: typeof retrieveRouteCandidates,
- *   repairPolicy?: typeof runRepairPolicy
+ *   repairPolicy?: typeof runRepairPolicy,
+ *   mapEnrichment?: ((args: { publicPlan: PublicRoutePlan, constraintsSnapshot: ConstraintsSnapshot }) => Promise<unknown>) | null
  * }} [dependencies]
  */
 export function createGenerateRoutePlanEntry({
   validatePayload = /** @type {(payload?: GeneratePayload) => GenerateValidationResult} */ (validateGeneratePayload),
   retrieve = retrieveRouteCandidates,
-  repairPolicy = runRepairPolicy
+  repairPolicy = runRepairPolicy,
+  mapEnrichment = enrichRoutePlanWithMap
 } = {}) {
   /**
    * @param {GeneratePayload} [payload]
@@ -176,6 +179,17 @@ export function createGenerateRoutePlanEntry({
     });
 
     assertPublicRoutePlanContract(routePlan);
+
+    if (typeof mapEnrichment === 'function') {
+      try {
+        await mapEnrichment({
+          publicPlan: JSON.parse(JSON.stringify(routePlan)),
+          constraintsSnapshot: validated.value.constraints_snapshot
+        });
+      } catch {
+        // Map enrichment is best-effort in PR-K and must never affect route generation.
+      }
+    }
 
     return {
       ok: true,
