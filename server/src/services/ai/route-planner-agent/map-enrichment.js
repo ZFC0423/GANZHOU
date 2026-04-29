@@ -3,6 +3,8 @@
 import { getLightRoute } from '../../map-provider/index.js';
 import { normalizeLocation as normalizeProviderLocation } from '../../map-provider/estimate.js';
 
+export const MIN_REMAINING_MS_BEFORE_ROUTE_CALL = 100;
+
 function normalizeLocation(value) {
   const normalized = normalizeProviderLocation(value);
   return normalized.ok ? normalized.value : null;
@@ -24,13 +26,57 @@ function resolveMode(constraintsSnapshot) {
   return null;
 }
 
+function normalizeMaxSegments(value) {
+  if (value === undefined || value === null) {
+    return Infinity;
+  }
+
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : Infinity;
+}
+
+function isDeadlineReached(deadlineAt, now) {
+  return Number.isFinite(deadlineAt) && now() >= deadlineAt;
+}
+
+function hasEnoughTimeForRouteCall(deadlineAt, now) {
+  if (!Number.isFinite(deadlineAt)) {
+    return true;
+  }
+
+  return deadlineAt - now() > MIN_REMAINING_MS_BEFORE_ROUTE_CALL;
+}
+
+function createDeadlineResult(segments) {
+  return {
+    status: segments.length ? 'partial' : 'unavailable',
+    provider: segments[0]?.provider || 'local',
+    segments,
+    fallback_used: true,
+    diagnostics: {
+      timed_out: true,
+      skipped_segments: 1,
+      skip_reason: 'spatial_diagnostics_timeout'
+    }
+  };
+}
+
 export function createMapEnrichment({
   mapProvider = { getLightRoute },
   coordinateResolver = getItemLocation
 } = {}) {
-  return async function enrichRoutePlanWithMap({ publicPlan, constraintsSnapshot } = {}) {
+  return async function enrichRoutePlanWithMap({
+    publicPlan,
+    constraintsSnapshot,
+    maxSegments,
+    deadlineAt = Infinity,
+    now = () => Date.now()
+  } = {}) {
     try {
       const segments = [];
+      const segmentLimit = normalizeMaxSegments(maxSegments);
+      const scannedPairLimit = segmentLimit === Infinity ? Infinity : segmentLimit * 3;
+      let scannedPairs = 0;
       const mode = resolveMode(constraintsSnapshot);
       if (!mode) {
         return {
@@ -44,6 +90,11 @@ export function createMapEnrichment({
       for (const day of publicPlan?.days || []) {
         const items = Array.isArray(day.items) ? day.items : [];
         for (let index = 0; index < items.length - 1; index += 1) {
+          if (segments.length >= segmentLimit || scannedPairs >= scannedPairLimit) {
+            break;
+          }
+
+          scannedPairs += 1;
           const from = items[index];
           const to = items[index + 1];
           const origin = normalizeLocation(coordinateResolver(from));
@@ -51,6 +102,10 @@ export function createMapEnrichment({
 
           if (!origin || !destination) {
             continue;
+          }
+
+          if (isDeadlineReached(deadlineAt, now) || !hasEnoughTimeForRouteCall(deadlineAt, now)) {
+            return createDeadlineResult(segments);
           }
 
           const result = await mapProvider.getLightRoute({
@@ -69,6 +124,10 @@ export function createMapEnrichment({
             source_status: result.status,
             provider: result.provider
           });
+        }
+
+        if (segments.length >= segmentLimit || scannedPairs >= scannedPairLimit) {
+          break;
         }
       }
 

@@ -18,6 +18,14 @@ import { retrieveRouteCandidates } from './retrieve.js';
 import { runRepairPolicy } from './repair-policy.js';
 import { assemblePublicRoutePlan, getCapacityTarget, scheduleRoute } from './schedule.js';
 import { enrichRoutePlanWithMap } from './map-enrichment.js';
+import {
+  SPATIAL_SKIP_REASONS,
+  createUnavailableSpatialValidationResult,
+  validateRouteSpatialReasonability
+} from './spatial-validation.js';
+
+export const SPATIAL_DIAGNOSTICS_MAX_MS = 1000;
+export const MAX_SPATIAL_ENRICHMENT_SEGMENTS = 3;
 
 const LOCKED_RETRIEVAL_FAILURE_STATUS = {
   [ROUTE_WARNING_CODES.LOCKED_TARGET_NOT_FOUND]: CANDIDATE_STATUS.EMPTY,
@@ -31,6 +39,149 @@ function getLockedBusinessWarnings(result) {
 function getLockedRetrievalFailureStatus(warnings) {
   const firstCode = warnings[0]?.code;
   return LOCKED_RETRIEVAL_FAILURE_STATUS[firstCode] || CANDIDATE_STATUS.READY;
+}
+
+function clonePublicPlan(routePlan) {
+  return JSON.parse(JSON.stringify(routePlan));
+}
+
+function createUnavailableMapEnrichmentResult() {
+  return {
+    status: 'unavailable',
+    provider: 'local',
+    segments: [],
+    fallback_used: true
+  };
+}
+
+export async function defaultSpatialDiagnosticsSink({
+  route_fingerprint = null,
+  planning_status = null,
+  spatial_validation = null
+} = {}) {
+  const issues = Array.isArray(spatial_validation?.issues) ? spatial_validation.issues : [];
+  const skipReason = spatial_validation?.diagnostics?.skip_reason || null;
+  const shouldLog = spatial_validation?.status === 'warning'
+    || issues.length > 0
+    || skipReason === SPATIAL_SKIP_REASONS.SPATIAL_DIAGNOSTICS_TIMEOUT;
+
+  if (!shouldLog) {
+    return;
+  }
+
+  const payload = {
+    event: 'route_planner_spatial_validation_warning',
+    route_fingerprint,
+    planning_status,
+    status: spatial_validation?.status || 'unavailable',
+    issue_codes: issues.map((issue) => issue.code).filter(Boolean),
+    issue_count: issues.length,
+    diagnostics: {
+      checked_segments: spatial_validation?.diagnostics?.checked_segments ?? 0,
+      unavailable_segments: spatial_validation?.diagnostics?.unavailable_segments ?? 0,
+      estimated_segments: spatial_validation?.diagnostics?.estimated_segments ?? 0,
+      skipped_segments: spatial_validation?.diagnostics?.skipped_segments ?? 0,
+      skip_reason: skipReason
+    }
+  };
+
+  // Keep default diagnostics lightweight and sanitized; tests can inject a spy/noop sink.
+  console.warn('[route-planner][spatial-validation]', payload);
+}
+
+export async function runSpatialDiagnosticsBestEffort({
+  routePlan,
+  constraintsSnapshot,
+  mapEnrichment,
+  spatialValidation,
+  spatialDiagnosticsSink,
+  timeoutMs = SPATIAL_DIAGNOSTICS_MAX_MS,
+  maxSpatialEnrichmentSegments = MAX_SPATIAL_ENRICHMENT_SEGMENTS,
+  now = () => Date.now()
+}) {
+  if (
+    typeof mapEnrichment !== 'function'
+    || typeof spatialValidation !== 'function'
+    || typeof spatialDiagnosticsSink !== 'function'
+  ) {
+    return;
+  }
+
+  const clonedRoutePlan = clonePublicPlan(routePlan);
+  const startedAt = now();
+  const deadlineAt = startedAt + timeoutMs;
+  let timedOut = false;
+  let timeoutId;
+
+  const timeoutPromise = new Promise((resolve) => {
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      resolve('timeout');
+    }, timeoutMs);
+  });
+
+  const diagnosticsPromise = (async () => {
+    let mapEnrichmentResult = null;
+    try {
+      mapEnrichmentResult = await mapEnrichment({
+        publicPlan: clonedRoutePlan,
+        constraintsSnapshot,
+        maxSegments: maxSpatialEnrichmentSegments,
+        deadlineAt,
+        now
+      });
+    } catch {
+      mapEnrichmentResult = createUnavailableMapEnrichmentResult();
+    }
+
+    let spatialValidationResult = null;
+    try {
+      spatialValidationResult = await spatialValidation({
+        publicPlan: clonedRoutePlan,
+        constraintsSnapshot,
+        mapEnrichmentResult
+      });
+    } catch {
+      spatialValidationResult = createUnavailableSpatialValidationResult(
+        SPATIAL_SKIP_REASONS.SPATIAL_VALIDATION_FAILED
+      );
+    }
+
+    if (timedOut || typeof spatialDiagnosticsSink !== 'function') {
+      return;
+    }
+
+    try {
+      await spatialDiagnosticsSink({
+        route_fingerprint: routePlan?.plan_context?.fingerprint || null,
+        planning_status: routePlan?.planning_status || null,
+        spatial_validation: spatialValidationResult
+      });
+    } catch {
+      // Spatial diagnostics are best-effort only.
+    }
+  })().catch(() => undefined);
+
+  try {
+    const raceResult = await Promise.race([diagnosticsPromise, timeoutPromise]);
+    if (raceResult === 'timeout' && spatialDiagnosticsSink === defaultSpatialDiagnosticsSink) {
+      try {
+        await defaultSpatialDiagnosticsSink({
+          route_fingerprint: routePlan?.plan_context?.fingerprint || null,
+          planning_status: routePlan?.planning_status || null,
+          spatial_validation: createUnavailableSpatialValidationResult(
+            SPATIAL_SKIP_REASONS.SPATIAL_DIAGNOSTICS_TIMEOUT
+          )
+        });
+      } catch {
+        // Spatial diagnostics are best-effort only.
+      }
+    }
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 async function buildGeneratedPlan({
@@ -150,14 +301,24 @@ async function buildGeneratedPlan({
  *   validatePayload?: (payload?: GeneratePayload) => GenerateValidationResult,
  *   retrieve?: typeof retrieveRouteCandidates,
  *   repairPolicy?: typeof runRepairPolicy,
- *   mapEnrichment?: ((args: { publicPlan: PublicRoutePlan, constraintsSnapshot: ConstraintsSnapshot }) => Promise<unknown>) | null
+ *   mapEnrichment?: ((args: { publicPlan: PublicRoutePlan, constraintsSnapshot: ConstraintsSnapshot, maxSegments?: number }) => Promise<unknown>) | null,
+ *   spatialValidation?: ((args: { publicPlan: PublicRoutePlan, constraintsSnapshot: ConstraintsSnapshot, mapEnrichmentResult: unknown }) => Promise<unknown> | unknown) | null,
+ *   spatialDiagnosticsSink?: ((input: { route_fingerprint: string | null, planning_status: string | null, spatial_validation: unknown }) => Promise<void> | void) | null,
+ *   spatialDiagnosticsTimeoutMs?: number,
+ *   maxSpatialEnrichmentSegments?: number,
+ *   now?: () => number
  * }} [dependencies]
  */
 export function createGenerateRoutePlanEntry({
   validatePayload = /** @type {(payload?: GeneratePayload) => GenerateValidationResult} */ (validateGeneratePayload),
   retrieve = retrieveRouteCandidates,
   repairPolicy = runRepairPolicy,
-  mapEnrichment = enrichRoutePlanWithMap
+  mapEnrichment = enrichRoutePlanWithMap,
+  spatialValidation = validateRouteSpatialReasonability,
+  spatialDiagnosticsSink = defaultSpatialDiagnosticsSink,
+  spatialDiagnosticsTimeoutMs = SPATIAL_DIAGNOSTICS_MAX_MS,
+  maxSpatialEnrichmentSegments = MAX_SPATIAL_ENRICHMENT_SEGMENTS,
+  now = () => Date.now()
 } = {}) {
   /**
    * @param {GeneratePayload} [payload]
@@ -180,16 +341,16 @@ export function createGenerateRoutePlanEntry({
 
     assertPublicRoutePlanContract(routePlan);
 
-    if (typeof mapEnrichment === 'function') {
-      try {
-        await mapEnrichment({
-          publicPlan: JSON.parse(JSON.stringify(routePlan)),
-          constraintsSnapshot: validated.value.constraints_snapshot
-        });
-      } catch {
-        // Map enrichment is best-effort in PR-K and must never affect route generation.
-      }
-    }
+    await runSpatialDiagnosticsBestEffort({
+      routePlan,
+      constraintsSnapshot: validated.value.constraints_snapshot,
+      mapEnrichment,
+      spatialValidation,
+      spatialDiagnosticsSink,
+      timeoutMs: spatialDiagnosticsTimeoutMs,
+      maxSpatialEnrichmentSegments,
+      now
+    });
 
     return {
       ok: true,

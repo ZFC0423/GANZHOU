@@ -488,6 +488,211 @@ test('map enrichment failure does not fail generate or alter public route output
   assert.equal(result.ok, true);
   assert.equal(result.value.planning_status, PLANNING_STATUS.GENERATED);
   assert.equal(Object.hasOwn(result.value, 'map_enrichment'), false);
+  assert.equal(Object.hasOwn(result.value, 'spatial_validation'), false);
+  assert.doesNotThrow(() => assertPublicRoutePlanContract(result.value));
+});
+
+test('spatial validation warning is sent to diagnostics sink without altering public output', async () => {
+  const diagnostics = [];
+  const entry = createGenerateRoutePlanEntry({
+    retrieve: async () => createRetrievalResult({
+      candidates: [
+        scenicCandidate(1, { is_locked: true, matched_by: ['locked_targets'], score: 100 }),
+        scenicCandidate(2, { is_locked: true, matched_by: ['locked_targets'], score: 99 })
+      ]
+    }),
+    mapEnrichment: async () => ({
+      status: 'estimated',
+      provider: 'local',
+      fallback_used: true,
+      segments: [
+        {
+          from_option_key: 'scenic:1',
+          to_option_key: 'scenic:2',
+          mode: 'driving',
+          distance_meters: 60000,
+          duration_seconds: 5000,
+          estimated: true
+        }
+      ]
+    }),
+    spatialDiagnosticsSink: async (input) => {
+      diagnostics.push(input);
+    }
+  });
+
+  const result = await entry(createGeneratePayload({
+    locked_targets: ['scenic:1', 'scenic:2'],
+    travel_mode: 'self_drive',
+    pace_preference: 'relaxed'
+  }));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value.planning_status, PLANNING_STATUS.GENERATED);
+  assert.equal(countRouteItems(result.value, 'scenic:1'), 1);
+  assert.equal(countRouteItems(result.value, 'scenic:2'), 1);
+  assert.equal(result.value.warnings.length, 0);
+  assert.equal(Object.hasOwn(result.value, 'map_enrichment'), false);
+  assert.equal(Object.hasOwn(result.value, 'spatial_validation'), false);
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0].route_fingerprint, result.value.plan_context.fingerprint);
+  assert.equal(diagnostics[0].spatial_validation.status, 'warning');
+  assert.equal(diagnostics[0].spatial_validation.issues[0].code, 'route_segment_too_far');
+  assert.doesNotThrow(() => assertPublicRoutePlanContract(result.value));
+});
+
+test('spatial validation and diagnostics sink failures do not fail route generation', async () => {
+  const failingValidationEntry = createGenerateRoutePlanEntry({
+    retrieve: async () => createRetrievalResult({
+      candidates: [
+        scenicCandidate(1, { is_locked: true, matched_by: ['locked_targets'], score: 100 }),
+        scenicCandidate(2, { is_locked: true, matched_by: ['locked_targets'], score: 99 })
+      ]
+    }),
+    mapEnrichment: async () => ({ status: 'ok', provider: 'local', segments: [{}], fallback_used: false }),
+    spatialValidation: async () => {
+      throw new Error('spatial validation failed');
+    },
+    spatialDiagnosticsSink: async () => {}
+  });
+  const validationResult = await failingValidationEntry(createGeneratePayload({ locked_targets: ['scenic:1', 'scenic:2'] }));
+  assert.equal(validationResult.ok, true);
+  assert.doesNotThrow(() => assertPublicRoutePlanContract(validationResult.value));
+
+  const failingSinkEntry = createGenerateRoutePlanEntry({
+    retrieve: async () => createRetrievalResult({
+      candidates: [
+        scenicCandidate(1, { is_locked: true, matched_by: ['locked_targets'], score: 100 }),
+        scenicCandidate(2, { is_locked: true, matched_by: ['locked_targets'], score: 99 })
+      ]
+    }),
+    mapEnrichment: async () => ({
+      status: 'ok',
+      provider: 'local',
+      fallback_used: false,
+      segments: [{ mode: 'driving', distance_meters: 60000, duration_seconds: 5000 }]
+    }),
+    spatialDiagnosticsSink: async () => {
+      throw new Error('sink failed');
+    }
+  });
+  const sinkResult = await failingSinkEntry(createGeneratePayload({
+    locked_targets: ['scenic:1', 'scenic:2'],
+    travel_mode: 'self_drive'
+  }));
+  assert.equal(sinkResult.ok, true);
+  assert.doesNotThrow(() => assertPublicRoutePlanContract(sinkResult.value));
+});
+
+test('spatial diagnostics timeout does not fail route generation or write late sink output', async () => {
+  const diagnostics = [];
+  const entry = createGenerateRoutePlanEntry({
+    retrieve: async () => createRetrievalResult({
+      candidates: [
+        scenicCandidate(1, { is_locked: true, matched_by: ['locked_targets'], score: 100 }),
+        scenicCandidate(2, { is_locked: true, matched_by: ['locked_targets'], score: 99 })
+      ]
+    }),
+    mapEnrichment: async () => new Promise(() => {}),
+    spatialDiagnosticsSink: async (input) => {
+      diagnostics.push(input);
+    },
+    spatialDiagnosticsTimeoutMs: 1
+  });
+
+  const result = await entry(createGeneratePayload({ locked_targets: ['scenic:1', 'scenic:2'] }));
+
+  assert.equal(result.ok, true);
+  assert.equal(diagnostics.length, 0);
+  assert.equal(Object.hasOwn(result.value, 'spatial_validation'), false);
+  assert.doesNotThrow(() => assertPublicRoutePlanContract(result.value));
+});
+
+test('spatial diagnostics skips all work when sink is disabled', async () => {
+  let mapCalled = false;
+  let validationCalled = false;
+  const entry = createGenerateRoutePlanEntry({
+    retrieve: async () => createRetrievalResult({
+      candidates: [
+        scenicCandidate(1, { is_locked: true, matched_by: ['locked_targets'], score: 100 }),
+        scenicCandidate(2, { is_locked: true, matched_by: ['locked_targets'], score: 99 })
+      ]
+    }),
+    mapEnrichment: async () => {
+      mapCalled = true;
+      return { status: 'ok', provider: 'local', segments: [], fallback_used: false };
+    },
+    spatialValidation: async () => {
+      validationCalled = true;
+      return { status: 'ok', issues: [], diagnostics: {} };
+    },
+    spatialDiagnosticsSink: null
+  });
+
+  const result = await entry(createGeneratePayload({ locked_targets: ['scenic:1', 'scenic:2'] }));
+
+  assert.equal(result.ok, true);
+  assert.equal(mapCalled, false);
+  assert.equal(validationCalled, false);
+  assert.doesNotThrow(() => assertPublicRoutePlanContract(result.value));
+});
+
+test('spatial diagnostics deadline is passed to map enrichment and prevents later route calls', async () => {
+  let currentTime = 0;
+  let routeCalls = 0;
+  const nowCalls = [];
+  const entry = createGenerateRoutePlanEntry({
+    retrieve: async () => createRetrievalResult({
+      candidates: [
+        scenicCandidate(1, { is_locked: true, matched_by: ['locked_targets'], score: 100 }),
+        scenicCandidate(2, { is_locked: true, matched_by: ['locked_targets'], score: 99 }),
+        scenicCandidate(3, { score: 98 })
+      ]
+    }),
+    mapEnrichment: createMapEnrichment({
+      coordinateResolver: (item) => ({
+        lat: 25.83 + Number(item.item_key.split(':')[1]) / 1000,
+        lng: 114.93 + Number(item.item_key.split(':')[1]) / 1000
+      }),
+      mapProvider: {
+        getLightRoute: async () => {
+          routeCalls += 1;
+          currentTime = 150;
+          return {
+            provider: 'local',
+            status: 'estimated',
+            data: {
+              distance_meters: 60000,
+              duration_seconds: 5000,
+              estimated: true
+            },
+            meta: {
+              estimated: true
+            }
+          };
+        }
+      }
+    }),
+    spatialDiagnosticsSink: async () => {},
+    spatialDiagnosticsTimeoutMs: 200,
+    now: () => {
+      nowCalls.push(currentTime);
+      return currentTime;
+    },
+    maxSpatialEnrichmentSegments: 3
+  });
+
+  const result = await entry(createGeneratePayload({
+    locked_targets: ['scenic:1', 'scenic:2'],
+    travel_mode: 'self_drive',
+    pace_preference: 'compact'
+  }));
+
+  assert.equal(result.ok, true);
+  assert.equal(routeCalls, 1);
+  assert.deepEqual(nowCalls.slice(0, 2), [0, 0]);
+  assert.equal(nowCalls.includes(150), true);
+  assert.equal(Object.hasOwn(result.value, 'spatial_validation'), false);
   assert.doesNotThrow(() => assertPublicRoutePlanContract(result.value));
 });
 
@@ -538,6 +743,203 @@ test('map enrichment helper returns internal estimated segments with injected co
   assert.equal(result.segments[0].estimated, true);
   assert.equal(result.fallback_used, true);
   assert.equal(calls.length, 2);
+});
+
+test('map enrichment helper respects maxSegments limit for long routes', async () => {
+  const calls = [];
+  const enrich = createMapEnrichment({
+    coordinateResolver: (item) => ({
+      lat: 25.83 + Number(item.item_key.split(':')[1]) / 1000,
+      lng: 114.93 + Number(item.item_key.split(':')[1]) / 1000
+    }),
+    mapProvider: {
+      getLightRoute: async (payload) => {
+        calls.push(payload);
+        return {
+          provider: 'local',
+          status: 'estimated',
+          data: {
+            distance_meters: 1200,
+            duration_seconds: 600,
+            estimated: true
+          },
+          meta: {
+            estimated: true
+          }
+        };
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: [
+            { item_key: 'scenic:1' },
+            { item_key: 'scenic:2' },
+            { item_key: 'scenic:3' },
+            { item_key: 'scenic:4' },
+            { item_key: 'scenic:5' }
+          ]
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot({ travel_mode: 'self_drive' }),
+    maxSegments: 2
+  });
+
+  assert.equal(result.segments.length, 2);
+  assert.equal(calls.length, 2);
+});
+
+test('map enrichment deadline reached before first route call avoids getLightRoute', async () => {
+  let routeCalled = false;
+  const enrich = createMapEnrichment({
+    coordinateResolver: () => ({ lat: 25.83, lng: 114.93 }),
+    mapProvider: {
+      getLightRoute: async () => {
+        routeCalled = true;
+        throw new Error('deadline should prevent route call');
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: [
+            { item_key: 'scenic:1' },
+            { item_key: 'scenic:2' }
+          ]
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot({ travel_mode: 'self_drive' }),
+    deadlineAt: 10,
+    now: () => 10
+  });
+
+  assert.equal(routeCalled, false);
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.diagnostics.timed_out, true);
+  assert.equal(result.diagnostics.skip_reason, 'spatial_diagnostics_timeout');
+});
+
+test('map enrichment avoids route call when remaining deadline budget is too small', async () => {
+  let routeCalled = false;
+  const enrich = createMapEnrichment({
+    coordinateResolver: () => ({ lat: 25.83, lng: 114.93 }),
+    mapProvider: {
+      getLightRoute: async () => {
+        routeCalled = true;
+        throw new Error('remaining budget should prevent route call');
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: [
+            { item_key: 'scenic:1' },
+            { item_key: 'scenic:2' }
+          ]
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot({ travel_mode: 'self_drive' }),
+    deadlineAt: 1000,
+    now: () => 950
+  });
+
+  assert.equal(routeCalled, false);
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.diagnostics.timed_out, true);
+});
+
+test('map enrichment stops route calls when deadline expires after first segment', async () => {
+  let currentTime = 0;
+  let routeCalls = 0;
+  const enrich = createMapEnrichment({
+    coordinateResolver: () => ({ lat: 25.83, lng: 114.93 }),
+    mapProvider: {
+      getLightRoute: async () => {
+        routeCalls += 1;
+        currentTime = 150;
+        return {
+          provider: 'local',
+          status: 'estimated',
+          data: {
+            distance_meters: 1200,
+            duration_seconds: 600,
+            estimated: true
+          },
+          meta: {
+            estimated: true
+          }
+        };
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: [
+            { item_key: 'scenic:1' },
+            { item_key: 'scenic:2' },
+            { item_key: 'scenic:3' }
+          ]
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot({ travel_mode: 'self_drive' }),
+    deadlineAt: 200,
+    now: () => currentTime,
+    maxSegments: 3
+  });
+
+  assert.equal(routeCalls, 1);
+  assert.equal(result.status, 'partial');
+  assert.equal(result.segments.length, 1);
+  assert.equal(result.diagnostics.timed_out, true);
+});
+
+test('map enrichment limits scanned pairs when long route lacks coordinates', async () => {
+  let resolverCalls = 0;
+  let routeCalled = false;
+  const enrich = createMapEnrichment({
+    coordinateResolver: () => {
+      resolverCalls += 1;
+      return null;
+    },
+    mapProvider: {
+      getLightRoute: async () => {
+        routeCalled = true;
+        throw new Error('missing coordinates should never call route');
+      }
+    }
+  });
+
+  const result = await enrich({
+    publicPlan: {
+      days: [
+        {
+          items: Array.from({ length: 20 }, (_, index) => ({ item_key: `scenic:${index + 1}` }))
+        }
+      ]
+    },
+    constraintsSnapshot: createSnapshot({ travel_mode: 'self_drive' }),
+    maxSegments: 2
+  });
+
+  assert.equal(result.status, 'unavailable');
+  assert.equal(routeCalled, false);
+  assert.equal(resolverCalls, 12);
 });
 
 test('map enrichment helper does not geocode route item names when coordinates are missing', async () => {
@@ -605,6 +1007,49 @@ test('map enrichment skips public transport instead of treating it as walking', 
   assert.equal(result.status, 'unavailable');
   assert.equal(result.fallback_used, false);
   assert.equal(routeCalled, false);
+});
+
+test('spatial validation does not treat public transport or mixed without segment mode as walking', async () => {
+  for (const travel_mode of ['public_transport', 'mixed']) {
+    const diagnostics = [];
+    const entry = createGenerateRoutePlanEntry({
+      retrieve: async () => createRetrievalResult({
+        candidates: [
+          scenicCandidate(1, { is_locked: true, matched_by: ['locked_targets'], score: 100 }),
+          scenicCandidate(2, { is_locked: true, matched_by: ['locked_targets'], score: 99 })
+        ]
+      }),
+      mapEnrichment: async () => ({
+        status: 'ok',
+        provider: 'local',
+        fallback_used: false,
+        segments: [
+          {
+            from_option_key: 'scenic:1',
+            to_option_key: 'scenic:2',
+            distance_meters: 999999,
+            duration_seconds: 999999,
+            estimated: false
+          }
+        ]
+      }),
+      spatialDiagnosticsSink: async (input) => {
+        diagnostics.push(input);
+      }
+    });
+
+    const result = await entry(createGeneratePayload({
+      locked_targets: ['scenic:1', 'scenic:2'],
+      travel_mode
+    }));
+
+    assert.equal(result.ok, true);
+    assert.equal(diagnostics.length, 1);
+    assert.equal(diagnostics[0].spatial_validation.status, 'unavailable');
+    assert.equal(diagnostics[0].spatial_validation.issues.length, 0);
+    assert.equal(diagnostics[0].spatial_validation.diagnostics.skipped_segments, 1);
+    assert.doesNotThrow(() => assertPublicRoutePlanContract(result.value));
+  }
 });
 
 test('map enrichment rejects blank coordinates without calling route or geocode', async () => {
