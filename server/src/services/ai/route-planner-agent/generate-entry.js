@@ -13,6 +13,7 @@
 import { CANDIDATE_STATUS, PLANNING_STATUS, ROUTE_WARNING_CODES } from './contracts.js';
 import { assertPublicRoutePlanContract, validateGeneratePayload } from './validate.js';
 import { buildInternalBasis } from './basis.js';
+import { createCoordinateResolver } from './coordinate-context.js';
 import { buildGenerateFailedPlan, buildGenerateFallback, createPlanContext, attachFingerprint } from './fallback.js';
 import { retrieveRouteCandidates } from './retrieve.js';
 import { runRepairPolicy } from './repair-policy.js';
@@ -51,6 +52,30 @@ function createUnavailableMapEnrichmentResult() {
     provider: 'local',
     segments: [],
     fallback_used: true
+  };
+}
+
+function hasUsableCandidateCoordinates(candidate) {
+  const coordinates = candidate?.coordinates;
+
+  return Boolean(coordinates)
+    && typeof coordinates.lat === 'number'
+    && typeof coordinates.lng === 'number'
+    && Number.isFinite(coordinates.lat)
+    && Number.isFinite(coordinates.lng);
+}
+
+function createGeneratedPlanResult(routePlan, internalBasis = null) {
+  const coordinateCandidatesSnapshot = Array.isArray(internalBasis?.route_candidates)
+    ? internalBasis.route_candidates.slice()
+    : [];
+  const coordinateResolver = coordinateCandidatesSnapshot.some(hasUsableCandidateCoordinates)
+    ? createCoordinateResolver(coordinateCandidatesSnapshot)
+    : null;
+
+  return {
+    routePlan,
+    coordinateResolver
   };
 }
 
@@ -109,6 +134,7 @@ export async function runSpatialDiagnosticsBestEffort(args = {}) {
     spatialValidation,
     spatialDiagnosticsSink,
     spatialDiagnosticsCollector = null,
+    coordinateResolver = null,
     timeoutMs = SPATIAL_DIAGNOSTICS_MAX_MS,
     maxSpatialEnrichmentSegments = MAX_SPATIAL_ENRICHMENT_SEGMENTS,
     now = () => Date.now()
@@ -143,7 +169,8 @@ export async function runSpatialDiagnosticsBestEffort(args = {}) {
         constraintsSnapshot,
         maxSegments: maxSpatialEnrichmentSegments,
         deadlineAt,
-        now
+        now,
+        coordinateResolver
       });
     } catch {
       mapEnrichmentResult = createUnavailableMapEnrichmentResult();
@@ -236,12 +263,15 @@ async function buildGeneratedPlan({
   });
   const retrievalWarnings = getLockedBusinessWarnings(primaryRetrieval);
   if (retrievalWarnings.length) {
-    return buildGenerateFailedPlan({
-      constraintsSnapshot,
-      candidateStatus: getLockedRetrievalFailureStatus(retrievalWarnings),
-      warnings: retrievalWarnings,
-      internalBasis: primaryBasis
-    });
+    return createGeneratedPlanResult(
+      buildGenerateFailedPlan({
+        constraintsSnapshot,
+        candidateStatus: getLockedRetrievalFailureStatus(retrievalWarnings),
+        warnings: retrievalWarnings,
+        internalBasis: primaryBasis
+      }),
+      primaryBasis
+    );
   }
 
   const primarySchedule = scheduleRoute({
@@ -257,12 +287,15 @@ async function buildGeneratedPlan({
   let selectedSchedule = primarySchedule;
 
   if (getLockedBusinessWarnings(primarySchedule).length) {
-    return buildGenerateFailedPlan({
-      constraintsSnapshot,
-      candidateStatus: CANDIDATE_STATUS.READY,
-      warnings: getLockedBusinessWarnings(primarySchedule),
-      internalBasis: primaryBasis
-    });
+    return createGeneratedPlanResult(
+      buildGenerateFailedPlan({
+        constraintsSnapshot,
+        candidateStatus: CANDIDATE_STATUS.READY,
+        warnings: getLockedBusinessWarnings(primarySchedule),
+        internalBasis: primaryBasis
+      }),
+      primaryBasis
+    );
   }
 
   if (!primarySchedule.feasible || primarySchedule.candidate_status !== CANDIDATE_STATUS.READY) {
@@ -275,21 +308,27 @@ async function buildGeneratedPlan({
     const repairedScheduleWarnings = getLockedBusinessWarnings(repaired.scheduleResult);
 
     if (repairedRetrievalWarnings.length) {
-      return buildGenerateFailedPlan({
-        constraintsSnapshot,
-        candidateStatus: getLockedRetrievalFailureStatus(repairedRetrievalWarnings),
-        warnings: repairedRetrievalWarnings,
-        internalBasis: repaired.internalBasis
-      });
+      return createGeneratedPlanResult(
+        buildGenerateFailedPlan({
+          constraintsSnapshot,
+          candidateStatus: getLockedRetrievalFailureStatus(repairedRetrievalWarnings),
+          warnings: repairedRetrievalWarnings,
+          internalBasis: repaired.internalBasis
+        }),
+        repaired.internalBasis
+      );
     }
 
     if (repairedScheduleWarnings.length) {
-      return buildGenerateFailedPlan({
-        constraintsSnapshot,
-        candidateStatus: CANDIDATE_STATUS.READY,
-        warnings: repairedScheduleWarnings,
-        internalBasis: repaired.internalBasis
-      });
+      return createGeneratedPlanResult(
+        buildGenerateFailedPlan({
+          constraintsSnapshot,
+          candidateStatus: CANDIDATE_STATUS.READY,
+          warnings: repairedScheduleWarnings,
+          internalBasis: repaired.internalBasis
+        }),
+        repaired.internalBasis
+      );
     }
 
     if (repaired.scheduleResult.feasible && repaired.scheduleResult.capacity_achieved >= primarySchedule.capacity_achieved) {
@@ -299,20 +338,26 @@ async function buildGeneratedPlan({
   }
 
   if (!selectedSchedule.feasible) {
-    return buildGenerateFallback({
-      constraintsSnapshot,
-      internalBasis: selectedBasis
-    });
+    return createGeneratedPlanResult(
+      buildGenerateFallback({
+        constraintsSnapshot,
+        internalBasis: selectedBasis
+      }),
+      selectedBasis
+    );
   }
 
   const selectedWarnings = getLockedBusinessWarnings(selectedSchedule);
   if (selectedWarnings.length) {
-    return buildGenerateFailedPlan({
-      constraintsSnapshot,
-      candidateStatus: CANDIDATE_STATUS.READY,
-      warnings: selectedWarnings,
-      internalBasis: selectedBasis
-    });
+    return createGeneratedPlanResult(
+      buildGenerateFailedPlan({
+        constraintsSnapshot,
+        candidateStatus: CANDIDATE_STATUS.READY,
+        warnings: selectedWarnings,
+        internalBasis: selectedBasis
+      }),
+      selectedBasis
+    );
   }
 
   const publicPlan = assemblePublicRoutePlan({
@@ -329,7 +374,10 @@ async function buildGeneratedPlan({
     lastActionResult: null
   });
 
-  return attachFingerprint(publicPlan, planContext);
+  return createGeneratedPlanResult(
+    attachFingerprint(publicPlan, planContext),
+    selectedBasis
+  );
 }
 
 /**
@@ -373,11 +421,12 @@ export function createGenerateRoutePlanEntry({
       return validated;
     }
 
-    const routePlan = await buildGeneratedPlan({
+    const generatedPlan = await buildGeneratedPlan({
       constraintsSnapshot: validated.value.constraints_snapshot,
       retrieve,
       repairPolicy
     });
+    const routePlan = generatedPlan.routePlan;
 
     assertPublicRoutePlanContract(routePlan);
 
@@ -388,6 +437,7 @@ export function createGenerateRoutePlanEntry({
       spatialValidation,
       spatialDiagnosticsSink,
       spatialDiagnosticsCollector,
+      coordinateResolver: generatedPlan.coordinateResolver,
       timeoutMs: spatialDiagnosticsTimeoutMs,
       maxSpatialEnrichmentSegments,
       now

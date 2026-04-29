@@ -7,6 +7,11 @@
 import { Op } from 'sequelize';
 
 import { Article, Category, ScenicSpot } from '../../../models/index.js';
+import {
+  COORDINATE_PRECISIONS,
+  COORDINATE_SOURCES,
+  normalizeCoordinateValue
+} from '../../../utils/coordinates.js';
 import { REGION_ALIASES, ROUTE_WARNING_CODES, createRouteWarning } from './contracts.js';
 
 const THEME_TERMS = {
@@ -28,6 +33,17 @@ const THEME_CATEGORY_CODES = {
   family: ['scenic_nature', 'scenic_history'],
   photography: ['scenic_nature', 'scenic_history']
 };
+
+const SCENIC_COORDINATE_ATTRIBUTES = [
+  'latitude',
+  'longitude',
+  'coordinate_source',
+  'coordinate_precision'
+];
+
+const COORDINATE_SOURCE_SET = new Set(COORDINATE_SOURCES);
+const COORDINATE_PRECISION_SET = new Set(COORDINATE_PRECISIONS);
+const COORDINATE_COLUMN_ERROR_PATTERN = /Unknown column ['"`][^'"`]*(latitude|longitude|coordinate_source|coordinate_precision)['"`]/i;
 
 const FALLBACK_SCENIC_RECORDS = [
   {
@@ -171,6 +187,65 @@ function normalizeRegionKey(value) {
   }
 
   return REGION_ALIASES[raw] || REGION_ALIASES[raw.toLowerCase()] || raw.toLowerCase();
+}
+
+function normalizeCoordinateEnum(value, allowedSet) {
+  if (typeof value !== 'string') {
+    return 'unknown';
+  }
+
+  const normalized = value.trim();
+  return allowedSet.has(normalized) ? normalized : 'unknown';
+}
+
+function normalizeScenicCoordinates(record) {
+  const lat = normalizeCoordinateValue(record?.latitude, 'latitude');
+  const lng = normalizeCoordinateValue(record?.longitude, 'longitude');
+
+  if (lat === null || lng === null) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+    source: normalizeCoordinateEnum(record?.coordinate_source, COORDINATE_SOURCE_SET),
+    precision: normalizeCoordinateEnum(record?.coordinate_precision, COORDINATE_PRECISION_SET)
+  };
+}
+
+function isCoordinateColumnUnavailableError(error) {
+  const message = String(error?.message || error?.parent?.message || error?.original?.message || '');
+  return COORDINATE_COLUMN_ERROR_PATTERN.test(message);
+}
+
+function withScenicCoordinateAttributes(query) {
+  return {
+    ...query,
+    attributes: {
+      ...(query.attributes && typeof query.attributes === 'object' && !Array.isArray(query.attributes)
+        ? query.attributes
+        : {}),
+      include: [
+        ...((query.attributes && typeof query.attributes === 'object' && Array.isArray(query.attributes.include))
+          ? query.attributes.include
+          : []),
+        ...SCENIC_COORDINATE_ATTRIBUTES
+      ]
+    }
+  };
+}
+
+async function findScenicRecordsWithCoordinateFallback(scenicModel, query) {
+  try {
+    return await scenicModel.findAll(withScenicCoordinateAttributes(query));
+  } catch (error) {
+    if (!isCoordinateColumnUnavailableError(error)) {
+      throw error;
+    }
+
+    return scenicModel.findAll(query);
+  }
 }
 
 function parseStringList(value) {
@@ -327,6 +402,7 @@ function scoreRecord(record, snapshot, sourceType, mode) {
 function toScenicCandidate(record, snapshot, mode) {
   const score = scoreRecord(record, snapshot, 'scenic', mode);
   const regionKey = normalizeRegionKey(record.region);
+  const coordinates = normalizeScenicCoordinates(record);
 
   return {
     item_key: `scenic:${Number(record.id)}`,
@@ -346,6 +422,7 @@ function toScenicCandidate(record, snapshot, mode) {
     direct_hit: score.directHit,
     is_locked: false,
     is_route_item: true,
+    coordinates,
     record
   };
 }
@@ -431,7 +508,7 @@ async function queryScenicRecords(snapshot, mode, scenicModel) {
     where[Op.or] = buildLikeConditions(terms, ['name', 'region', 'intro', 'culture_desc', 'tags', 'route_label']);
   }
 
-  return scenicModel.findAll({
+  return findScenicRecordsWithCoordinateFallback(scenicModel, {
     where,
     include: [
       {
@@ -551,7 +628,7 @@ async function resolveLockedTargets(snapshot, scenicModel) {
   }
 
   const ids = lockedTargets.map(parseLockedTargetId);
-  const records = await scenicModel.findAll({
+  const records = await findScenicRecordsWithCoordinateFallback(scenicModel, {
     where: {
       id: {
         [Op.in]: ids
@@ -669,6 +746,9 @@ export const ROUTE_RETRIEVAL_PRIVATE = {
   FALLBACK_SCENIC_RECORDS,
   FALLBACK_ARTICLE_RECORDS,
   normalizeRegionKey,
+  normalizeScenicCoordinates,
+  SCENIC_COORDINATE_ATTRIBUTES,
+  withScenicCoordinateAttributes,
   resolveLockedTargets,
   compareCandidates,
   scoreRecord

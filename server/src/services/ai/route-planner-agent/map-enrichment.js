@@ -14,6 +14,23 @@ function getItemLocation(item) {
   return normalizeLocation(item?.location) || normalizeLocation(item);
 }
 
+function isValidResolvedLocation(location) {
+  return Boolean(location)
+    && typeof location.lat === 'number'
+    && typeof location.lng === 'number'
+    && Number.isFinite(location.lat)
+    && Number.isFinite(location.lng);
+}
+
+function resolveItemLocation(item, coordinateResolver) {
+  try {
+    const normalized = normalizeLocation(coordinateResolver(item));
+    return isValidResolvedLocation(normalized) ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
 function resolveMode(constraintsSnapshot) {
   if (constraintsSnapshot?.travel_mode === 'self_drive') {
     return 'driving';
@@ -70,7 +87,8 @@ export function createMapEnrichment({
     constraintsSnapshot,
     maxSegments,
     deadlineAt = Infinity,
-    now = () => Date.now()
+    now = () => Date.now(),
+    coordinateResolver: perCallCoordinateResolver = null
   } = {}) {
     try {
       const segments = [];
@@ -78,6 +96,9 @@ export function createMapEnrichment({
       const scannedPairLimit = segmentLimit === Infinity ? Infinity : segmentLimit * 3;
       let scannedPairs = 0;
       const mode = resolveMode(constraintsSnapshot);
+      const activeCoordinateResolver = typeof perCallCoordinateResolver === 'function'
+        ? perCallCoordinateResolver
+        : coordinateResolver;
       if (!mode) {
         return {
           status: 'unavailable',
@@ -97,8 +118,8 @@ export function createMapEnrichment({
           scannedPairs += 1;
           const from = items[index];
           const to = items[index + 1];
-          const origin = normalizeLocation(coordinateResolver(from));
-          const destination = normalizeLocation(coordinateResolver(to));
+          const origin = resolveItemLocation(from, activeCoordinateResolver);
+          const destination = resolveItemLocation(to, activeCoordinateResolver);
 
           if (!origin || !destination) {
             continue;
