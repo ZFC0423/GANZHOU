@@ -10,6 +10,7 @@ import {
   updateStatus
 } from '../../controllers/admin/scenic.controller.js';
 import { validateRequest } from '../../middlewares/validate-request.js';
+import { validateAdminCoordinatePayload } from '../../utils/coordinates.js';
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ const scenicFormRules = [
   body('recommendFlag').optional().isInt({ min: 0, max: 1 }).withMessage('recommendFlag must be 0 or 1'),
   body('status').optional().isInt({ min: 0, max: 1 }).withMessage('status must be 0 or 1'),
   body('hotScore').optional().isInt({ min: 0 }).withMessage('hotScore must be a non-negative integer'),
+  body('_coordinateValidation').custom((value, { req }) => validateAdminCoordinatePayload(req.body)),
   validateRequest
 ];
 

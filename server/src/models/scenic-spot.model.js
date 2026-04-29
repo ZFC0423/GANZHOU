@@ -1,6 +1,14 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.js';
 
+const COORDINATE_GOVERNANCE_FIELDS = [
+  'latitude',
+  'longitude',
+  'coordinate_source',
+  'coordinate_precision',
+  'coordinate_updated_at'
+];
+
 export const ScenicSpot = sequelize.define('ScenicSpot', {
   id: {
     type: DataTypes.BIGINT,
@@ -79,6 +87,21 @@ export const ScenicSpot = sequelize.define('ScenicSpot', {
   address: {
     type: DataTypes.STRING(255)
   },
+  latitude: {
+    type: DataTypes.DECIMAL(10, 7)
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(10, 7)
+  },
+  coordinate_source: {
+    type: DataTypes.STRING(32)
+  },
+  coordinate_precision: {
+    type: DataTypes.STRING(32)
+  },
+  coordinate_updated_at: {
+    type: DataTypes.DATE
+  },
   traffic_guide: {
     type: DataTypes.TEXT
   },
@@ -110,5 +133,17 @@ export const ScenicSpot = sequelize.define('ScenicSpot', {
     type: DataTypes.DATE
   }
 }, {
-  tableName: 'scenic_spots'
+  tableName: 'scenic_spots',
+  defaultScope: {
+    attributes: {
+      exclude: COORDINATE_GOVERNANCE_FIELDS
+    }
+  },
+  scopes: {
+    withCoordinateGovernance: {
+      attributes: {
+        include: COORDINATE_GOVERNANCE_FIELDS
+      }
+    }
+  }
 });

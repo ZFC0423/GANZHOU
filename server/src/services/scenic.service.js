@@ -2,6 +2,39 @@ import { Op } from 'sequelize';
 import { ScenicSpot, Category } from '../models/index.js';
 import { enhanceScenicView } from '../utils/front-view-models.js';
 
+export const FRONT_SCENIC_PUBLIC_ATTRIBUTES = Object.freeze([
+  'id',
+  'name',
+  'region',
+  'category_id',
+  'cover_image',
+  'gallery_images',
+  'intro',
+  'culture_desc',
+  'hero_caption',
+  'route_label',
+  'mood_tone',
+  'quote',
+  'best_visit_season',
+  'visit_mode',
+  'pairing_suggestion',
+  'best_light_time',
+  'walking_intensity',
+  'photo_point',
+  'family_friendly',
+  'open_time',
+  'ticket_info',
+  'suggested_duration',
+  'address',
+  'traffic_guide',
+  'tips',
+  'tags',
+  'recommend_flag',
+  'hot_score',
+  'status',
+  'created_at'
+]);
+
 function parseStringList(value) {
   if (!value) {
     return [];
@@ -79,6 +112,7 @@ export async function getScenicList(query) {
   }
 
   const result = await ScenicSpot.findAndCountAll({
+    attributes: FRONT_SCENIC_PUBLIC_ATTRIBUTES,
     where,
     distinct: true,
     include: [
@@ -103,6 +137,7 @@ export async function getScenicList(query) {
 
 export async function getScenicDetail(id) {
   const scenic = await ScenicSpot.findOne({
+    attributes: FRONT_SCENIC_PUBLIC_ATTRIBUTES,
     where: {
       id,
       status: 1
@@ -123,6 +158,7 @@ export async function getScenicDetail(id) {
   }
 
   const relatedRows = await ScenicSpot.findAll({
+    attributes: FRONT_SCENIC_PUBLIC_ATTRIBUTES,
     where: {
       id: { [Op.ne]: id },
       status: 1,
