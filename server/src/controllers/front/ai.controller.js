@@ -6,6 +6,7 @@ import { generateGanzhouTripPlan } from '../../services/ai-trip.service.js';
 import { routeIntent } from '../../services/ai/intent-router/index.js';
 import { runKnowledgeGuideAgent } from '../../services/ai/knowledge-agent/index.js';
 import { generateRoutePlan, generateRoutePlanNarrative, reviseRoutePlan } from '../../services/ai/route-planner-agent/index.js';
+import { createSpatialDiagnosticsCollector } from '../../services/ai/route-planner-agent/spatial-debug-diagnostics.js';
 import { runDecisionDiscoveryAgent } from '../../services/ai/decision-discovery-agent/index.js';
 import { createInvalidOutput } from '../../services/ai/decision-discovery-agent/fallback.js';
 import { buildDiscoveryPayloadFromRouterResult } from '../../services/ai/decision-discovery-agent/router-adapter.js';
@@ -266,6 +267,18 @@ function shouldExposeIntentMeta(req) {
   return req.headers['x-debug-intent'] === '1' || req.query?.debug === '1';
 }
 
+export function shouldExposeSpatialDiagnosticsDebug({ req, env = process.env } = {}) {
+  if (env?.NODE_ENV === 'production') {
+    return false;
+  }
+
+  const headers = req?.headers || {};
+  const query = req?.query || {};
+
+  return query.debug_spatial_diagnostics === '1'
+    || headers['x-debug-spatial-diagnostics'] === '1';
+}
+
 function stripIntentMeta(result) {
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
     return result;
@@ -302,10 +315,15 @@ export function createRoutePlanHandlers({
   generateRoutePlanNarrativeService = generateRoutePlanNarrative,
   reviseRoutePlanService = reviseRoutePlan,
   mergeTripContextService = mergeTripContext,
+  createSpatialDiagnosticsCollectorService = createSpatialDiagnosticsCollector,
   createTraceId = randomUUID
 } = {}) {
   return {
     async routePlanGenerate(req, res, next) {
+      const spatialDiagnosticsCollector = shouldExposeSpatialDiagnosticsDebug({ req })
+        ? createSpatialDiagnosticsCollectorService()
+        : null;
+
       try {
         const body = req.body || {};
         const hasStructuredEvents = hasOwn(body, 'structured_events');
@@ -339,7 +357,10 @@ export function createRoutePlanHandlers({
           sessionContext: initialContext.session_context,
           useSessionTripConstraints: isPlainObject(body.previous_session_context)
         }), {
-          requestMeta: buildRequestMeta(req, { createTraceId })
+          requestMeta: buildRequestMeta(req, { createTraceId }),
+          spatialDiagnosticsCollector: spatialDiagnosticsCollector
+            ? (event) => spatialDiagnosticsCollector.record(event)
+            : null
         });
 
         if (!result.ok) {
@@ -359,12 +380,29 @@ export function createRoutePlanHandlers({
           }
         });
 
-        sendSuccess(res, {
+        const responseData = {
           ...result.value,
           session_context: finalContext.session_context
-        });
+        };
+
+        if (spatialDiagnosticsCollector) {
+          const snapshot = spatialDiagnosticsCollector.getSnapshot();
+          spatialDiagnosticsCollector.finalize();
+
+          if (snapshot) {
+            responseData._debug = {
+              spatial_diagnostics: snapshot
+            };
+          }
+        }
+
+        sendSuccess(res, responseData);
       } catch (error) {
         next(error);
+      } finally {
+        if (spatialDiagnosticsCollector) {
+          spatialDiagnosticsCollector.finalize();
+        }
       }
     },
     async routePlanNarrative(req, res, next) {

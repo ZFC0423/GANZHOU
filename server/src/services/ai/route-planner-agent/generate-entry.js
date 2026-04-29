@@ -89,16 +89,31 @@ export async function defaultSpatialDiagnosticsSink({
   console.warn('[route-planner][spatial-validation]', payload);
 }
 
-export async function runSpatialDiagnosticsBestEffort({
-  routePlan,
-  constraintsSnapshot,
-  mapEnrichment,
-  spatialValidation,
-  spatialDiagnosticsSink,
-  timeoutMs = SPATIAL_DIAGNOSTICS_MAX_MS,
-  maxSpatialEnrichmentSegments = MAX_SPATIAL_ENRICHMENT_SEGMENTS,
-  now = () => Date.now()
-}) {
+function notifySpatialDiagnosticsCollector(spatialDiagnosticsCollector, event) {
+  if (typeof spatialDiagnosticsCollector !== 'function') {
+    return;
+  }
+
+  try {
+    spatialDiagnosticsCollector(event);
+  } catch {
+    // Spatial debug diagnostics are best-effort only.
+  }
+}
+
+export async function runSpatialDiagnosticsBestEffort(args = {}) {
+  const {
+    routePlan,
+    constraintsSnapshot,
+    mapEnrichment,
+    spatialValidation,
+    spatialDiagnosticsSink,
+    spatialDiagnosticsCollector = null,
+    timeoutMs = SPATIAL_DIAGNOSTICS_MAX_MS,
+    maxSpatialEnrichmentSegments = MAX_SPATIAL_ENRICHMENT_SEGMENTS,
+    now = () => Date.now()
+  } = args || {};
+
   if (
     typeof mapEnrichment !== 'function'
     || typeof spatialValidation !== 'function'
@@ -151,6 +166,13 @@ export async function runSpatialDiagnosticsBestEffort({
       return;
     }
 
+    notifySpatialDiagnosticsCollector(spatialDiagnosticsCollector, {
+      route_fingerprint: routePlan?.plan_context?.fingerprint || null,
+      planning_status: routePlan?.planning_status || null,
+      map_enrichment: mapEnrichmentResult,
+      spatial_validation: spatialValidationResult
+    });
+
     try {
       await spatialDiagnosticsSink({
         route_fingerprint: routePlan?.plan_context?.fingerprint || null,
@@ -164,6 +186,20 @@ export async function runSpatialDiagnosticsBestEffort({
 
   try {
     const raceResult = await Promise.race([diagnosticsPromise, timeoutPromise]);
+    if (raceResult === 'timeout') {
+      const timeoutValidation = createUnavailableSpatialValidationResult(
+        SPATIAL_SKIP_REASONS.SPATIAL_DIAGNOSTICS_TIMEOUT
+      );
+      notifySpatialDiagnosticsCollector(spatialDiagnosticsCollector, {
+        route_fingerprint: routePlan?.plan_context?.fingerprint || null,
+        planning_status: routePlan?.planning_status || null,
+        map_enrichment: createUnavailableMapEnrichmentResult(),
+        spatial_validation: timeoutValidation,
+        skipped_reason: SPATIAL_SKIP_REASONS.SPATIAL_DIAGNOSTICS_TIMEOUT,
+        terminal: true
+      });
+    }
+
     if (raceResult === 'timeout' && spatialDiagnosticsSink === defaultSpatialDiagnosticsSink) {
       try {
         await defaultSpatialDiagnosticsSink({
@@ -322,10 +358,14 @@ export function createGenerateRoutePlanEntry({
 } = {}) {
   /**
    * @param {GeneratePayload} [payload]
-   * @param {{ requestMeta?: Partial<RequestMeta> }} [options]
+   * @param {{ requestMeta?: Partial<RequestMeta>, spatialDiagnosticsCollector?: ((event: unknown) => void) | null }} [options]
    * @returns {Promise<EntryResult<PublicRoutePlan>>}
    */
-  return async function generateRoutePlanEntry(payload = {}, { requestMeta = {} } = {}) {
+  return async function generateRoutePlanEntry(payload = {}, options = {}) {
+    const {
+      requestMeta = {},
+      spatialDiagnosticsCollector = null
+    } = options || {};
     void requestMeta;
 
     const validated = validatePayload(payload);
@@ -347,6 +387,7 @@ export function createGenerateRoutePlanEntry({
       mapEnrichment,
       spatialValidation,
       spatialDiagnosticsSink,
+      spatialDiagnosticsCollector,
       timeoutMs: spatialDiagnosticsTimeoutMs,
       maxSpatialEnrichmentSegments,
       now

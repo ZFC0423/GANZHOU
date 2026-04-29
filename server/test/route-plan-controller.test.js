@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildRequestMeta, createRoutePlanHandlers } from '../src/controllers/front/ai.controller.js';
+import {
+  buildRequestMeta,
+  createRoutePlanHandlers,
+  shouldExposeSpatialDiagnosticsDebug
+} from '../src/controllers/front/ai.controller.js';
 
 function createMockResponse() {
   return {
@@ -14,6 +18,50 @@ function createMockResponse() {
     json(payload) {
       this.payload = payload;
       return this;
+    }
+  };
+}
+
+function restoreEnvValue(key, originalValue, existed) {
+  if (existed) {
+    process.env[key] = originalValue;
+  } else {
+    delete process.env[key];
+  }
+}
+
+function createDebugEvent(distanceMeters = 60000) {
+  return {
+    map_enrichment: {
+      status: 'estimated',
+      provider: 'mock',
+      fallback_used: true,
+      segments: [
+        {
+          mode: 'driving',
+          distance_meters: distanceMeters,
+          duration_seconds: 5000,
+          estimated: true,
+          source_status: 'estimated',
+          provider: 'mock'
+        }
+      ]
+    },
+    spatial_validation: {
+      status: 'warning',
+      issues: [
+        {
+          code: 'route_segment_too_far',
+          mode: 'driving',
+          distance_meters: distanceMeters,
+          duration_seconds: 5000,
+          estimated: true
+        }
+      ],
+      diagnostics: {
+        checked_segments: 1,
+        estimated_segments: 1
+      }
     }
   };
 }
@@ -152,6 +200,361 @@ test('routePlanGenerate maps failed service results to sendError response', asyn
     data: null
   });
   assert.equal(res.payload.data, null);
+});
+
+test('spatial diagnostics debug gate is disabled by default and forced off in production', () => {
+  assert.equal(shouldExposeSpatialDiagnosticsDebug({
+    req: {
+      headers: {},
+      query: {}
+    },
+    env: {
+      NODE_ENV: 'development'
+    }
+  }), false);
+
+  assert.equal(shouldExposeSpatialDiagnosticsDebug({
+    req: {
+      headers: {},
+      query: {
+        debug_spatial_diagnostics: '1'
+      }
+    },
+    env: {
+      NODE_ENV: 'development'
+    }
+  }), true);
+
+  assert.equal(shouldExposeSpatialDiagnosticsDebug({
+    req: {
+      headers: {
+        'x-debug-spatial-diagnostics': '1'
+      },
+      query: {}
+    },
+    env: {
+      NODE_ENV: 'test'
+    }
+  }), true);
+
+  assert.equal(shouldExposeSpatialDiagnosticsDebug({
+    req: {
+      headers: {
+        'x-debug-spatial-diagnostics': '1'
+      },
+      query: {
+        debug_spatial_diagnostics: '1'
+      }
+    },
+    env: {
+      NODE_ENV: 'production'
+    }
+  }), false);
+});
+
+test('spatial diagnostics NODE_ENV production test restores originally missing env key', () => {
+  const outerHadNodeEnv = Object.prototype.hasOwnProperty.call(process.env, 'NODE_ENV');
+  const outerNodeEnv = process.env.NODE_ENV;
+
+  try {
+    delete process.env.NODE_ENV;
+    const hadNodeEnv = Object.prototype.hasOwnProperty.call(process.env, 'NODE_ENV');
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    try {
+      process.env.NODE_ENV = 'production';
+      assert.equal(shouldExposeSpatialDiagnosticsDebug({
+        req: {
+          headers: {
+            'x-debug-spatial-diagnostics': '1'
+          },
+          query: {
+            debug_spatial_diagnostics: '1'
+          }
+        }
+      }), false);
+    } finally {
+      restoreEnvValue('NODE_ENV', originalNodeEnv, hadNodeEnv);
+    }
+
+    assert.equal(Object.prototype.hasOwnProperty.call(process.env, 'NODE_ENV'), false);
+  } finally {
+    restoreEnvValue('NODE_ENV', outerNodeEnv, outerHadNodeEnv);
+  }
+});
+
+test('routePlanGenerate does not expose spatial diagnostics without debug query or header', async () => {
+  const handlers = createRoutePlanHandlers({
+    generateRoutePlanService: async (payload, options) => {
+      assert.equal(options.spatialDiagnosticsCollector, null);
+      return {
+        ok: true,
+        value: {
+          planning_status: 'generated'
+        }
+      };
+    }
+  });
+  const res = createMockResponse();
+
+  await handlers.routePlanGenerate({
+    body: {
+      routerResult: {
+        task_type: 'plan_route',
+        constraints: {}
+      }
+    },
+    headers: {},
+    query: {},
+    socket: {}
+  }, res, assert.fail);
+
+  assert.equal(Object.hasOwn(res.payload.data, '_debug'), false);
+  assert.equal(Object.hasOwn(res.payload.data, '_meta'), false);
+  assert.equal(Object.hasOwn(res.payload.data, 'map_enrichment'), false);
+  assert.equal(Object.hasOwn(res.payload.data, 'spatial_validation'), false);
+});
+
+test('routePlanGenerate exposes sanitized spatial diagnostics for query debug gate', async () => {
+  const handlers = createRoutePlanHandlers({
+    generateRoutePlanService: async (payload, options) => {
+      options.spatialDiagnosticsCollector(createDebugEvent());
+      return {
+        ok: true,
+        value: {
+          planning_status: 'generated'
+        }
+      };
+    }
+  });
+  const res = createMockResponse();
+
+  await handlers.routePlanGenerate({
+    body: {
+      routerResult: {
+        task_type: 'plan_route',
+        constraints: {}
+      }
+    },
+    headers: {},
+    query: {
+      debug_spatial_diagnostics: '1'
+    },
+    socket: {}
+  }, res, assert.fail);
+
+  const snapshot = res.payload.data._debug.spatial_diagnostics;
+  const serialized = JSON.stringify(snapshot);
+  assert.equal(snapshot.provider, 'mock');
+  assert.equal(snapshot.spatial_warning_count, 1);
+  assert.equal(snapshot.warnings[0].distance_meters, 60000);
+  assert.doesNotMatch(serialized, /ak|api\.map\.baidu\.com|authorization|rawPayload|rawError|headers|stack|userQuery/i);
+});
+
+test('routePlanGenerate exposes sanitized spatial diagnostics for header debug gate', async () => {
+  const handlers = createRoutePlanHandlers({
+    generateRoutePlanService: async (payload, options) => {
+      options.spatialDiagnosticsCollector(createDebugEvent(61000));
+      return {
+        ok: true,
+        value: {
+          planning_status: 'generated'
+        }
+      };
+    }
+  });
+  const res = createMockResponse();
+
+  await handlers.routePlanGenerate({
+    body: {
+      routerResult: {
+        task_type: 'plan_route',
+        constraints: {}
+      }
+    },
+    headers: {
+      'x-debug-spatial-diagnostics': '1'
+    },
+    query: {},
+    socket: {}
+  }, res, assert.fail);
+
+  assert.equal(res.payload.data._debug.spatial_diagnostics.warnings[0].distance_meters, 61000);
+});
+
+test('routePlanGenerate does not create collector or expose debug response in production', async () => {
+  const hadNodeEnv = Object.prototype.hasOwnProperty.call(process.env, 'NODE_ENV');
+  const originalNodeEnv = process.env.NODE_ENV;
+  let collectorCreated = false;
+
+  try {
+    process.env.NODE_ENV = 'production';
+    const handlers = createRoutePlanHandlers({
+      createSpatialDiagnosticsCollectorService: () => {
+        collectorCreated = true;
+        throw new Error('collector should not be created in production');
+      },
+      generateRoutePlanService: async (payload, options) => {
+        assert.equal(options.spatialDiagnosticsCollector, null);
+        return {
+          ok: true,
+          value: {
+            planning_status: 'generated'
+          }
+        };
+      }
+    });
+    const res = createMockResponse();
+
+    await handlers.routePlanGenerate({
+      body: {
+        routerResult: {
+          task_type: 'plan_route',
+          constraints: {}
+        }
+      },
+      headers: {
+        'x-debug-spatial-diagnostics': '1'
+      },
+      query: {
+        debug_spatial_diagnostics: '1'
+      },
+      socket: {}
+    }, res, assert.fail);
+
+    assert.equal(collectorCreated, false);
+    assert.equal(Object.hasOwn(res.payload.data, '_debug'), false);
+  } finally {
+    restoreEnvValue('NODE_ENV', originalNodeEnv, hadNodeEnv);
+  }
+});
+
+test('routePlanGenerate passes spatial diagnostics through a safe wrapper callback', async () => {
+  const collector = {
+    events: [],
+    finalized: false,
+    record(event) {
+      this.events.push(event);
+    },
+    getSnapshot() {
+      return {
+        enabled: true,
+        provider: 'mock',
+        real_call_used: false,
+        cache_status: 'unknown',
+        enriched_segment_count: this.events.length,
+        scanned_pair_count: 0,
+        skipped_reason: null,
+        spatial_warning_count: 0,
+        warnings: []
+      };
+    },
+    finalize() {
+      this.finalized = true;
+    }
+  };
+  const handlers = createRoutePlanHandlers({
+    createSpatialDiagnosticsCollectorService: () => collector,
+    generateRoutePlanService: async (payload, options) => {
+      options.spatialDiagnosticsCollector({ ok: true });
+      return {
+        ok: true,
+        value: {
+          planning_status: 'generated'
+        }
+      };
+    }
+  });
+  const res = createMockResponse();
+
+  await handlers.routePlanGenerate({
+    body: {
+      routerResult: {
+        task_type: 'plan_route',
+        constraints: {}
+      }
+    },
+    headers: {
+      'x-debug-spatial-diagnostics': '1'
+    },
+    query: {},
+    socket: {}
+  }, res, assert.fail);
+
+  assert.equal(collector.events.length, 1);
+  assert.equal(collector.finalized, true);
+  assert.equal(res.payload.data._debug.spatial_diagnostics.enriched_segment_count, 1);
+});
+
+test('routePlanGenerate keeps request-scoped spatial collectors isolated', async () => {
+  const handlers = createRoutePlanHandlers({
+    generateRoutePlanService: async (payload, options) => {
+      if (typeof options.spatialDiagnosticsCollector === 'function') {
+        const distance = payload.routerResult.constraints.locked_targets[0] === 'scenic:1' ? 11111 : 22222;
+        options.spatialDiagnosticsCollector(createDebugEvent(distance));
+      }
+      return {
+        ok: true,
+        value: {
+          planning_status: 'generated'
+        }
+      };
+    }
+  });
+
+  const resA = createMockResponse();
+  const resB = createMockResponse();
+  const resNoDebug = createMockResponse();
+
+  await handlers.routePlanGenerate({
+    body: {
+      routerResult: {
+        task_type: 'plan_route',
+        constraints: {}
+      },
+      structured_events: {
+        locked_targets: ['scenic:1']
+      }
+    },
+    headers: {
+      'x-debug-spatial-diagnostics': '1'
+    },
+    query: {},
+    socket: {}
+  }, resA, assert.fail);
+
+  await handlers.routePlanGenerate({
+    body: {
+      routerResult: {
+        task_type: 'plan_route',
+        constraints: {}
+      },
+      structured_events: {
+        locked_targets: ['scenic:2']
+      }
+    },
+    headers: {
+      'x-debug-spatial-diagnostics': '1'
+    },
+    query: {},
+    socket: {}
+  }, resB, assert.fail);
+
+  await handlers.routePlanGenerate({
+    body: {
+      routerResult: {
+        task_type: 'plan_route',
+        constraints: {}
+      }
+    },
+    headers: {},
+    query: {},
+    socket: {}
+  }, resNoDebug, assert.fail);
+
+  assert.equal(resA.payload.data._debug.spatial_diagnostics.warnings[0].distance_meters, 11111);
+  assert.equal(resB.payload.data._debug.spatial_diagnostics.warnings[0].distance_meters, 22222);
+  assert.equal(Object.hasOwn(resNoDebug.payload.data, '_debug'), false);
 });
 
 test('routePlanGenerate new protocol uses structured_events.locked_targets even when empty', async () => {
